@@ -2,6 +2,9 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
 
+const TARGET_FPS: f64 = 60.0;
+const TEST_FRAME_COUNT: usize = 60;
+
 pub struct EngineRuntime {
     target_frame_time: Duration,
     previous_frame_time: Instant,
@@ -10,8 +13,7 @@ pub struct EngineRuntime {
 impl EngineRuntime {
     pub fn new() -> Self {
         Self {
-            //初期化済みの EngineRuntime を作って返す処理
-            target_frame_time: Duration::from_secs_f64(1.0 / 60.0),
+            target_frame_time: Duration::from_secs_f64(1.0 / TARGET_FPS),
             previous_frame_time: Instant::now(),
         }
     }
@@ -40,7 +42,7 @@ impl EngineRuntime {
     pub fn run(&mut self) {
         println!("Engine loop started");
 
-        for n in 1..61 {
+        for n in 1..=TEST_FRAME_COUNT {
             let (frame_start_time, delta_time) = self.frame_timing_method();
             println!("Frame {} update, delta_time = {}", n, delta_time);
             self.frame_pacing_method(frame_start_time);
