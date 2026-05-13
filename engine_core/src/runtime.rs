@@ -39,7 +39,7 @@ impl EngineRuntime {
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> Result<(), String> {
         println!("Engine loop started");
 
         for n in 1..=TEST_FRAME_COUNT {
@@ -49,5 +49,6 @@ impl EngineRuntime {
         }
 
         println!("Engine loop finished");
+        return Ok(());
     }
 }
