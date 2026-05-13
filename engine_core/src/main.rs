@@ -5,6 +5,13 @@ use std::thread::sleep;
 fn main(){
     println!("Zeno Engine Core started");
 
+    run_engine_loop();
+
+    println!("Zeno Engine Core shutdown");
+}
+
+
+fn run_engine_loop(){
     println!("Engine loop started");
 
     let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);
@@ -32,6 +39,4 @@ fn main(){
     }
 
     println!("Engine loop finished");
-
-    println!("Zeno Engine Core shutdown");
 }
