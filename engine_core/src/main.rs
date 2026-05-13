@@ -1,9 +1,11 @@
 mod runtime;
+use runtime::EngineRuntime;
 
-fn main(){
+fn main() {
     println!("Zeno Engine Core started");
 
-    runtime::run_engine_loop();
+    let mut runtime = EngineRuntime::new();
+    runtime.run();
 
     println!("Zeno Engine Core shutdown");
 }
