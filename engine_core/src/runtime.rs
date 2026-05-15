@@ -1,3 +1,4 @@
+use std::fmt;
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
@@ -8,6 +9,16 @@ const TEST_FRAME_COUNT: usize = 60;
 pub struct EngineRuntime {
     target_frame_time: Duration,
     previous_frame_time: Instant,
+}
+
+#[derive(Debug)]
+pub struct EngineRuntimeError {}
+
+impl fmt::Display for EngineRuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Formatterに文字列を書き込む
+        write!(f, "Engine runtime error")
+    }
 }
 
 impl EngineRuntime {
@@ -39,7 +50,7 @@ impl EngineRuntime {
         }
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
+    pub fn run(&mut self) -> Result<(), EngineRuntimeError> {
         println!("Engine loop started");
 
         for n in 1..=TEST_FRAME_COUNT {

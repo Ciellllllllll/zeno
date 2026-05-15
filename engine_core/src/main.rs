@@ -8,7 +8,7 @@ fn main() {
     let mut runtime = EngineRuntime::new();
     match runtime.run() {
         Ok(()) => {}
-        Err(err) => eprintln!("Runtime error: {}", err),
+        Err(err) => eprintln!("{}", err),
     }
 
     println!("Zeno Engine Core shutdown");
