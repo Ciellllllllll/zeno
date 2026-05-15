@@ -12,6 +12,11 @@ pub struct EngineRuntime {
     is_running: bool,
 }
 
+pub struct EngineFrameInfo {
+    frame_index: usize,
+    delta_time: f64,
+}
+
 #[derive(Debug)]
 pub struct EngineRuntimeError {}
 
@@ -57,7 +62,14 @@ impl EngineRuntime {
         let mut frame_index = 1;
         while self.is_running && frame_index <= TEST_FRAME_COUNT {
             let (frame_start_time, delta_time) = self.frame_timing_method();
-            println!("Frame {} update, delta_time = {}", frame_index, delta_time);
+            let frame_info = EngineFrameInfo {
+                frame_index,
+                delta_time,
+            };
+            println!(
+                "Frame {} update, delta_time = {}",
+                frame_info.frame_index, frame_info.delta_time
+            );
             self.frame_pacing_method(frame_start_time);
             frame_index += 1;
         }
