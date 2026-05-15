@@ -9,6 +9,7 @@ const TEST_FRAME_COUNT: usize = 60;
 pub struct EngineRuntime {
     target_frame_time: Duration,
     previous_frame_time: Instant,
+    is_running: bool,
 }
 
 #[derive(Debug)]
@@ -26,6 +27,7 @@ impl EngineRuntime {
         Self {
             target_frame_time: Duration::from_secs_f64(1.0 / TARGET_FPS),
             previous_frame_time: Instant::now(),
+            is_running: true,
         }
     }
 
@@ -52,14 +54,19 @@ impl EngineRuntime {
 
     pub fn run(&mut self) -> Result<(), EngineRuntimeError> {
         println!("Engine loop started");
-
-        for n in 1..=TEST_FRAME_COUNT {
+        let mut frame_index = 1;
+        while self.is_running && frame_index <= TEST_FRAME_COUNT {
             let (frame_start_time, delta_time) = self.frame_timing_method();
-            println!("Frame {} update, delta_time = {}", n, delta_time);
+            println!("Frame {} update, delta_time = {}", frame_index, delta_time);
             self.frame_pacing_method(frame_start_time);
+            frame_index += 1;
         }
-
+        self.request_shutdown();
         println!("Engine loop finished");
         return Ok(());
+    }
+
+    fn request_shutdown(&mut self) {
+        self.is_running = false;
     }
 }
