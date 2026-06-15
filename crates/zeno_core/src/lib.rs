@@ -3,6 +3,8 @@
 //! This crate owns the high-level runtime lifecycle and frame loop. Native
 //! platform, rendering, and ABI concerns are introduced in later phases.
 
+use std::error::Error;
+use std::fmt;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -14,6 +16,92 @@ const DEFAULT_TARGET_FPS: f64 = 60.0;
 /// Returns the public engine name used in documentation and diagnostics.
 pub fn engine_name() -> &'static str {
     "ZENO Engine"
+}
+
+/// Result type used by the Rust engine core.
+pub type EngineResult<T> = Result<T, EngineError>;
+
+/// High-level error category used to map internal failures to future ABI result codes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EngineErrorCategory {
+    /// Caller supplied invalid configuration or arguments.
+    InvalidConfig,
+    /// Runtime or backend was already initialized.
+    AlreadyInitialized,
+    /// Runtime or backend was not initialized.
+    NotInitialized,
+    /// Native backend is unavailable or failed.
+    Backend,
+    /// Unexpected internal engine failure.
+    Internal,
+}
+
+/// Error type used inside the Rust engine core.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EngineError {
+    /// Runtime configuration is invalid.
+    InvalidConfig(String),
+    /// Runtime is already running.
+    RuntimeAlreadyRunning,
+    /// Runtime is not running.
+    RuntimeNotRunning,
+    /// Native backend is unavailable.
+    BackendUnavailable,
+    /// Unexpected internal engine failure.
+    Internal(String),
+}
+
+impl EngineError {
+    /// Returns the stable category this error should map to in ABI code later.
+    pub fn category(&self) -> EngineErrorCategory {
+        match self {
+            Self::InvalidConfig(_) => EngineErrorCategory::InvalidConfig,
+            Self::RuntimeAlreadyRunning => EngineErrorCategory::AlreadyInitialized,
+            Self::RuntimeNotRunning => EngineErrorCategory::NotInitialized,
+            Self::BackendUnavailable => EngineErrorCategory::Backend,
+            Self::Internal(_) => EngineErrorCategory::Internal,
+        }
+    }
+}
+
+impl fmt::Display for EngineError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidConfig(message) => write!(formatter, "invalid engine config: {message}"),
+            Self::RuntimeAlreadyRunning => write!(formatter, "engine runtime is already running"),
+            Self::RuntimeNotRunning => write!(formatter, "engine runtime is not running"),
+            Self::BackendUnavailable => write!(formatter, "native backend is unavailable"),
+            Self::Internal(message) => write!(formatter, "internal engine error: {message}"),
+        }
+    }
+}
+
+impl Error for EngineError {}
+
+/// Logging severity used by the engine core's minimal logging wrapper.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EngineLogLevel {
+    /// Useful runtime details.
+    Info,
+    /// Recoverable issue that should be visible during development.
+    Warning,
+    /// Failure path that prevented requested work from completing.
+    Error,
+}
+
+impl fmt::Display for EngineLogLevel {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Info => formatter.write_str("INFO"),
+            Self::Warning => formatter.write_str("WARN"),
+            Self::Error => formatter.write_str("ERROR"),
+        }
+    }
+}
+
+/// Emits a minimal engine log message.
+pub fn log_engine_event(level: EngineLogLevel, message: impl AsRef<str>) {
+    eprintln!("[ZENO][{level}] {}", message.as_ref());
 }
 
 /// Engine runtime configuration.
@@ -35,12 +123,20 @@ impl Default for EngineConfig {
 }
 
 impl EngineConfig {
-    fn target_frame_duration(&self) -> Option<Duration> {
-        if self.target_fps.is_finite() && self.target_fps > 0.0 {
-            Some(Duration::from_secs_f64(1.0 / self.target_fps))
-        } else {
-            None
+    /// Validates that the config can be used to create a runtime.
+    pub fn validate(&self) -> EngineResult<()> {
+        if !self.target_fps.is_finite() || self.target_fps <= 0.0 {
+            return Err(EngineError::InvalidConfig(format!(
+                "target_fps must be finite and greater than zero, got {}",
+                self.target_fps
+            )));
         }
+
+        Ok(())
+    }
+
+    fn target_frame_duration(&self) -> Duration {
+        Duration::from_secs_f64(1.0 / self.target_fps)
     }
 }
 
@@ -75,13 +171,20 @@ pub struct EngineRuntime {
 
 impl EngineRuntime {
     /// Creates a running runtime from the provided configuration.
-    pub fn new(config: EngineConfig) -> Self {
-        Self {
+    pub fn new(config: EngineConfig) -> EngineResult<Self> {
+        if let Err(error) = config.validate() {
+            log_engine_event(EngineLogLevel::Error, error.to_string());
+            return Err(error);
+        }
+
+        log_engine_event(EngineLogLevel::Info, "engine runtime initialized");
+
+        Ok(Self {
             config,
             state: EngineRuntimeState::Running,
             frame_count: 0,
             last_frame_time: Instant::now(),
-        }
+        })
     }
 
     /// Returns the runtime configuration.
@@ -112,23 +215,39 @@ impl EngineRuntime {
     }
 
     /// Runs the frame loop until shutdown or the configured test frame limit.
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> EngineResult<()> {
+        if !self.is_running() {
+            log_engine_event(
+                EngineLogLevel::Error,
+                "cannot run engine runtime because it is not running",
+            );
+            return Err(EngineError::RuntimeNotRunning);
+        }
+
+        log_engine_event(EngineLogLevel::Info, "engine runtime frame loop started");
+
         while self.is_running() {
             self.stop_if_test_limit_reached();
             if !self.is_running() {
                 break;
             }
 
-            self.step_frame();
+            self.step_frame()?;
         }
 
         self.state = EngineRuntimeState::Stopped;
+        log_engine_event(EngineLogLevel::Info, "engine runtime stopped");
+        Ok(())
     }
 
     /// Advances the runtime by one frame if it is running.
-    pub fn step_frame(&mut self) -> Option<EngineFrameInfo> {
+    pub fn step_frame(&mut self) -> EngineResult<EngineFrameInfo> {
         if !self.is_running() {
-            return None;
+            log_engine_event(
+                EngineLogLevel::Error,
+                "cannot step engine runtime because it is not running",
+            );
+            return Err(EngineError::RuntimeNotRunning);
         }
 
         let frame_start = Instant::now();
@@ -147,7 +266,7 @@ impl EngineRuntime {
         self.pace_frame(frame_start);
         self.stop_if_test_limit_reached();
 
-        Some(frame_info)
+        Ok(frame_info)
     }
 
     fn run_frame_step(&mut self, _frame_info: EngineFrameInfo) {
@@ -155,11 +274,8 @@ impl EngineRuntime {
     }
 
     fn pace_frame(&self, frame_start: Instant) {
-        let Some(target_frame_duration) = self.config.target_frame_duration() else {
-            return;
-        };
-
         let elapsed = frame_start.elapsed();
+        let target_frame_duration = self.config.target_frame_duration();
         if elapsed < target_frame_duration {
             thread::sleep(target_frame_duration - elapsed);
         }
@@ -196,7 +312,7 @@ mod tests {
 
     #[test]
     fn runtime_starts_in_running_state() {
-        let runtime = EngineRuntime::new(EngineConfig::default());
+        let runtime = EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
 
         assert!(runtime.is_running());
         assert_eq!(runtime.state(), EngineRuntimeState::Running);
@@ -205,7 +321,8 @@ mod tests {
 
     #[test]
     fn shutdown_request_changes_state() {
-        let mut runtime = EngineRuntime::new(EngineConfig::default());
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
 
         runtime.request_shutdown();
 
@@ -215,12 +332,10 @@ mod tests {
 
     #[test]
     fn test_limited_run_exits() {
-        let mut runtime = EngineRuntime::new(EngineConfig {
-            target_fps: 0.0,
-            max_test_frames: Some(3),
-        });
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(Some(3))).expect("runtime should be valid");
 
-        runtime.run();
+        runtime.run().expect("runtime should complete");
 
         assert_eq!(runtime.frame_count(), 3);
         assert_eq!(runtime.state(), EngineRuntimeState::Stopped);
@@ -228,12 +343,10 @@ mod tests {
 
     #[test]
     fn zero_frame_test_limited_run_exits_without_stepping() {
-        let mut runtime = EngineRuntime::new(EngineConfig {
-            target_fps: 0.0,
-            max_test_frames: Some(0),
-        });
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(Some(0))).expect("runtime should be valid");
 
-        runtime.run();
+        runtime.run().expect("runtime should complete");
 
         assert_eq!(runtime.frame_count(), 0);
         assert_eq!(runtime.state(), EngineRuntimeState::Stopped);
@@ -241,10 +354,8 @@ mod tests {
 
     #[test]
     fn frame_index_increments() {
-        let mut runtime = EngineRuntime::new(EngineConfig {
-            target_fps: 0.0,
-            max_test_frames: None,
-        });
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
 
         let first = runtime.step_frame().expect("first frame should run");
         let second = runtime.step_frame().expect("second frame should run");
@@ -256,13 +367,66 @@ mod tests {
 
     #[test]
     fn delta_time_is_non_negative() {
-        let mut runtime = EngineRuntime::new(EngineConfig {
-            target_fps: 0.0,
-            max_test_frames: None,
-        });
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
 
         let frame = runtime.step_frame().expect("frame should run");
 
         assert!(frame.delta_time_seconds >= 0.0);
+    }
+
+    #[test]
+    fn invalid_config_rejects_non_positive_target_fps() {
+        let config = EngineConfig {
+            target_fps: 0.0,
+            max_test_frames: None,
+        };
+
+        let error = config.validate().expect_err("config should be invalid");
+
+        assert_eq!(error.category(), EngineErrorCategory::InvalidConfig);
+    }
+
+    #[test]
+    fn invalid_config_rejects_non_finite_target_fps() {
+        let config = EngineConfig {
+            target_fps: f64::INFINITY,
+            max_test_frames: None,
+        };
+
+        let error = EngineRuntime::new(config).expect_err("runtime creation should fail");
+
+        assert_eq!(error.category(), EngineErrorCategory::InvalidConfig);
+    }
+
+    #[test]
+    fn error_formatting_includes_actionable_message() {
+        let error = EngineError::InvalidConfig("target_fps must be positive".to_string());
+
+        assert_eq!(
+            error.to_string(),
+            "invalid engine config: target_fps must be positive"
+        );
+    }
+
+    #[test]
+    fn stopped_runtime_step_returns_error() {
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(Some(0))).expect("runtime should be valid");
+
+        runtime.run().expect("runtime should complete");
+        let error = runtime
+            .step_frame()
+            .expect_err("stopped runtime should not step");
+
+        assert_eq!(error, EngineError::RuntimeNotRunning);
+        assert_eq!(error.category(), EngineErrorCategory::NotInitialized);
+    }
+
+    fn fast_test_config(max_test_frames: Option<usize>) -> EngineConfig {
+        EngineConfig {
+            target_fps: 1_000_000.0,
+            max_test_frames,
+        }
     }
 }
