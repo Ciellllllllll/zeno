@@ -32,6 +32,9 @@ public:
     bool initialize_renderer();
     bool begin_frame();
     bool clear(float r, float g, float b, float a);
+    bool create_clear_color(float r, float g, float b, float a, std::uint64_t& out_handle);
+    bool destroy_clear_color(std::uint64_t handle);
+    bool clear_with_resource(std::uint64_t handle);
     bool present();
     bool is_initialized() const;
     bool has_window() const;

@@ -18,6 +18,11 @@ typedef struct ZenNativeBackendHandle {
     uint64_t value;
 } ZenNativeBackendHandle;
 
+typedef struct ZenRenderClearColorHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenRenderClearColorHandle;
+
 typedef struct ZenNativeBackendConfig {
     /* Must be set to ZEN_NATIVE_BACKEND_CONFIG_SIZE by the caller. */
     uint32_t size;
@@ -121,6 +126,55 @@ ZenResultCode zen_native_backend_clear(
     float g,
     float b,
     float a);
+
+/*
+ * Creates a backend-owned clear color resource.
+ *
+ * backend: must have an initialized renderer.
+ * out_clear_color: borrowed output pointer, must not be null. Receives an owned
+ * non-zero resource handle on success.
+ * On failure, out_clear_color is left unchanged.
+ * The caller must release a successful handle with
+ * zen_native_backend_destroy_clear_color before or during backend shutdown.
+ * Destroying the backend invalidates outstanding clear color handles.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_create_clear_color(
+    ZenNativeBackendHandle backend,
+    float r,
+    float g,
+    float b,
+    float a,
+    ZenRenderClearColorHandle* out_clear_color);
+
+/*
+ * Destroys a backend-owned clear color resource.
+ *
+ * backend: must have an initialized renderer. clear_color must be a non-zero
+ * handle created by zen_native_backend_create_clear_color for the same backend.
+ * Returns ZEN_RESULT_NOT_INITIALIZED when a non-zero handle is not present,
+ * including double destroy and handles invalidated by backend destruction.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_destroy_clear_color(
+    ZenNativeBackendHandle backend,
+    ZenRenderClearColorHandle clear_color);
+
+/*
+ * Clears the current render target using a backend-owned clear color resource.
+ *
+ * backend: must have an initialized renderer. clear_color must be valid for
+ * that backend.
+ * Returns ZEN_RESULT_NOT_INITIALIZED when a non-zero resource handle is not
+ * present or the renderer is no longer initialized.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_clear_with_resource(
+    ZenNativeBackendHandle backend,
+    ZenRenderClearColorHandle clear_color);
 
 /*
  * Presents the current swap chain frame.

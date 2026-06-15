@@ -225,6 +225,71 @@ extern "C" ZenResultCode zen_native_backend_clear(
     }
 }
 
+extern "C" ZenResultCode zen_native_backend_create_clear_color(
+    ZenNativeBackendHandle backend,
+    float r,
+    float g,
+    float b,
+    float a,
+    ZenRenderClearColorHandle* out_clear_color)
+{
+    try {
+        if (out_clear_color == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [r, g, b, a, out_clear_color](zeno::native::NativeBackend& native_backend) {
+            std::uint64_t handle = 0;
+            if (!native_backend.create_clear_color(r, g, b, a, handle)) {
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            out_clear_color->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_clear_color(
+    ZenNativeBackendHandle backend,
+    ZenRenderClearColorHandle clear_color)
+{
+    try {
+        if (clear_color.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [clear_color](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_clear_color(clear_color.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_clear_with_resource(
+    ZenNativeBackendHandle backend,
+    ZenRenderClearColorHandle clear_color)
+{
+    try {
+        if (clear_color.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [clear_color](zeno::native::NativeBackend& native_backend) {
+            return native_backend.clear_with_resource(clear_color.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
 extern "C" ZenResultCode zen_native_backend_present(ZenNativeBackendHandle backend)
 {
     try {

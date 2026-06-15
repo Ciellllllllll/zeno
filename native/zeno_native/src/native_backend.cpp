@@ -7,7 +7,9 @@
 #include <dxgi.h>
 #include <wrl/client.h>
 
+#include <array>
 #include <iostream>
+#include <unordered_map>
 
 namespace zeno::native {
 namespace {
@@ -148,6 +150,47 @@ public:
         return true;
     }
 
+    bool create_clear_color(float r, float g, float b, float a, std::uint64_t& out_handle)
+    {
+        if (context_ == nullptr || render_target_view_ == nullptr || next_clear_color_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        const std::uint64_t handle = next_clear_color_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        clear_colors_.emplace(handle, std::array<float, 4>{ r, g, b, a });
+        out_handle = handle;
+        std::cerr << "[ZENO][native] clear color resource created\n";
+        return true;
+    }
+
+    bool destroy_clear_color(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = clear_colors_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] clear color resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
+    bool clear_with_resource(std::uint64_t handle)
+    {
+        const auto found = clear_colors_.find(handle);
+        if (found == clear_colors_.end()) {
+            return false;
+        }
+
+        return clear(found->second[0], found->second[1], found->second[2], found->second[3]);
+    }
+
     bool present()
     {
         if (swap_chain_ == nullptr) {
@@ -162,6 +205,8 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+    std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
+    std::uint64_t next_clear_color_handle_ = 1;
 };
 
 bool NativeBackend::initialize(const NativeBackendConfig& config)
@@ -293,6 +338,21 @@ bool NativeBackend::begin_frame()
 bool NativeBackend::clear(float r, float g, float b, float a)
 {
     return renderer_ != nullptr && renderer_->clear(r, g, b, a);
+}
+
+bool NativeBackend::create_clear_color(float r, float g, float b, float a, std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr && renderer_->create_clear_color(r, g, b, a, out_handle);
+}
+
+bool NativeBackend::destroy_clear_color(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_clear_color(handle);
+}
+
+bool NativeBackend::clear_with_resource(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->clear_with_resource(handle);
 }
 
 bool NativeBackend::present()
