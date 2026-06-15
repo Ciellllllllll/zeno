@@ -3,6 +3,10 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include <d3d11.h>
+#include <dxgi.h>
+#include <wrl/client.h>
+
 #include <iostream>
 
 namespace zeno::native {
@@ -49,6 +53,117 @@ bool register_window_class()
 
 } // namespace
 
+class DirectX11Renderer final {
+public:
+    bool initialize(HWND window)
+    {
+        if (window == nullptr || swap_chain_ != nullptr) {
+            return false;
+        }
+
+        DXGI_SWAP_CHAIN_DESC swap_chain_desc{};
+        swap_chain_desc.BufferDesc.Width = 0;
+        swap_chain_desc.BufferDesc.Height = 0;
+        swap_chain_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        swap_chain_desc.BufferDesc.RefreshRate.Numerator = 60;
+        swap_chain_desc.BufferDesc.RefreshRate.Denominator = 1;
+        swap_chain_desc.SampleDesc.Count = 1;
+        swap_chain_desc.SampleDesc.Quality = 0;
+        swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swap_chain_desc.BufferCount = 2;
+        swap_chain_desc.OutputWindow = window;
+        swap_chain_desc.Windowed = TRUE;
+        swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+        constexpr D3D_FEATURE_LEVEL requested_feature_levels[] = {
+            D3D_FEATURE_LEVEL_11_0,
+        };
+        D3D_FEATURE_LEVEL created_feature_level{};
+
+        HRESULT result = D3D11CreateDeviceAndSwapChain(
+            nullptr,
+            D3D_DRIVER_TYPE_HARDWARE,
+            nullptr,
+            0,
+            requested_feature_levels,
+            1,
+            D3D11_SDK_VERSION,
+            &swap_chain_desc,
+            swap_chain_.GetAddressOf(),
+            device_.GetAddressOf(),
+            &created_feature_level,
+            context_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> back_buffer;
+        result = swap_chain_->GetBuffer(0, IID_PPV_ARGS(back_buffer.GetAddressOf()));
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
+        result = device_->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view_.GetAddressOf());
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
+        std::cerr << "[ZENO][native] DirectX 11 renderer initialized\n";
+        return true;
+    }
+
+    void shutdown()
+    {
+        if (context_ != nullptr) {
+            context_->ClearState();
+        }
+
+        render_target_view_.Reset();
+        swap_chain_.Reset();
+        context_.Reset();
+        device_.Reset();
+    }
+
+    bool begin_frame()
+    {
+        if (context_ == nullptr || render_target_view_ == nullptr) {
+            return false;
+        }
+
+        ID3D11RenderTargetView* render_targets[] = { render_target_view_.Get() };
+        context_->OMSetRenderTargets(1, render_targets, nullptr);
+        return true;
+    }
+
+    bool clear(float r, float g, float b, float a)
+    {
+        if (context_ == nullptr || render_target_view_ == nullptr) {
+            return false;
+        }
+
+        const float color[] = { r, g, b, a };
+        context_->ClearRenderTargetView(render_target_view_.Get(), color);
+        return true;
+    }
+
+    bool present()
+    {
+        if (swap_chain_ == nullptr) {
+            return false;
+        }
+
+        return SUCCEEDED(swap_chain_->Present(1, 0));
+    }
+
+private:
+    Microsoft::WRL::ComPtr<ID3D11Device> device_;
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
+    Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
+    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+};
+
 bool NativeBackend::initialize(const NativeBackendConfig& config)
 {
     if (initialized_) {
@@ -61,12 +176,20 @@ bool NativeBackend::initialize(const NativeBackendConfig& config)
     return true;
 }
 
+NativeBackend::NativeBackend() = default;
+
+NativeBackend::~NativeBackend()
+{
+    shutdown();
+}
+
 void NativeBackend::shutdown()
 {
     if (!initialized_) {
         return;
     }
 
+    destroy_renderer();
     destroy_window();
     initialized_ = false;
     std::cerr << "[ZENO][native] backend shutdown\n";
@@ -143,7 +266,38 @@ void NativeBackend::notify_window_destroyed(HWND__* window)
         window_handle_ = nullptr;
     }
 
+    destroy_renderer();
     should_close_ = true;
+}
+
+bool NativeBackend::initialize_renderer()
+{
+    if (!initialized_ || window_handle_ == nullptr || renderer_ != nullptr) {
+        return false;
+    }
+
+    auto renderer = std::make_unique<DirectX11Renderer>();
+    if (!renderer->initialize(reinterpret_cast<HWND>(window_handle_))) {
+        return false;
+    }
+
+    renderer_ = std::move(renderer);
+    return true;
+}
+
+bool NativeBackend::begin_frame()
+{
+    return renderer_ != nullptr && renderer_->begin_frame();
+}
+
+bool NativeBackend::clear(float r, float g, float b, float a)
+{
+    return renderer_ != nullptr && renderer_->clear(r, g, b, a);
+}
+
+bool NativeBackend::present()
+{
+    return renderer_ != nullptr && renderer_->present();
 }
 
 bool NativeBackend::is_initialized() const
@@ -167,6 +321,17 @@ void NativeBackend::destroy_window()
     DestroyWindow(window);
     should_close_ = true;
     std::cerr << "[ZENO][native] window destroyed\n";
+}
+
+void NativeBackend::destroy_renderer()
+{
+    if (renderer_ == nullptr) {
+        return;
+    }
+
+    renderer_->shutdown();
+    renderer_.reset();
+    std::cerr << "[ZENO][native] DirectX 11 renderer shutdown\n";
 }
 
 } // namespace zeno::native

@@ -180,3 +180,60 @@ extern "C" ZenResultCode zen_native_backend_poll_events(
         return ZEN_RESULT_INTERNAL_ERROR;
     }
 }
+
+extern "C" ZenResultCode zen_native_backend_initialize_renderer(ZenNativeBackendHandle backend)
+{
+    try {
+        return with_backend(backend, [](zeno::native::NativeBackend& native_backend) {
+            return native_backend.initialize_renderer()
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_BACKEND_ERROR;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_begin_frame(ZenNativeBackendHandle backend)
+{
+    try {
+        return with_backend(backend, [](zeno::native::NativeBackend& native_backend) {
+            return native_backend.begin_frame()
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_BACKEND_ERROR;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_clear(
+    ZenNativeBackendHandle backend,
+    float r,
+    float g,
+    float b,
+    float a)
+{
+    try {
+        return with_backend(backend, [r, g, b, a](zeno::native::NativeBackend& native_backend) {
+            return native_backend.clear(r, g, b, a)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_BACKEND_ERROR;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_present(ZenNativeBackendHandle backend)
+{
+    try {
+        return with_backend(backend, [](zeno::native::NativeBackend& native_backend) {
+            return native_backend.present()
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_BACKEND_ERROR;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}

@@ -60,7 +60,8 @@ ZenResultCode zen_native_backend_create(
  * After ZEN_RESULT_OK, the handle is invalid and must not be used again.
  * Thread-safety: this function may be called concurrently for different
  * handles. The same handle must not be used by destroy, create_window, or
- * poll_events concurrently from multiple threads.
+ * poll_events concurrently from multiple threads. Renderer functions also
+ * must not run concurrently with destroy for the same handle.
  */
 ZenResultCode zen_native_backend_destroy(ZenNativeBackendHandle backend);
 
@@ -88,6 +89,47 @@ ZenResultCode zen_native_backend_create_window(
 ZenResultCode zen_native_backend_poll_events(
     ZenNativeBackendHandle backend,
     uint32_t* out_should_close);
+
+/*
+ * Initializes DirectX 11 resources for the backend-owned window.
+ *
+ * backend: must be a live non-zero backend handle with a created window.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_initialize_renderer(ZenNativeBackendHandle backend);
+
+/*
+ * Begins one render frame by binding the current render target.
+ *
+ * backend: must have an initialized renderer.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_begin_frame(ZenNativeBackendHandle backend);
+
+/*
+ * Clears the current render target to the supplied color.
+ *
+ * backend: must have an initialized renderer.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_clear(
+    ZenNativeBackendHandle backend,
+    float r,
+    float g,
+    float b,
+    float a);
+
+/*
+ * Presents the current swap chain frame.
+ *
+ * backend: must have an initialized renderer.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_present(ZenNativeBackendHandle backend);
 
 #ifdef __cplusplus
 }
