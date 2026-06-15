@@ -2,9 +2,12 @@ cmake_minimum_required(VERSION 3.24)
 
 project(zeno_native LANGUAGES CXX)
 
-add_library(zeno_native INTERFACE)
-target_compile_features(zeno_native INTERFACE cxx_std_20)
-target_include_directories(zeno_native INTERFACE
+add_library(zeno_native STATIC
+    src/native_backend.cpp
+    src/native_backend_c_api.cpp
+)
+target_compile_features(zeno_native PUBLIC cxx_std_20)
+target_include_directories(zeno_native PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
@@ -28,3 +31,7 @@ add_custom_command(TARGET zeno_abi_smoke POST_BUILD
         "$<TARGET_FILE:zeno_abi_rust>"
         "$<TARGET_FILE_DIR:zeno_abi_smoke>"
 )
+
+add_executable(zeno_native_backend_smoke src/native_backend_smoke.cpp)
+target_compile_features(zeno_native_backend_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_native_backend_smoke PRIVATE zeno_native)
