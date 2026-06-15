@@ -14,6 +14,27 @@ int main()
         return 1;
     }
 
+    ZenNativeWindowConfig window_config{};
+    window_config.size = ZEN_NATIVE_WINDOW_CONFIG_SIZE;
+    window_config.api_version = ZEN_NATIVE_WINDOW_CONFIG_API_VERSION;
+    window_config.width = 640;
+    window_config.height = 360;
+
+    result = zen_native_backend_create_window(backend, &window_config);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 2;
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        uint32_t should_close = 0;
+        result = zen_native_backend_poll_events(backend, &should_close);
+        if (result != ZEN_RESULT_OK) {
+            zen_native_backend_destroy(backend);
+            return 3;
+        }
+    }
+
     result = zen_native_backend_destroy(backend);
-    return result == ZEN_RESULT_OK ? 0 : 2;
+    return result == ZEN_RESULT_OK ? 0 : 4;
 }

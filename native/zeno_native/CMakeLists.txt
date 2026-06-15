@@ -10,6 +10,7 @@ target_compile_features(zeno_native PUBLIC cxx_std_20)
 target_include_directories(zeno_native PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+target_link_libraries(zeno_native PRIVATE user32)
 
 set(ZENO_ABI_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../target/debug")
 
