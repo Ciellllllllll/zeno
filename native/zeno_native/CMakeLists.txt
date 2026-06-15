@@ -14,11 +14,13 @@ target_link_libraries(zeno_native PRIVATE user32 d3d11 dxgi)
 
 set(ZENO_ABI_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../target/debug")
 
-add_library(zeno_abi_rust SHARED IMPORTED GLOBAL)
-set_target_properties(zeno_abi_rust PROPERTIES
-    IMPORTED_IMPLIB "${ZENO_ABI_TARGET_DIR}/zeno_abi.dll.lib"
-    IMPORTED_LOCATION "${ZENO_ABI_TARGET_DIR}/zeno_abi.dll"
-)
+if(NOT TARGET zeno_abi_rust)
+    add_library(zeno_abi_rust SHARED IMPORTED GLOBAL)
+    set_target_properties(zeno_abi_rust PROPERTIES
+        IMPORTED_IMPLIB "${ZENO_ABI_TARGET_DIR}/zeno_abi.dll.lib"
+        IMPORTED_LOCATION "${ZENO_ABI_TARGET_DIR}/zeno_abi.dll"
+    )
+endif()
 
 add_executable(zeno_abi_smoke src/abi_smoke.cpp)
 target_compile_features(zeno_abi_smoke PRIVATE cxx_std_20)

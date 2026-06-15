@@ -1,0 +1,167 @@
+#include <zeno/zeno.hpp>
+
+#include <utility>
+
+namespace zeno {
+
+const char* Result::message() const
+{
+    return zen_result_to_string(static_cast<std::uint32_t>(code_));
+}
+
+Engine::Engine(ZenEngineHandle handle)
+    : handle_(handle)
+{
+}
+
+Engine::~Engine()
+{
+    reset();
+}
+
+Engine::Engine(Engine&& other) noexcept
+    : handle_(std::exchange(other.handle_, ZenEngineHandle{}))
+{
+}
+
+Engine& Engine::operator=(Engine&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        handle_ = std::exchange(other.handle_, ZenEngineHandle{});
+    }
+
+    return *this;
+}
+
+Result Engine::create(const EngineConfig& config, Engine& out_engine)
+{
+    ZenEngineConfig native_config{};
+    native_config.size = sizeof(ZenEngineConfig);
+    native_config.api_version = 1;
+    native_config.target_fps = config.target_fps;
+    native_config.max_test_frames = config.max_test_frames;
+
+    ZenEngineHandle handle{};
+    const ZenResultCode result = zen_engine_create(&native_config, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_engine = Engine(handle);
+    return Result();
+}
+
+Result Engine::step()
+{
+    return Result(zen_engine_step(handle_));
+}
+
+Result Engine::request_shutdown()
+{
+    return Result(zen_engine_request_shutdown(handle_));
+}
+
+void Engine::reset()
+{
+    if (handle_.value == 0) {
+        return;
+    }
+
+    zen_engine_destroy(handle_);
+    handle_ = {};
+}
+
+NativeBackend::NativeBackend(ZenNativeBackendHandle handle)
+    : handle_(handle)
+{
+}
+
+NativeBackend::~NativeBackend()
+{
+    reset();
+}
+
+NativeBackend::NativeBackend(NativeBackend&& other) noexcept
+    : handle_(std::exchange(other.handle_, ZenNativeBackendHandle{}))
+{
+}
+
+NativeBackend& NativeBackend::operator=(NativeBackend&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        handle_ = std::exchange(other.handle_, ZenNativeBackendHandle{});
+    }
+
+    return *this;
+}
+
+Result NativeBackend::create(NativeBackend& out_backend)
+{
+    ZenNativeBackendConfig config{};
+    config.size = ZEN_NATIVE_BACKEND_CONFIG_SIZE;
+    config.api_version = ZEN_NATIVE_BACKEND_CONFIG_API_VERSION;
+    config.flags = 0;
+    config.reserved = 0;
+
+    ZenNativeBackendHandle handle{};
+    const ZenResultCode result = zen_native_backend_create(&config, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_backend = NativeBackend(handle);
+    return Result();
+}
+
+Result NativeBackend::create_window(const WindowConfig& config)
+{
+    ZenNativeWindowConfig native_config{};
+    native_config.size = ZEN_NATIVE_WINDOW_CONFIG_SIZE;
+    native_config.api_version = ZEN_NATIVE_WINDOW_CONFIG_API_VERSION;
+    native_config.width = config.width;
+    native_config.height = config.height;
+
+    return Result(zen_native_backend_create_window(handle_, &native_config));
+}
+
+Result NativeBackend::poll_events(bool& out_should_close)
+{
+    std::uint32_t should_close = 0;
+    const ZenResultCode result = zen_native_backend_poll_events(handle_, &should_close);
+    out_should_close = should_close != 0;
+    return Result(result);
+}
+
+Result NativeBackend::initialize_renderer()
+{
+    return Result(zen_native_backend_initialize_renderer(handle_));
+}
+
+Result NativeBackend::begin_frame()
+{
+    return Result(zen_native_backend_begin_frame(handle_));
+}
+
+Result NativeBackend::clear(const Color& color)
+{
+    return Result(zen_native_backend_clear(handle_, color.r, color.g, color.b, color.a));
+}
+
+Result NativeBackend::present()
+{
+    return Result(zen_native_backend_present(handle_));
+}
+
+void NativeBackend::reset()
+{
+    if (handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy(handle_);
+    handle_ = {};
+}
+
+} // namespace zeno
