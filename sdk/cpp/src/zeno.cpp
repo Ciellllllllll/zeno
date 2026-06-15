@@ -1,4 +1,5 @@
 #include <zeno/zeno.hpp>
+#include <zeno/game_module.hpp>
 
 #include <utility>
 
@@ -162,6 +163,48 @@ void NativeBackend::reset()
 
     zen_native_backend_destroy(handle_);
     handle_ = {};
+}
+
+} // namespace zeno
+
+namespace zeno {
+
+Result initialize_game_module(GameModule& module, GameContext& context)
+{
+    if (module.on_init == nullptr) {
+        return Result();
+    }
+
+    return module.on_init(context);
+}
+
+Result run_game_module_frame(GameModule& module, GameContext& context)
+{
+    if (module.on_update != nullptr) {
+        Result result = module.on_update(context);
+        if (!result.ok()) {
+            return result;
+        }
+    }
+
+    if (context.should_close) {
+        return Result();
+    }
+
+    if (module.on_render != nullptr) {
+        return module.on_render(context);
+    }
+
+    return Result();
+}
+
+Result shutdown_game_module(GameModule& module, GameContext& context)
+{
+    if (module.on_shutdown == nullptr) {
+        return Result();
+    }
+
+    return module.on_shutdown(context);
 }
 
 } // namespace zeno
