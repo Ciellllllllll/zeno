@@ -2,7 +2,7 @@
 
 ZENO Engine is a Windows-first custom game engine portfolio project. It is a small, explainable runtime architecture, not an attempt to compete with Unity or Unreal Engine.
 
-The first milestone uses Rust for the high-level engine core, C++ for the native backend and game-facing SDK, DirectX 11 as the first renderer, and a strict C ABI boundary between Rust and C++.
+The first milestone uses Rust for engine runtime state, C++ for the native backend and game-facing SDK, DirectX 11 as the first renderer, and C ABI boundaries where Rust and C++ communicate.
 
 ## Current Features
 
@@ -12,7 +12,7 @@ The first milestone uses Rust for the high-level engine core, C++ for the native
 - Handle-based native backend resource example for clear-color resources.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
-- Runnable sample game that opens a 640x360 window and clears with a changing DirectX 11 color before shutting down.
+- Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, and clears with a changing DirectX 11 color before shutting down.
 - Windows helper scripts for local build, run, and cleanup.
 
 ## Why This Shape
@@ -24,6 +24,8 @@ C++ owns the native backend because Windows and DirectX 11 integration are natur
 The boundary is C ABI because C++ ABI and Rust layout are not stable cross-language contracts. Public boundary data uses result codes, handles, fixed-layout POD structs, and explicit create/destroy ownership.
 
 DirectX 11 is first because it is practical for a Windows portfolio slice, has broad tooling support, and is smaller in scope than starting with multiple graphics APIs.
+
+The current sample executable is an integration smoke for the C++ SDK, static-linked game module, native backend, and DirectX 11 presentation path. The Rust runtime is built and tested through the Rust and SDK/ABI smoke paths, but it is not yet the outer loop that drives the sample window.
 
 ## Build And Test
 
@@ -109,6 +111,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the clea
 - Rendering is currently a clear-color DirectX 11 path only.
 - There is no input system, mesh renderer, sprite renderer, texture loading, asset pipeline, editor, physics, audio, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
+- The sample loop currently drives the native backend directly through the C++ SDK; integrating the Rust runtime as the sample's outer frame scheduler is future work.
 - The first milestone is Windows-only.
 
 ## Roadmap

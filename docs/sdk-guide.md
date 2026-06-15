@@ -64,5 +64,5 @@ Later:
 - The project uses Rust for high-level runtime safety while keeping Windows and DirectX work in C++.
 - The C ABI boundary avoids unstable Rust/C++ layout and calling convention issues.
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
-- The sample is deliberately modest: it proves engine boot, window creation, DirectX 11 presentation, SDK use, game-module lifecycle, and clean shutdown.
+- The sample is deliberately modest: the C++ host proves engine boot, window creation, DirectX 11 presentation, SDK use, static-linked game-module lifecycle, and clean shutdown.
 - The next most valuable technical step is rendering a simple triangle or sprite with handle-owned resources, not adding an editor or multi-platform abstraction.

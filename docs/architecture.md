@@ -3,18 +3,13 @@
 ZENO is organized as a small vertical engine slice. The goal is to keep ownership and language boundaries easy to explain.
 
 ```text
-Sample Game
-    ↓
-C++ Game Module
-    ↓
-C++ Game SDK
-    ↓ C ABI / handle APIs
-Rust Engine Core
-    ↓ C ABI / handle APIs
-C++ Native Backend
-    ↓
-Windows / DirectX 11
+Sample Game Host
+    |-- C++ Game Module
+    |-- C++ Game SDK -> Rust C ABI -> Rust Engine Core
+    `-- C++ Game SDK -> C++ Native Backend -> Windows / DirectX 11
 ```
+
+The current sample host owns the outer loop. It calls the SDK/module lifecycle and drives the native backend render path through the SDK. The Rust runtime path is verified by Rust, ABI, and SDK smoke tests in this milestone; wiring it in as the sample's outer frame scheduler is future work.
 
 ## Rust Engine Core
 
@@ -68,6 +63,8 @@ SDK classes are allowed for game code ergonomics, but they do not cross the Rust
 - `on_shutdown`.
 
 The current sample changes the DirectX 11 clear color over time and exits cleanly after a short demo loop.
+
+The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 
 ## ABI Model
 
