@@ -1,45 +1,39 @@
 # ZENO Engine
 
-ZENO Engine is a Windows-first custom game engine portfolio project. It is intended to show a small, explainable runtime architecture rather than compete with commercial engines.
+ZENO Engine is a Windows-first custom game engine portfolio project. It is a small, explainable runtime architecture, not an attempt to compete with Unity or Unreal Engine.
 
-The first milestone uses Rust for the high-level engine core, C++ for native backend and game-facing SDK code, DirectX 11 as the first renderer, and a strict C ABI boundary between Rust and C++.
+The first milestone uses Rust for the high-level engine core, C++ for the native backend and game-facing SDK, DirectX 11 as the first renderer, and a strict C ABI boundary between Rust and C++.
 
-## Current Status
+## Current Features
 
-The first milestone currently boots a Rust engine core through a C ABI, creates a Win32 window through the C++ native backend, initializes DirectX 11, exposes a small C++ SDK, and runs a sample C++ game module. The sample opens a window and clears it with a color that changes over time before shutting down cleanly.
+- Rust engine core with runtime lifecycle, frame stepping, frame timing, shutdown state, and error model.
+- Rust C ABI crate that exposes engine creation, stepping, shutdown request, destruction, result codes, and POD frame/config structs.
+- C++ native backend with Win32 window creation and DirectX 11 device/swap-chain/render-target bootstrap.
+- Handle-based native backend resource example for clear-color resources.
+- C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
+- Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
+- Runnable sample game that opens a 640x360 window and clears with a changing DirectX 11 color before shutting down.
+- Windows helper scripts for local build, run, and cleanup.
 
-## First Milestone Scope
+## Why This Shape
 
-- Windows 10/11
-- Visual Studio 2022 / MSVC v143
-- Windows SDK
-- Rust stable
-- Cargo workspace
-- CMake for C++ projects
-- DirectX 11
-- C ABI between Rust and C++
+Rust owns high-level runtime state because the core benefits from explicit ownership, strong enums, and safe state transitions.
 
-Out of scope for the first milestone: Linux, macOS, Vulkan, DirectX 12, editor tooling, scripting, physics, audio, networking, and a full asset pipeline.
+C++ owns the native backend because Windows and DirectX 11 integration are naturally C++-oriented and commonly expected in game-engine roles.
 
-## Repository Layout
+The boundary is C ABI because C++ ABI and Rust layout are not stable cross-language contracts. Public boundary data uses result codes, handles, fixed-layout POD structs, and explicit create/destroy ownership.
 
-```text
-zeno/
-  crates/
-    zeno_core/      Rust engine runtime and internal core logic
-    zeno_abi/       Rust ABI boundary crate for future C exports
-  native/
-    zeno_native/    C++ native backend skeleton
-  sdk/
-    cpp/            C++ Game SDK skeleton
-  samples/
-    sample_game_cpp/  Sample C++ game using the SDK/module path
-  docs/             Project specs and phase reports
-  tools/            Future local tools
-  scripts/          Future helper scripts
-```
+DirectX 11 is first because it is practical for a Windows portfolio slice, has broad tooling support, and is smaller in scope than starting with multiple graphics APIs.
 
 ## Build And Test
+
+Supported local environment:
+
+- Windows 10 or Windows 11
+- Visual Studio 2022 with MSVC v143 and a Windows SDK
+- CMake on `PATH`
+- Rust stable with Cargo
+- VS Code with rust-analyzer and CMake Tools is the intended lightweight editor workflow
 
 Recommended full local build:
 
@@ -47,14 +41,14 @@ Recommended full local build:
 .\scripts\build-all.ps1
 ```
 
-Rust workspace:
+Manual Rust build:
 
 ```powershell
 cargo build -p zeno_abi
 cargo test
 ```
 
-C++ native backend and SDK:
+Manual C++ build:
 
 ```powershell
 cmake -S native -B build/native
@@ -62,43 +56,72 @@ cmake --build build/native --config Debug
 
 cmake -S sdk/cpp -B build/sdk-cpp
 cmake --build build/sdk-cpp --config Debug
-```
 
-Sample game:
-
-```powershell
 cmake -S samples/sample_game_cpp -B build/sample-game-cpp
 cmake --build build/sample-game-cpp --config Debug
-.\build\sample-game-cpp\Debug\zeno_sample_game_cpp.exe
 ```
 
-The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds. Current limitations: no input system, no mesh rendering, no asset pipeline, and no dynamic game-module loading yet.
-
-Run the already-built sample:
+Run the sample:
 
 ```powershell
 .\scripts\run-sample.ps1
 ```
 
-Clean generated local build outputs:
+The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds. Console output shows native backend initialization/shutdown and sample module init/shutdown.
+
+Clean generated local outputs:
 
 ```powershell
 .\scripts\clean-build.ps1
 ```
 
-## Developer Workflow
+## Repository Layout
 
-Recommended tools:
+```text
+zeno/
+  crates/
+    zeno_core/          Rust engine runtime and internal core logic
+    zeno_abi/           Rust C ABI exports and ABI-safe wrapper types
+  native/
+    zeno_native/        C++ Win32 and DirectX 11 native backend
+  sdk/
+    cpp/                C++ Game SDK wrappers over the ABI/backend APIs
+  samples/
+    sample_game_cpp/    Sample C++ game using the SDK/module path
+  scripts/              Local Windows build/run helpers
+  tools/                Reserved for future local tools
+```
 
-- Visual Studio 2022 with MSVC v143 and a Windows 10/11 SDK.
-- CMake available on `PATH`.
-- Rust stable with Cargo.
-- VS Code with rust-analyzer and CMake Tools.
+## Documentation
 
-Build order matters for C++ targets that link the Rust ABI DLL import library. Run `cargo build -p zeno_abi` before configuring or building the CMake targets, or use `.\scripts\build-all.ps1`.
+- [ARCHITECTURE.md](ARCHITECTURE.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
+- [PORTFOLIO_NOTES.md](PORTFOLIO_NOTES.md) summarizes tradeoffs, limitations, roadmap, and interview talking points.
+- [samples/sample_game_cpp/README.md](samples/sample_game_cpp/README.md) gives sample-specific build and run notes.
 
-Troubleshooting:
+The local `docs/` directory contains phase specs and phase reports in this working copy, but it is intentionally ignored and not part of the public repository.
 
-- If CMake cannot find MSVC, open the repository from a Visual Studio Developer PowerShell or install the Visual Studio C++ workload.
-- If a C++ smoke executable cannot load `zeno_abi.dll`, rebuild through the provided CMake targets so the post-build copy step runs.
-- Generated `build/` and `target/` directories are local outputs and should not be committed.
+## Screenshots Or GIFs
+
+Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the clear color is changing, and place approved public media under a future tracked `media/` directory. Do not commit generated binaries or local build output when adding media.
+
+## Current Limitations
+
+- Rendering is currently a clear-color DirectX 11 path only.
+- There is no input system, mesh renderer, sprite renderer, texture loading, asset pipeline, editor, physics, audio, or scripting.
+- The sample game module is statically linked; dynamic module loading is left for a later phase.
+- The first milestone is Windows-only.
+
+## Roadmap
+
+Near-term realistic next steps:
+
+- Add a minimal input API.
+- Add triangle or sprite rendering with handle-based shader/buffer/texture resources.
+- Add a small asset-loading convention for sample resources.
+- Introduce dynamic game module loading through C ABI entry points.
+- Add conservative Windows CI once the local workflow remains stable.
+
+Longer-term ideas:
+
+- DirectX 12 after the DirectX 11 path is stable.
+- Editor tooling much later, after runtime and rendering foundations are more complete.
