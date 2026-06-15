@@ -4,15 +4,22 @@
 
 namespace {
 
+constexpr double kDemoDurationSeconds = 4.0;
+constexpr double kColorCycleSeconds = 2.0;
+
+double g_elapsed_seconds = 0.0;
+
 zeno::Result on_init(zeno::GameContext&)
 {
+    g_elapsed_seconds = 0.0;
     std::cerr << "[ZENO][sample] game init\n";
     return zeno::Result();
 }
 
 zeno::Result on_update(zeno::GameContext& context)
 {
-    context.should_close = context.frame_index >= 120;
+    g_elapsed_seconds += context.delta_time_seconds;
+    context.should_close = g_elapsed_seconds >= kDemoDurationSeconds;
     return zeno::Result();
 }
 
@@ -22,7 +29,8 @@ zeno::Result on_render(zeno::GameContext& context)
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
-    const float t = static_cast<float>((context.frame_index % 120) / 119.0);
+    const double cycle_position = g_elapsed_seconds / kColorCycleSeconds;
+    const float t = static_cast<float>(cycle_position - static_cast<int>(cycle_position));
     zeno::Result result = context.backend->begin_frame();
     if (!result.ok()) {
         return result;
