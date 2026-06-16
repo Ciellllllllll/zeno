@@ -74,6 +74,45 @@ struct Color final {
     float a = 1.0f;
 };
 
+enum class Key : std::uint32_t {
+    unknown = ZEN_INPUT_KEY_UNKNOWN,
+    escape = ZEN_INPUT_KEY_ESCAPE,
+    space = ZEN_INPUT_KEY_SPACE,
+    left = ZEN_INPUT_KEY_LEFT,
+    right = ZEN_INPUT_KEY_RIGHT,
+    up = ZEN_INPUT_KEY_UP,
+    down = ZEN_INPUT_KEY_DOWN,
+    a = ZEN_INPUT_KEY_A,
+    d = ZEN_INPUT_KEY_D,
+    w = ZEN_INPUT_KEY_W,
+    s = ZEN_INPUT_KEY_S,
+};
+
+enum class MouseButton : std::uint32_t {
+    left = ZEN_INPUT_MOUSE_BUTTON_LEFT,
+    right = ZEN_INPUT_MOUSE_BUTTON_RIGHT,
+    middle = ZEN_INPUT_MOUSE_BUTTON_MIDDLE,
+};
+
+struct InputSnapshot final {
+    bool key_down[ZEN_INPUT_KEY_COUNT]{};
+    bool key_pressed[ZEN_INPUT_KEY_COUNT]{};
+    bool key_released[ZEN_INPUT_KEY_COUNT]{};
+    bool mouse_down[ZEN_INPUT_MOUSE_BUTTON_COUNT]{};
+    bool mouse_pressed[ZEN_INPUT_MOUSE_BUTTON_COUNT]{};
+    bool mouse_released[ZEN_INPUT_MOUSE_BUTTON_COUNT]{};
+    std::int32_t mouse_x = 0;
+    std::int32_t mouse_y = 0;
+    std::int32_t mouse_wheel_delta = 0;
+
+    bool down(Key key) const;
+    bool pressed(Key key) const;
+    bool released(Key key) const;
+    bool down(MouseButton button) const;
+    bool pressed(MouseButton button) const;
+    bool released(MouseButton button) const;
+};
+
 class RenderTriangle;
 
 class NativeBackend final {
@@ -91,6 +130,7 @@ public:
 
     Result create_window(const WindowConfig& config);
     Result poll_events(bool& out_should_close);
+    Result input_snapshot(InputSnapshot& out_snapshot);
     Result initialize_renderer();
     Result begin_frame();
     Result clear(const Color& color);

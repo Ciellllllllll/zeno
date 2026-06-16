@@ -52,9 +52,15 @@ int main()
             break;
         }
 
-        result = zeno::run_game_module_frame(module, context);
+        result = backend.input_snapshot(context.input);
         if (!result.ok()) {
             exit_code = 6;
+            break;
+        }
+
+        result = zeno::run_game_module_frame(module, context);
+        if (!result.ok()) {
+            exit_code = 7;
             break;
         }
 
@@ -64,7 +70,7 @@ int main()
 
     result = zeno::shutdown_game_module(module, context);
     if (!result.ok()) {
-        return 7;
+        return 8;
     }
 
     return exit_code;

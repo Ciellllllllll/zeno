@@ -9,6 +9,9 @@ namespace zeno::native {
 
 class DirectX11Renderer;
 
+constexpr std::uint32_t kInputKeyCount = 11;
+constexpr std::uint32_t kInputMouseButtonCount = 3;
+
 struct NativeBackendConfig final {
     std::uint32_t flags = 0;
 };
@@ -16,6 +19,18 @@ struct NativeBackendConfig final {
 struct NativeWindowConfig final {
     std::uint32_t width = 1280;
     std::uint32_t height = 720;
+};
+
+struct InputSnapshot final {
+    bool key_down[kInputKeyCount]{};
+    bool key_pressed[kInputKeyCount]{};
+    bool key_released[kInputKeyCount]{};
+    bool mouse_down[kInputMouseButtonCount]{};
+    bool mouse_pressed[kInputMouseButtonCount]{};
+    bool mouse_released[kInputMouseButtonCount]{};
+    std::int32_t mouse_x = 0;
+    std::int32_t mouse_y = 0;
+    std::int32_t mouse_wheel_delta = 0;
 };
 
 enum class RenderCommandResult {
@@ -34,6 +49,14 @@ public:
 
     bool create_window(const NativeWindowConfig& config);
     bool poll_events(bool& out_should_close);
+    bool get_input_snapshot(InputSnapshot& out_snapshot) const;
+    bool debug_set_key_state(std::uint32_t key_code, bool is_down);
+    bool debug_set_mouse_state(std::int32_t x, std::int32_t y, std::uint32_t button, bool is_down, std::int32_t wheel_delta);
+    void handle_key_message(std::uint32_t key_code, bool is_down);
+    void handle_mouse_move(std::int32_t x, std::int32_t y);
+    void handle_mouse_button(std::uint32_t button, bool is_down);
+    void handle_mouse_wheel(std::int32_t wheel_delta);
+    void clear_input_state();
     void notify_window_destroyed(HWND__* window);
     bool initialize_renderer();
     bool begin_frame();
@@ -57,6 +80,14 @@ private:
     NativeBackendConfig config_{};
     HWND__* window_handle_ = nullptr;
     std::unique_ptr<DirectX11Renderer> renderer_;
+    bool current_keys_[kInputKeyCount]{};
+    bool previous_keys_[kInputKeyCount]{};
+    bool current_mouse_buttons_[kInputMouseButtonCount]{};
+    bool previous_mouse_buttons_[kInputMouseButtonCount]{};
+    std::int32_t mouse_x_ = 0;
+    std::int32_t mouse_y_ = 0;
+    std::int32_t frame_mouse_wheel_delta_ = 0;
+    std::int32_t pending_mouse_wheel_delta_ = 0;
 };
 
 } // namespace zeno::native

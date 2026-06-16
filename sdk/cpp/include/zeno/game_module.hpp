@@ -8,6 +8,7 @@ namespace zeno {
 
 struct GameContext final {
     NativeBackend* backend = nullptr;
+    InputSnapshot input{};
     std::uint64_t frame_index = 0;
     double delta_time_seconds = 0.0;
     bool should_close = false;

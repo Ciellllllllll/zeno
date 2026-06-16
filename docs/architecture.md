@@ -48,12 +48,19 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 `native/zeno_native` owns platform and renderer implementation:
 
 - Win32 window creation and message polling,
+- Win32 keyboard/mouse message collection,
 - DirectX 11 device/context/swap-chain setup,
 - render target creation,
 - clear/present operations,
 - backend-owned clear-color and minimal triangle render resources.
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
+
+## Input Model
+
+Keyboard and mouse input live in the native backend. Win32 messages are translated into an engine-owned input snapshot with current, pressed, and released states for a small key/button set plus mouse position and wheel detents.
+
+Game code reads input through the C++ SDK snapshot. The public ABI uses only POD arrays and primitive fields; it does not expose `HWND`, Win32 message values, raw virtual-key constants, or borrowed internal pointers. Input is single-threaded with the window loop: call `poll_events`, then read the snapshot for that frame.
 
 ## Renderer Frame Order
 

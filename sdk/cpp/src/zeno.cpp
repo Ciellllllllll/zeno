@@ -10,6 +10,56 @@ const char* Result::message() const
     return zen_result_to_string(static_cast<std::uint32_t>(code_));
 }
 
+namespace {
+
+bool valid_key_index(std::uint32_t index)
+{
+    return index > ZEN_INPUT_KEY_UNKNOWN && index < ZEN_INPUT_KEY_COUNT;
+}
+
+bool valid_mouse_button_index(std::uint32_t index)
+{
+    return index < ZEN_INPUT_MOUSE_BUTTON_COUNT;
+}
+
+} // namespace
+
+bool InputSnapshot::down(Key key) const
+{
+    const auto index = static_cast<std::uint32_t>(key);
+    return valid_key_index(index) && key_down[index];
+}
+
+bool InputSnapshot::pressed(Key key) const
+{
+    const auto index = static_cast<std::uint32_t>(key);
+    return valid_key_index(index) && key_pressed[index];
+}
+
+bool InputSnapshot::released(Key key) const
+{
+    const auto index = static_cast<std::uint32_t>(key);
+    return valid_key_index(index) && key_released[index];
+}
+
+bool InputSnapshot::down(MouseButton button) const
+{
+    const auto index = static_cast<std::uint32_t>(button);
+    return valid_mouse_button_index(index) && mouse_down[index];
+}
+
+bool InputSnapshot::pressed(MouseButton button) const
+{
+    const auto index = static_cast<std::uint32_t>(button);
+    return valid_mouse_button_index(index) && mouse_pressed[index];
+}
+
+bool InputSnapshot::released(MouseButton button) const
+{
+    const auto index = static_cast<std::uint32_t>(button);
+    return valid_mouse_button_index(index) && mouse_released[index];
+}
+
 Engine::Engine(ZenEngineHandle handle)
     : handle_(handle)
 {
@@ -133,6 +183,35 @@ Result NativeBackend::poll_events(bool& out_should_close)
     const ZenResultCode result = zen_native_backend_poll_events(handle_, &should_close);
     out_should_close = should_close != 0;
     return Result(result);
+}
+
+Result NativeBackend::input_snapshot(InputSnapshot& out_snapshot)
+{
+    ZenInputSnapshot snapshot{};
+    snapshot.size = ZEN_INPUT_SNAPSHOT_SIZE;
+    snapshot.api_version = ZEN_INPUT_SNAPSHOT_API_VERSION;
+
+    const ZenResultCode result = zen_native_backend_get_input_snapshot(handle_, &snapshot);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    for (std::uint32_t i = 0; i < ZEN_INPUT_KEY_COUNT; ++i) {
+        out_snapshot.key_down[i] = snapshot.key_down[i] != 0;
+        out_snapshot.key_pressed[i] = snapshot.key_pressed[i] != 0;
+        out_snapshot.key_released[i] = snapshot.key_released[i] != 0;
+    }
+
+    for (std::uint32_t i = 0; i < ZEN_INPUT_MOUSE_BUTTON_COUNT; ++i) {
+        out_snapshot.mouse_down[i] = snapshot.mouse_down[i] != 0;
+        out_snapshot.mouse_pressed[i] = snapshot.mouse_pressed[i] != 0;
+        out_snapshot.mouse_released[i] = snapshot.mouse_released[i] != 0;
+    }
+
+    out_snapshot.mouse_x = snapshot.mouse_x;
+    out_snapshot.mouse_y = snapshot.mouse_y;
+    out_snapshot.mouse_wheel_delta = snapshot.mouse_wheel_delta;
+    return Result();
 }
 
 Result NativeBackend::initialize_renderer()

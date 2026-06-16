@@ -13,6 +13,8 @@ constexpr std::uint32_t kConfigApiVersion = 1;
 constexpr std::uint32_t kConfigSize = sizeof(ZenNativeBackendConfig);
 constexpr std::uint32_t kWindowConfigApiVersion = 1;
 constexpr std::uint32_t kWindowConfigSize = sizeof(ZenNativeWindowConfig);
+constexpr std::uint32_t kInputSnapshotApiVersion = 1;
+constexpr std::uint32_t kInputSnapshotSize = sizeof(ZenInputSnapshot);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 std::mutex g_backend_mutex;
@@ -33,6 +35,12 @@ bool is_valid_window_config(const ZenNativeWindowConfig& config)
         && config.api_version == kWindowConfigApiVersion
         && config.width > 0
         && config.height > 0;
+}
+
+bool is_valid_input_snapshot_header(const ZenInputSnapshot& snapshot)
+{
+    return snapshot.size == kInputSnapshotSize
+        && snapshot.api_version == kInputSnapshotApiVersion;
 }
 
 bool allocate_handle(std::uint64_t& out_handle)
@@ -188,6 +196,53 @@ extern "C" ZenResultCode zen_native_backend_poll_events(
             }
 
             *out_should_close = should_close ? 1u : 0u;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_get_input_snapshot(
+    ZenNativeBackendHandle backend,
+    ZenInputSnapshot* out_snapshot)
+{
+    try {
+        if (out_snapshot == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_input_snapshot_header(*out_snapshot)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [out_snapshot](zeno::native::NativeBackend& native_backend) {
+            zeno::native::InputSnapshot native_snapshot{};
+            if (!native_backend.get_input_snapshot(native_snapshot)) {
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            ZenInputSnapshot snapshot{};
+            snapshot.size = ZEN_INPUT_SNAPSHOT_SIZE;
+            snapshot.api_version = ZEN_INPUT_SNAPSHOT_API_VERSION;
+            snapshot.mouse_x = native_snapshot.mouse_x;
+            snapshot.mouse_y = native_snapshot.mouse_y;
+            snapshot.mouse_wheel_delta = native_snapshot.mouse_wheel_delta;
+            snapshot.reserved = 0;
+
+            for (std::uint32_t i = 0; i < ZEN_INPUT_KEY_COUNT; ++i) {
+                snapshot.key_down[i] = native_snapshot.key_down[i] ? 1u : 0u;
+                snapshot.key_pressed[i] = native_snapshot.key_pressed[i] ? 1u : 0u;
+                snapshot.key_released[i] = native_snapshot.key_released[i] ? 1u : 0u;
+            }
+
+            for (std::uint32_t i = 0; i < ZEN_INPUT_MOUSE_BUTTON_COUNT; ++i) {
+                snapshot.mouse_down[i] = native_snapshot.mouse_down[i] ? 1u : 0u;
+                snapshot.mouse_pressed[i] = native_snapshot.mouse_pressed[i] ? 1u : 0u;
+                snapshot.mouse_released[i] = native_snapshot.mouse_released[i] ? 1u : 0u;
+            }
+
+            *out_snapshot = snapshot;
             return ZEN_RESULT_OK;
         });
     } catch (...) {

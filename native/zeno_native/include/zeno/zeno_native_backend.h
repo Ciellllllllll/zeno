@@ -12,6 +12,30 @@ extern "C" {
 #define ZEN_NATIVE_BACKEND_CONFIG_SIZE ((uint32_t)sizeof(ZenNativeBackendConfig))
 #define ZEN_NATIVE_WINDOW_CONFIG_API_VERSION 1u
 #define ZEN_NATIVE_WINDOW_CONFIG_SIZE ((uint32_t)sizeof(ZenNativeWindowConfig))
+#define ZEN_INPUT_SNAPSHOT_API_VERSION 1u
+#define ZEN_INPUT_SNAPSHOT_SIZE ((uint32_t)sizeof(ZenInputSnapshot))
+
+typedef enum ZenInputKey {
+    ZEN_INPUT_KEY_UNKNOWN = 0,
+    ZEN_INPUT_KEY_ESCAPE = 1,
+    ZEN_INPUT_KEY_SPACE = 2,
+    ZEN_INPUT_KEY_LEFT = 3,
+    ZEN_INPUT_KEY_RIGHT = 4,
+    ZEN_INPUT_KEY_UP = 5,
+    ZEN_INPUT_KEY_DOWN = 6,
+    ZEN_INPUT_KEY_A = 7,
+    ZEN_INPUT_KEY_D = 8,
+    ZEN_INPUT_KEY_W = 9,
+    ZEN_INPUT_KEY_S = 10,
+    ZEN_INPUT_KEY_COUNT = 11
+} ZenInputKey;
+
+typedef enum ZenInputMouseButton {
+    ZEN_INPUT_MOUSE_BUTTON_LEFT = 0,
+    ZEN_INPUT_MOUSE_BUTTON_RIGHT = 1,
+    ZEN_INPUT_MOUSE_BUTTON_MIDDLE = 2,
+    ZEN_INPUT_MOUSE_BUTTON_COUNT = 3
+} ZenInputMouseButton;
 
 typedef struct ZenNativeBackendHandle {
     /* Non-zero native backend registry handle. Value 0 is always invalid/null. */
@@ -48,6 +72,27 @@ typedef struct ZenNativeWindowConfig {
     /* Client area height in physical pixels. Must be greater than 0. */
     uint32_t height;
 } ZenNativeWindowConfig;
+
+typedef struct ZenInputSnapshot {
+    /* Must be set to ZEN_INPUT_SNAPSHOT_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_INPUT_SNAPSHOT_API_VERSION by the caller. */
+    uint32_t api_version;
+    /* Mouse x in client-area pixels. */
+    int32_t mouse_x;
+    /* Mouse y in client-area pixels. */
+    int32_t mouse_y;
+    /* Mouse wheel delta accumulated during the most recent poll_events call. */
+    int32_t mouse_wheel_delta;
+    uint32_t reserved;
+    /* Indexed by ZenInputKey values. */
+    uint8_t key_down[ZEN_INPUT_KEY_COUNT];
+    uint8_t key_pressed[ZEN_INPUT_KEY_COUNT];
+    uint8_t key_released[ZEN_INPUT_KEY_COUNT];
+    uint8_t mouse_down[ZEN_INPUT_MOUSE_BUTTON_COUNT];
+    uint8_t mouse_pressed[ZEN_INPUT_MOUSE_BUTTON_COUNT];
+    uint8_t mouse_released[ZEN_INPUT_MOUSE_BUTTON_COUNT];
+} ZenInputSnapshot;
 
 /*
  * Creates the native backend shell.
@@ -99,6 +144,19 @@ ZenResultCode zen_native_backend_create_window(
 ZenResultCode zen_native_backend_poll_events(
     ZenNativeBackendHandle backend,
     uint32_t* out_should_close);
+
+/*
+ * Copies the latest per-frame input snapshot.
+ *
+ * backend: must be a live non-zero backend handle.
+ * out_snapshot: borrowed output pointer, must not be null. The caller must set
+ * size and api_version before calling. On success, the full struct is written.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy or poll_events.
+ */
+ZenResultCode zen_native_backend_get_input_snapshot(
+    ZenNativeBackendHandle backend,
+    ZenInputSnapshot* out_snapshot);
 
 /*
  * Initializes DirectX 11 resources for the backend-owned window.

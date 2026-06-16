@@ -9,8 +9,10 @@
 #include <wrl/client.h>
 
 #include <array>
+#include <algorithm>
 #include <cstddef>
 #include <iostream>
+#include <iterator>
 #include <unordered_map>
 
 namespace zeno::native {
@@ -54,20 +56,102 @@ struct TriangleResource final {
     Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
 };
 
+std::uint32_t map_virtual_key_to_input_key(WPARAM key)
+{
+    switch (key) {
+    case VK_ESCAPE:
+        return 1;
+    case VK_SPACE:
+        return 2;
+    case VK_LEFT:
+        return 3;
+    case VK_RIGHT:
+        return 4;
+    case VK_UP:
+        return 5;
+    case VK_DOWN:
+        return 6;
+    case 'A':
+        return 7;
+    case 'D':
+        return 8;
+    case 'W':
+        return 9;
+    case 'S':
+        return 10;
+    default:
+        return 0;
+    }
+}
+
+std::int32_t mouse_x_from_lparam(LPARAM lparam)
+{
+    return static_cast<std::int16_t>(static_cast<std::uint16_t>(lparam & 0xffff));
+}
+
+std::int32_t mouse_y_from_lparam(LPARAM lparam)
+{
+    return static_cast<std::int16_t>(static_cast<std::uint16_t>((lparam >> 16) & 0xffff));
+}
+
 LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
+    auto* backend = reinterpret_cast<NativeBackend*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+
     if (message == WM_CLOSE) {
         DestroyWindow(window);
         return 0;
     }
 
     if (message == WM_DESTROY) {
-        auto* backend = reinterpret_cast<NativeBackend*>(GetWindowLongPtrW(window, GWLP_USERDATA));
         if (backend != nullptr) {
             backend->notify_window_destroyed(reinterpret_cast<HWND__*>(window));
         }
 
         return 0;
+    }
+
+    if (backend != nullptr) {
+        switch (message) {
+        case WM_KEYDOWN:
+        case WM_SYSKEYDOWN:
+            backend->handle_key_message(map_virtual_key_to_input_key(wparam), true);
+            return 0;
+        case WM_KEYUP:
+        case WM_SYSKEYUP:
+            backend->handle_key_message(map_virtual_key_to_input_key(wparam), false);
+            return 0;
+        case WM_MOUSEMOVE:
+            backend->handle_mouse_move(mouse_x_from_lparam(lparam), mouse_y_from_lparam(lparam));
+            return 0;
+        case WM_LBUTTONDOWN:
+            backend->handle_mouse_button(0, true);
+            return 0;
+        case WM_LBUTTONUP:
+            backend->handle_mouse_button(0, false);
+            return 0;
+        case WM_RBUTTONDOWN:
+            backend->handle_mouse_button(1, true);
+            return 0;
+        case WM_RBUTTONUP:
+            backend->handle_mouse_button(1, false);
+            return 0;
+        case WM_MBUTTONDOWN:
+            backend->handle_mouse_button(2, true);
+            return 0;
+        case WM_MBUTTONUP:
+            backend->handle_mouse_button(2, false);
+            return 0;
+        case WM_MOUSEWHEEL:
+            backend->handle_mouse_wheel(static_cast<std::int16_t>((wparam >> 16) & 0xffff) / WHEEL_DELTA);
+            return 0;
+        case WM_KILLFOCUS:
+        case WM_CAPTURECHANGED:
+            backend->clear_input_state();
+            return 0;
+        default:
+            break;
+        }
     }
 
     return DefWindowProcW(window, message, wparam, lparam);
@@ -496,14 +580,107 @@ bool NativeBackend::poll_events(bool& out_should_close)
         return false;
     }
 
+    std::copy(std::begin(current_keys_), std::end(current_keys_), std::begin(previous_keys_));
+    std::copy(std::begin(current_mouse_buttons_), std::end(current_mouse_buttons_), std::begin(previous_mouse_buttons_));
+    frame_mouse_wheel_delta_ = 0;
+
     MSG message{};
     while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE) != FALSE) {
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
 
+    frame_mouse_wheel_delta_ = pending_mouse_wheel_delta_;
+    pending_mouse_wheel_delta_ = 0;
     out_should_close = should_close_;
     return true;
+}
+
+bool NativeBackend::get_input_snapshot(InputSnapshot& out_snapshot) const
+{
+    if (!initialized_) {
+        return false;
+    }
+
+    for (std::uint32_t i = 0; i < kInputKeyCount; ++i) {
+        out_snapshot.key_down[i] = current_keys_[i];
+        out_snapshot.key_pressed[i] = current_keys_[i] && !previous_keys_[i];
+        out_snapshot.key_released[i] = !current_keys_[i] && previous_keys_[i];
+    }
+
+    for (std::uint32_t i = 0; i < kInputMouseButtonCount; ++i) {
+        out_snapshot.mouse_down[i] = current_mouse_buttons_[i];
+        out_snapshot.mouse_pressed[i] = current_mouse_buttons_[i] && !previous_mouse_buttons_[i];
+        out_snapshot.mouse_released[i] = !current_mouse_buttons_[i] && previous_mouse_buttons_[i];
+    }
+
+    out_snapshot.mouse_x = mouse_x_;
+    out_snapshot.mouse_y = mouse_y_;
+    out_snapshot.mouse_wheel_delta = frame_mouse_wheel_delta_;
+    return true;
+}
+
+bool NativeBackend::debug_set_key_state(std::uint32_t key_code, bool is_down)
+{
+    if (key_code == 0 || key_code >= kInputKeyCount) {
+        return false;
+    }
+
+    current_keys_[key_code] = is_down;
+    return true;
+}
+
+bool NativeBackend::debug_set_mouse_state(
+    std::int32_t x,
+    std::int32_t y,
+    std::uint32_t button,
+    bool is_down,
+    std::int32_t wheel_delta)
+{
+    if (button >= kInputMouseButtonCount) {
+        return false;
+    }
+
+    mouse_x_ = x;
+    mouse_y_ = y;
+    current_mouse_buttons_[button] = is_down;
+    frame_mouse_wheel_delta_ += wheel_delta;
+    return true;
+}
+
+void NativeBackend::handle_key_message(std::uint32_t key_code, bool is_down)
+{
+    if (key_code == 0 || key_code >= kInputKeyCount) {
+        return;
+    }
+
+    current_keys_[key_code] = is_down;
+}
+
+void NativeBackend::handle_mouse_move(std::int32_t x, std::int32_t y)
+{
+    mouse_x_ = x;
+    mouse_y_ = y;
+}
+
+void NativeBackend::handle_mouse_button(std::uint32_t button, bool is_down)
+{
+    if (button >= kInputMouseButtonCount) {
+        return;
+    }
+
+    current_mouse_buttons_[button] = is_down;
+}
+
+void NativeBackend::handle_mouse_wheel(std::int32_t wheel_delta)
+{
+    pending_mouse_wheel_delta_ += wheel_delta;
+}
+
+void NativeBackend::clear_input_state()
+{
+    std::fill(std::begin(current_keys_), std::end(current_keys_), false);
+    std::fill(std::begin(current_mouse_buttons_), std::end(current_mouse_buttons_), false);
 }
 
 void NativeBackend::notify_window_destroyed(HWND__* window)

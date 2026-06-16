@@ -92,92 +92,105 @@ int main()
         return 15;
     }
 
+    zeno::InputSnapshot input{};
+    result = render_backend.input_snapshot(input);
+    if (!result.ok()
+        || input.down(zeno::Key::escape)
+        || input.pressed(zeno::Key::space)
+        || input.released(zeno::Key::a)
+        || input.down(zeno::MouseButton::left)
+        || input.mouse_x != 0
+        || input.mouse_y != 0
+        || input.mouse_wheel_delta != 0) {
+        return 16;
+    }
+
     zeno::RenderTriangle failed_triangle;
     result = render_backend.create_triangle(failed_triangle);
     if (result.ok() || failed_triangle.valid()) {
-        return 16;
+        return 17;
     }
 
     result = render_backend.create_window(zeno::WindowConfig{ 320, 180 });
     if (!result.ok()) {
-        return 17;
+        return 18;
     }
 
     result = render_backend.initialize_renderer();
     if (!result.ok()) {
-        return 18;
+        return 19;
     }
 
     zeno::RenderTriangle triangle;
     result = render_backend.create_triangle(triangle);
     if (!result.ok() || !triangle.valid()) {
-        return 19;
+        return 20;
     }
 
     result = render_backend.draw_triangle(triangle);
     if (result.ok()) {
-        return 20;
+        return 21;
     }
 
     result = render_backend.present();
     if (result.ok()) {
-        return 21;
+        return 22;
     }
 
     zeno::RenderTriangle moved_triangle(std::move(triangle));
     if (triangle.valid() || !moved_triangle.valid()) {
-        return 22;
+        return 23;
     }
 
     zeno::RenderTriangle assigned_triangle;
     result = render_backend.create_triangle(assigned_triangle);
     if (!result.ok() || !assigned_triangle.valid()) {
-        return 23;
+        return 24;
     }
 
     assigned_triangle = std::move(moved_triangle);
     if (moved_triangle.valid() || !assigned_triangle.valid()) {
-        return 24;
-    }
-
-    result = render_backend.begin_frame();
-    if (!result.ok()) {
         return 25;
     }
 
     result = render_backend.begin_frame();
-    if (result.ok()) {
+    if (!result.ok()) {
         return 26;
+    }
+
+    result = render_backend.begin_frame();
+    if (result.ok()) {
+        return 27;
     }
 
     result = render_backend.clear(zeno::Color{ 0.05f, 0.08f, 0.12f, 1.0f });
     if (!result.ok()) {
-        return 27;
-    }
-
-    result = render_backend.draw_triangle(assigned_triangle);
-    if (!result.ok()) {
         return 28;
     }
 
-    result = render_backend.present();
+    result = render_backend.draw_triangle(assigned_triangle);
     if (!result.ok()) {
         return 29;
     }
 
-    result = render_backend.draw_triangle(assigned_triangle);
-    if (result.ok()) {
+    result = render_backend.present();
+    if (!result.ok()) {
         return 30;
     }
 
-    result = render_backend.present();
+    result = render_backend.draw_triangle(assigned_triangle);
     if (result.ok()) {
         return 31;
     }
 
+    result = render_backend.present();
+    if (result.ok()) {
+        return 32;
+    }
+
     assigned_triangle.reset();
     if (assigned_triangle.valid()) {
-        return 32;
+        return 33;
     }
     assigned_triangle.reset();
 
