@@ -21,6 +21,26 @@ enum class ResultCode : std::uint32_t {
     internal_error = ZEN_RESULT_INTERNAL_ERROR,
 };
 
+enum class LogLevel : std::uint32_t {
+    info = 1,
+    warning = 2,
+    error = 3,
+};
+
+struct LogMessage final {
+    LogLevel level = LogLevel::info;
+    std::string_view category{};
+    std::string_view message{};
+};
+
+using LogSink = void (*)(const LogMessage& message, void* user_data);
+
+void set_log_sink(LogSink sink, void* user_data);
+void clear_log_sink();
+void log_message(LogLevel level, std::string_view category, std::string_view message);
+std::string last_diagnostic();
+void clear_last_diagnostic();
+
 class Result final {
 public:
     constexpr Result() = default;

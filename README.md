@@ -20,6 +20,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Temporary DirectX 11 debug line/rectangle draw calls for visualizing sample collision bounds.
 - Executable-relative sample asset root support with copied `assets/` content.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
+- SDK diagnostics with a lightweight log sink and copied last-diagnostic message for asset, scene, shader, native backend, and Rust ABI wrapper failures.
 - High-level `zeno::GameApp` SDK runtime that owns engine, backend, asset, audio, scene, input, and module lifecycle setup for static-linked games.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
 - Windows dynamic game module loading through `LoadLibraryW` and a C-compatible descriptor entry point, while preserving the static-linked module path.

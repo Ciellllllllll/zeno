@@ -9,6 +9,11 @@ Result invalid_argument()
     return Result(ZEN_RESULT_INVALID_ARGUMENT);
 }
 
+void log_scene_error(std::string_view message)
+{
+    log_message(LogLevel::error, "scene", message);
+}
+
 } // namespace
 
 ObjectId Scene::create_object()
@@ -79,11 +84,13 @@ const Transform* Scene::transform(ObjectId id) const
 Result Scene::set_sprite_renderer(ObjectId id, const SpriteRenderer& renderer)
 {
     if (!renderer.material.valid()) {
+        log_scene_error("scene: sprite renderer requires a valid material ID");
         return invalid_argument();
     }
 
     ObjectState* state = find_object(id);
     if (state == nullptr) {
+        log_scene_error("scene: sprite renderer target object is missing");
         return invalid_argument();
     }
 
@@ -97,11 +104,13 @@ Result Scene::set_sprite_renderer(ObjectId id, const SpriteRenderer& renderer)
 Result Scene::set_mesh_renderer(ObjectId id, const MeshRenderer& renderer)
 {
     if (!renderer.mesh.valid() || !renderer.material.valid()) {
+        log_scene_error("scene: mesh renderer requires valid mesh and material IDs");
         return invalid_argument();
     }
 
     ObjectState* state = find_object(id);
     if (state == nullptr) {
+        log_scene_error("scene: mesh renderer target object is missing");
         return invalid_argument();
     }
 
@@ -115,11 +124,13 @@ Result Scene::set_mesh_renderer(ObjectId id, const MeshRenderer& renderer)
 Result Scene::set_triangle_renderer(ObjectId id, const TriangleRenderer& renderer)
 {
     if (!renderer.triangle.valid()) {
+        log_scene_error("scene: triangle renderer requires a valid triangle ID");
         return invalid_argument();
     }
 
     ObjectState* state = find_object(id);
     if (state == nullptr) {
+        log_scene_error("scene: triangle renderer target object is missing");
         return invalid_argument();
     }
 
@@ -194,6 +205,7 @@ Result Scene::render(NativeBackend& backend, const ResourceManager& resources) c
         case RenderableKind::sprite: {
             const Material* material = resources.material(state.sprite_renderer.material);
             if (material == nullptr || !material->valid()) {
+                log_scene_error("scene: sprite material ID is missing, stale, or invalid");
                 return invalid_argument();
             }
             SpriteDrawDesc desc{};
@@ -206,6 +218,7 @@ Result Scene::render(NativeBackend& backend, const ResourceManager& resources) c
             const Mesh* mesh = resources.mesh(state.mesh_renderer.mesh);
             const Material* material = resources.material(state.mesh_renderer.material);
             if (mesh == nullptr || material == nullptr || !mesh->valid() || !material->valid()) {
+                log_scene_error("scene: mesh or material ID is missing, stale, or invalid");
                 return invalid_argument();
             }
             result = backend.draw_mesh(*mesh, *material, state.transform);
@@ -214,6 +227,7 @@ Result Scene::render(NativeBackend& backend, const ResourceManager& resources) c
         case RenderableKind::triangle: {
             const RenderTriangle* triangle = resources.triangle(state.triangle_renderer.triangle);
             if (triangle == nullptr || !triangle->valid()) {
+                log_scene_error("scene: triangle ID is missing, stale, or invalid");
                 return invalid_argument();
             }
             result = backend.draw_triangle(*triangle, state.transform);

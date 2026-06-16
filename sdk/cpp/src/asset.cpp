@@ -15,6 +15,7 @@ namespace {
 Result path_from_utf8(std::string_view value, std::filesystem::path& out_path)
 {
     if (value.empty()) {
+        log_message(LogLevel::error, "asset", "asset: relative path is empty");
         return Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
@@ -26,6 +27,7 @@ Result path_from_utf8(std::string_view value, std::filesystem::path& out_path)
         nullptr,
         0);
     if (required_size <= 0) {
+        log_message(LogLevel::error, "asset", "asset: relative path is not valid UTF-8");
         return Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
@@ -38,11 +40,18 @@ Result path_from_utf8(std::string_view value, std::filesystem::path& out_path)
         wide_path.data(),
         required_size);
     if (converted_size != required_size) {
+        log_message(LogLevel::error, "asset", "asset: failed to convert relative path from UTF-8");
         return Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
     out_path = std::filesystem::path(wide_path);
     return Result();
+}
+
+std::string path_to_utf8(const std::filesystem::path& path)
+{
+    const std::u8string value = path.u8string();
+    return std::string(reinterpret_cast<const char*>(value.data()), value.size());
 }
 
 bool is_safe_relative_path(const std::filesystem::path& path)
@@ -64,6 +73,9 @@ Result validate_asset_root(const std::filesystem::path& root)
 {
     std::error_code error;
     if (!std::filesystem::is_directory(root, error) || error) {
+        std::ostringstream message;
+        message << "asset: root is not a directory: " << path_to_utf8(root);
+        log_message(LogLevel::error, "asset", message.str());
         return Result(ZEN_RESULT_NOT_INITIALIZED);
     }
 
@@ -80,6 +92,7 @@ Result executable_directory(std::filesystem::path& out_directory)
             buffer.data(),
             static_cast<DWORD>(buffer.size()));
         if (written == 0) {
+            log_message(LogLevel::error, "asset", "asset: GetModuleFileNameW failed while finding executable directory");
             return Result(ZEN_RESULT_INTERNAL_ERROR);
         }
 
@@ -131,6 +144,7 @@ Result AssetRoot::from_path(const std::filesystem::path& root, AssetRoot& out_ro
 Result AssetRoot::resolve(std::string_view relative_path_utf8, AssetPath& out_path) const
 {
     if (!valid()) {
+        log_message(LogLevel::error, "asset", "asset: AssetRoot is not initialized");
         return Result(ZEN_RESULT_NOT_INITIALIZED);
     }
 
@@ -141,6 +155,9 @@ Result AssetRoot::resolve(std::string_view relative_path_utf8, AssetPath& out_pa
     }
 
     if (!is_safe_relative_path(relative_path)) {
+        std::ostringstream message;
+        message << "asset: unsafe relative path rejected: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "asset", message.str());
         return Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
@@ -158,11 +175,17 @@ Result AssetRoot::read_text(std::string_view relative_path_utf8, std::string& ou
 
     std::error_code error;
     if (!std::filesystem::is_regular_file(path.path(), error) || error) {
+        std::ostringstream message;
+        message << "asset: text file not found: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "asset", message.str());
         return Result(ZEN_RESULT_NOT_INITIALIZED);
     }
 
     std::ifstream file(path.path(), std::ios::binary);
     if (!file) {
+        std::ostringstream message;
+        message << "asset: text file could not be opened: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "asset", message.str());
         return Result(ZEN_RESULT_NOT_INITIALIZED);
     }
 
@@ -182,11 +205,17 @@ Result AssetRoot::read_binary(std::string_view relative_path_utf8, std::vector<s
 
     std::error_code error;
     if (!std::filesystem::is_regular_file(path.path(), error) || error) {
+        std::ostringstream message;
+        message << "asset: binary file not found: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "asset", message.str());
         return Result(ZEN_RESULT_NOT_INITIALIZED);
     }
 
     std::ifstream file(path.path(), std::ios::binary);
     if (!file) {
+        std::ostringstream message;
+        message << "asset: binary file could not be opened: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "asset", message.str());
         return Result(ZEN_RESULT_NOT_INITIALIZED);
     }
 

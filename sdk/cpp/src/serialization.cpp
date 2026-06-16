@@ -347,6 +347,9 @@ Result load_project_config(
 
     ProjectConfig config{};
     if (!parse_project_text(text, config)) {
+        std::ostringstream message;
+        message << "scene: project parse failed: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "scene", message.str());
         return invalid_argument();
     }
 
@@ -367,6 +370,9 @@ Result load_scene_description(
 
     SceneDescription scene{};
     if (!parse_scene_text(text, scene)) {
+        std::ostringstream message;
+        message << "scene: scene parse failed: " << std::string(relative_path_utf8);
+        log_message(LogLevel::error, "scene", message.str());
         return invalid_argument();
     }
 
@@ -377,6 +383,7 @@ Result load_scene_description(
 Result serialize_project_config(const ProjectConfig& config, std::string& out_text)
 {
     if (config.version != 1 || config.window_width == 0 || config.window_height == 0 || config.asset_root.empty() || config.initial_scene.empty()) {
+        log_message(LogLevel::error, "scene", "scene: project serialization rejected invalid config");
         return invalid_argument();
     }
 
@@ -394,6 +401,7 @@ Result serialize_project_config(const ProjectConfig& config, std::string& out_te
 Result serialize_scene_description(const SceneDescription& scene, std::string& out_text)
 {
     if (scene.version != 1 || scene.objects.empty()) {
+        log_message(LogLevel::error, "scene", "scene: scene serialization rejected empty or unsupported scene");
         return invalid_argument();
     }
 
@@ -402,6 +410,7 @@ Result serialize_scene_description(const SceneDescription& scene, std::string& o
     output << "version=" << scene.version << "\n";
     for (const SceneObjectDesc& object : scene.objects) {
         if (object.renderable_kind == RenderableKind::none || object.reference.empty()) {
+            log_message(LogLevel::error, "scene", "scene: scene serialization rejected object without renderable reference");
             return invalid_argument();
         }
 

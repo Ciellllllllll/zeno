@@ -113,6 +113,7 @@ cmake --build build\external-game
 | Configure/build/smoke subset | `.\scripts\build-all.ps1` | Passes | Uses Cargo plus `windows-msvc-debug`; runs non-window smoke executables. |
 | CTest listing | `ctest --preset windows-msvc-debug -N` | Lists current smoke tests | Does not execute tests. |
 | Headless CTest | `ctest --preset windows-msvc-debug -E "window|sample|manual"` | Passes | Excludes window-capable and manual run tests by name; tests are also labeled for local selection. |
+| Diagnostics smoke | `build/windows-msvc-debug/bin/Debug/zeno_sdk_diagnostics_smoke.exe` | Verifies SDK log sink and last-diagnostic messages | Headless smoke; included in `test-headless.ps1`. |
 | Full CTest smoke | `ctest --preset windows-msvc-debug` | Manual window validation | May open windows. |
 | Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly | Window run. |
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |

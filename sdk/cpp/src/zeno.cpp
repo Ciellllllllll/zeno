@@ -6,13 +6,100 @@
 #endif
 #include <Windows.h>
 
+#include <mutex>
+#include <sstream>
 #include <utility>
 
 namespace zeno {
 
+namespace {
+
+struct DiagnosticsState final {
+    LogSink sink = nullptr;
+    void* user_data = nullptr;
+    std::string last_message{};
+};
+
+std::mutex& diagnostics_mutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
+
+DiagnosticsState& diagnostics_state()
+{
+    static DiagnosticsState state;
+    return state;
+}
+
+std::string make_result_diagnostic(std::string_view category, std::string_view action, ZenResultCode code)
+{
+    std::ostringstream message;
+    message << category << ": " << action << " failed: "
+            << zen_result_to_string(static_cast<std::uint32_t>(code))
+            << " (" << static_cast<std::uint32_t>(code) << ")";
+    return message.str();
+}
+
+void log_result_failure(std::string_view category, std::string_view action, ZenResultCode code)
+{
+    if (code == ZEN_RESULT_OK) {
+        return;
+    }
+
+    log_message(LogLevel::error, category, make_result_diagnostic(category, action, code));
+}
+
+} // namespace
+
 const char* Result::message() const
 {
     return zen_result_to_string(static_cast<std::uint32_t>(code_));
+}
+
+void set_log_sink(LogSink sink, void* user_data)
+{
+    std::lock_guard lock(diagnostics_mutex());
+    DiagnosticsState& state = diagnostics_state();
+    state.sink = sink;
+    state.user_data = user_data;
+}
+
+void clear_log_sink()
+{
+    set_log_sink(nullptr, nullptr);
+}
+
+void log_message(LogLevel level, std::string_view category, std::string_view message)
+{
+    LogSink sink = nullptr;
+    void* user_data = nullptr;
+    std::string category_copy(category);
+    std::string message_copy(message);
+    {
+        std::lock_guard lock(diagnostics_mutex());
+        DiagnosticsState& state = diagnostics_state();
+        state.last_message = message_copy;
+        sink = state.sink;
+        user_data = state.user_data;
+    }
+
+    if (sink != nullptr) {
+        const LogMessage log{ level, category_copy, message_copy };
+        sink(log, user_data);
+    }
+}
+
+std::string last_diagnostic()
+{
+    std::lock_guard lock(diagnostics_mutex());
+    return diagnostics_state().last_message;
+}
+
+void clear_last_diagnostic()
+{
+    std::lock_guard lock(diagnostics_mutex());
+    diagnostics_state().last_message.clear();
 }
 
 namespace {
@@ -229,6 +316,7 @@ Result Engine::create(const EngineConfig& config, Engine& out_engine)
     ZenEngineHandle handle{};
     const ZenResultCode result = zen_engine_create(&native_config, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("rust", "zen_engine_create", result);
         return Result(result);
     }
 
@@ -323,6 +411,7 @@ Result NativeBackend::create(NativeBackend& out_backend)
     ZenNativeBackendHandle handle{};
     const ZenResultCode result = zen_native_backend_create(&config, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create", result);
         return Result(result);
     }
 
@@ -338,7 +427,9 @@ Result NativeBackend::create_window(const WindowConfig& config)
     native_config.width = config.width;
     native_config.height = config.height;
 
-    return Result(zen_native_backend_create_window(handle_, &native_config));
+    const ZenResultCode result = zen_native_backend_create_window(handle_, &native_config);
+    log_result_failure("native", "zen_native_backend_create_window", result);
+    return Result(result);
 }
 
 Result NativeBackend::poll_events(bool& out_should_close)
@@ -380,12 +471,16 @@ Result NativeBackend::input_snapshot(InputSnapshot& out_snapshot)
 
 Result NativeBackend::initialize_renderer()
 {
-    return Result(zen_native_backend_initialize_renderer(handle_));
+    const ZenResultCode result = zen_native_backend_initialize_renderer(handle_);
+    log_result_failure("native", "zen_native_backend_initialize_renderer", result);
+    return Result(result);
 }
 
 Result NativeBackend::begin_frame()
 {
-    return Result(zen_native_backend_begin_frame(handle_));
+    const ZenResultCode result = zen_native_backend_begin_frame(handle_);
+    log_result_failure("native", "zen_native_backend_begin_frame", result);
+    return Result(result);
 }
 
 Result NativeBackend::clear(const Color& color)
@@ -422,6 +517,10 @@ Result NativeBackend::create_vertex_shader(
         &handle);
     copy_compile_log(native_log, out_log);
     if (native_result != ZEN_RESULT_OK) {
+        const std::string message = out_log.message.empty()
+            ? make_result_diagnostic("shader", "vertex shader compile", native_result)
+            : std::string("shader: vertex shader compile failed for ") + std::string(relative_path_utf8) + ": " + out_log.message;
+        log_message(LogLevel::error, "shader", message);
         return Result(native_result);
     }
 
@@ -458,6 +557,10 @@ Result NativeBackend::create_pixel_shader(
         &handle);
     copy_compile_log(native_log, out_log);
     if (native_result != ZEN_RESULT_OK) {
+        const std::string message = out_log.message.empty()
+            ? make_result_diagnostic("shader", "pixel shader compile", native_result)
+            : std::string("shader: pixel shader compile failed for ") + std::string(relative_path_utf8) + ": " + out_log.message;
+        log_message(LogLevel::error, "shader", message);
         return Result(native_result);
     }
 
@@ -483,6 +586,7 @@ Result NativeBackend::create_texture(
         bytes.size(),
         &handle);
     if (native_result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_texture_from_memory", native_result);
         return Result(native_result);
     }
 
@@ -501,6 +605,7 @@ Result NativeBackend::create_mesh(
     ZenMeshHandle handle{};
     const ZenResultCode result = zen_native_backend_create_mesh(handle_, &desc, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_mesh", result);
         return Result(result);
     }
 
@@ -514,6 +619,7 @@ Result NativeBackend::create_material(const MaterialDesc& desc, Material& out_ma
     ZenMaterialHandle handle{};
     const ZenResultCode result = zen_native_backend_create_material(handle_, &native_desc, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_material", result);
         return Result(result);
     }
 
@@ -530,6 +636,7 @@ Result NativeBackend::create_sprite_material(
     ZenMaterialHandle handle{};
     const ZenResultCode result = zen_native_backend_create_material(handle_, &native_desc, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_material(sprite)", result);
         return Result(result);
     }
 
@@ -543,6 +650,7 @@ Result NativeBackend::create_audio_engine(AudioEngine& out_audio)
     ZenAudioEngineHandle handle{};
     const ZenResultCode result = zen_native_backend_create_audio_engine(handle_, &desc, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_audio_engine", result);
         return Result(result);
     }
 
@@ -555,6 +663,7 @@ Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
     ZenRenderTriangleHandle handle{};
     const ZenResultCode result = zen_native_backend_create_triangle(handle_, &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_triangle", result);
         return Result(result);
     }
 
@@ -576,6 +685,7 @@ Result NativeBackend::create_triangle(
         &input_layout,
         &handle);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_triangle_with_shaders", result);
         return Result(result);
     }
 
@@ -653,7 +763,9 @@ Result NativeBackend::draw_debug_rect_2d(const Aabb2& bounds, float z, const Col
 
 Result NativeBackend::present()
 {
-    return Result(zen_native_backend_present(handle_));
+    const ZenResultCode result = zen_native_backend_present(handle_);
+    log_result_failure("native", "zen_native_backend_present", result);
+    return Result(result);
 }
 
 void NativeBackend::reset()
@@ -944,6 +1056,7 @@ Result AudioEngine::load_sound(const AssetRoot& assets, std::string_view relativ
         bytes.size(),
         &handle);
     if (native_result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_create_sound_from_wav_memory", native_result);
         return Result(native_result);
     }
 
@@ -1080,6 +1193,7 @@ Result ResourceManager::create_sprite_material(
 {
     const Texture* texture_resource = texture(texture_id);
     if (texture_resource == nullptr || !texture_resource->valid()) {
+        log_message(LogLevel::error, "resource", "resource: sprite material texture ID is missing, stale, or invalid");
         return Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
