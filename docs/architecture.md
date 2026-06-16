@@ -19,7 +19,7 @@ C++ build ownership stays with the top-level `CMakeLists.txt` and `CMakePresets.
 
 The template game under `templates/game-cpp/` is another CMake target in the same graph. It links the C++ SDK and uses `zeno::GameApp` like the sample, but keeps its module intentionally minimal so it can act as a starting point for a new static-linked game.
 
-The PowerShell scripts in `scripts/` are wrappers over Cargo and CMake presets; they are not separate build definitions. `scripts/package-runtime.ps1` builds the canonical preset and installs a local runtime package containing the sample executable/assets, template executable/assets, and required Rust ABI DLL. `scripts/package-sdk.ps1` creates an external SDK package with public headers, static libraries, the Rust ABI import library/DLL, and CMake package config files. `BUILDING.md` records the regression command matrix for the v0 usable baseline.
+The PowerShell scripts in `scripts/` are wrappers over Cargo and CMake presets; they are not separate build definitions. `scripts/package-runtime.ps1` builds the canonical preset and installs a local runtime package containing the sample executable/assets, template executable/assets, and required Rust ABI DLL. `scripts/package-sdk.ps1` creates an external SDK package with public headers, static libraries, the Rust ABI import library/DLL, and CMake package config files. `docs/build-guide.md` records the regression command matrix for the v0 usable baseline.
 
 ## Rust Engine Core
 

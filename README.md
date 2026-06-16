@@ -193,20 +193,21 @@ zeno/
   examples/
     external-game/      CMake project consuming a packaged ZENO SDK
   scripts/              Local Windows build/run helpers
+  docs/                 Public architecture, SDK, build, and roadmap docs
   tools/                Reserved for future local tools
   CMakePresets.json     Canonical C++ configure/build/test presets
 ```
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
-- [BUILDING.md](BUILDING.md) documents setup, build/run/package commands, and the regression command matrix.
-- [PORTFOLIO_NOTES.md](PORTFOLIO_NOTES.md) summarizes tradeoffs, limitations, roadmap, and interview talking points.
-- [ROADMAP.md](ROADMAP.md) defines the v0 baseline and likely next steps.
+- [docs/architecture.md](docs/architecture.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
+- [docs/sdk-guide.md](docs/sdk-guide.md) explains the current C++ SDK surface for sample/template games.
+- [docs/build-guide.md](docs/build-guide.md) documents setup, build/run/package commands, and the regression command matrix.
+- [docs/roadmap.md](docs/roadmap.md) defines the v0 baseline and likely next steps.
 - [samples/sample_game_cpp/README.md](samples/sample_game_cpp/README.md) gives sample-specific build and run notes.
 - [templates/game-cpp/README.md](templates/game-cpp/README.md) explains the minimal template game and package layout.
 
-Public phase reports live in `docs/phase-reports/`. Codex/private planning inputs live under `goal/` or other ignored local files and are not part of the public repository.
+Codex planning inputs, phase specs, and phase reports live under ignored `.codex/` local files and are not part of the public repository.
 
 ## Screenshots Or GIFs
 

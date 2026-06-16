@@ -124,7 +124,7 @@ cmake --build build\external-game
 | Dynamic module sample | `.\scripts\run-dynamic-module-sample.ps1` | Builds/runs the headless DLL module sample | Uses `LoadLibraryW`, descriptor version validation, lifecycle callbacks, and unload. |
 | GameApp failed-init cleanup | `build/windows-msvc-debug/bin/Debug/zeno_sdk_failed_init_smoke.exe` | Verifies `on_shutdown` after failed `on_init` | Window-capable smoke; run only when opening local windows is acceptable. |
 | Renderer resize smoke | `build/windows-msvc-debug/bin/Debug/zeno_resize_smoke.exe` | Verifies minimized and nonzero resize path | Window-capable smoke; run only when opening local windows is acceptable. |
-| Package layout | `Test-Path build/package/windows-msvc-debug/bin/zeno_abi.dll` and related sample/template asset paths | Passes | Also check the package does not contain `AGENTS.md`, `docs`, or `goal`. |
+| Package layout | `Test-Path build/package/windows-msvc-debug/bin/zeno_abi.dll` and related sample/template asset paths | Passes | Also check the package does not contain `.codex` or other private planning inputs. |
 | CI-style baseline | `.\scripts\verify-all.ps1` | Passes | Runs format, ABI, headless test, and package scripts. |
 | Local full validation | `.\scripts\test-all-local.ps1` | Manual window validation | Includes window-capable checks; run manually. |
-| Final status | `git status --short --ignored` | Review tracked and ignored output | `AGENTS.md`, `goal/`, `build/`, `target/`, and private `docs/*` inputs remain ignored locally. |
+| Final status | `git status --short --ignored` | Review tracked and ignored output | `.codex/`, `build/`, and `target/` remain ignored locally; `docs/` contains only public docs. |
