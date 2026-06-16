@@ -69,6 +69,8 @@ Vertex and index data cross the ABI as borrowed pointers plus explicit counts an
 
 Debug draw is an immediate development visualization path, not a general renderer feature set. Debug line and rectangle data cross the native backend ABI as POD descriptors with primitive coordinates and color values only. Collision helpers stay SDK/sample-owned and do not introduce native collision resources.
 
+Debug overlay text follows the same immediate-mode rule. The native backend contains a tiny embedded 5x7 ASCII line-font for diagnostics; the ABI receives borrowed text bytes plus explicit length, primitive origin/scale/color values, and returns `ZenResultCode`. There is no font handle, font file, shaping engine, Unicode layout, retained UI system, or external font dependency.
+
 ## Input Model
 
 Keyboard and mouse input live in the native backend. Win32 messages are translated into an engine-owned input snapshot with current, pressed, and released states for a small key/button set plus mouse position and wheel detents.

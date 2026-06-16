@@ -520,6 +520,39 @@ zeno::Result on_render(zeno::GameContext& context)
         }
     }
 
+    const int fps = context.delta_time_seconds > 0.0
+        ? static_cast<int>((1.0 / context.delta_time_seconds) + 0.5)
+        : 0;
+    const char* state = g_game_won
+        ? "WIN"
+        : g_player_touching_hazard
+        ? "HIT"
+        : g_player_touching_goal
+        ? "GOAL"
+        : "RUN";
+    std::string diagnostic = zeno::last_diagnostic();
+    if (diagnostic.empty()) {
+        diagnostic = "OK";
+    }
+    if (diagnostic.size() > 40) {
+        diagnostic.resize(40);
+    }
+
+    const std::string overlay =
+        "FPS: " + std::to_string(fps)
+        + "\nFRAME: " + std::to_string(context.frame_index)
+        + "\nSCORE: " + std::to_string(g_score) + "/" + std::to_string(kWinningScore)
+        + "\nSTATE: " + state
+        + "\nDIAG: " + diagnostic;
+    result = context.backend->draw_debug_text(
+        overlay,
+        zeno::Vec3{ -0.96f, 0.92f, 0.0f },
+        0.0065f,
+        zeno::Color{ 0.95f, 1.0f, 0.75f, 1.0f });
+    if (!result.ok()) {
+        return result;
+    }
+
     return context.backend->present();
 }
 

@@ -18,6 +18,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - SDK-side project/scene text loading for sample startup data, including window size, asset root, initial scene, object transforms, and minimal renderable references.
 - Minimal Windows audio path for short PCM WAV sound effects through backend-owned audio and sound handles.
 - Temporary DirectX 11 debug line/rectangle draw calls for visualizing sample collision bounds.
+- Minimal debug overlay text drawn from embedded 5x7 ASCII line glyphs for FPS, frame, score, state, and diagnostics.
 - Executable-relative sample asset root support with copied `assets/` content.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - SDK diagnostics with a lightweight log sink and copied last-diagnostic message for asset, scene, shader, native backend, and Rust ABI wrapper failures.
@@ -160,7 +161,7 @@ int main()
 }
 ```
 
-The sample should show a 640x360 window configured by `assets/project.zproj`, with a DirectX 11 clear color that changes for a short playable demo, a rotating triangle goal drawn with shader assets, a small BMP-backed player sprite using an alpha material, and a basic 3D cube obstacle using an opaque depth-tested material. The sample loads initial object data from `assets/scenes/sample_scene.zscene` and organizes those visible objects through the SDK's minimal component-lite scene layer. Mouse position influences the background tint, WASD/arrows move the sprite, sprite/triangle AABB overlap increments the console score and plays a short PCM WAV effect, cube overlap resets the player, Space restarts the round, and Escape requests shutdown. Console output shows native backend initialization/shutdown, controls, score, sample module init/shutdown, and asset shader compile failures if they occur.
+The sample should show a 640x360 window configured by `assets/project.zproj`, with a DirectX 11 clear color that changes for a short playable demo, a rotating triangle goal drawn with shader assets, a small BMP-backed player sprite using an alpha material, a basic 3D cube obstacle using an opaque depth-tested material, and an upper-left debug overlay showing FPS, frame index, score, state, and the latest diagnostic. The sample loads initial object data from `assets/scenes/sample_scene.zscene` and organizes those visible objects through the SDK's minimal component-lite scene layer. Mouse position influences the background tint, WASD/arrows move the sprite, sprite/triangle AABB overlap increments the console score and plays a short PCM WAV effect, cube overlap resets the player, Space restarts the round, and Escape requests shutdown. Console output shows native backend initialization/shutdown, controls, score, sample module init/shutdown, and asset shader compile failures if they occur.
 
 Sample assets and startup data live under `samples/sample_game_cpp/assets/` in source and are copied beside the sample executable as `assets/` during the CMake build. The sample resolves assets from the executable directory, not the process working directory, so CLI, Visual Studio 2022, and VS Code launches use the same runtime layout.
 
@@ -209,11 +210,11 @@ Public phase reports live in `docs/phase-reports/`. Codex/private planning input
 
 ## Screenshots Or GIFs
 
-Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the triangle is visible and the clear color is changing, and place approved public media under a future tracked `media/` directory. Do not commit generated binaries or local build output when adding media.
+Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the triangle is visible, the clear color is changing, and the upper-left debug overlay shows FPS/frame/score/state text, then place approved public media under a future tracked `media/` directory. Do not commit generated binaries or local build output when adding media.
 
 ## Current Limitations
 
-- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle, sprite, indexed mesh, material/render-state resources, temporary debug line/rectangle draw calls, SDK-side scene objects with ResourceManager-backed IDs, and a strict text project/scene loader with transform, camera, texture, depth, and explicit vertex/pixel shader handles.
+- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle, sprite, indexed mesh, material/render-state resources, temporary debug line/rectangle draw calls, embedded 5x7 ASCII debug overlay text, SDK-side scene objects with ResourceManager-backed IDs, and a strict text project/scene loader with transform, camera, texture, depth, and explicit vertex/pixel shader handles.
 - Audio is limited to short PCM WAV effects. There is no streaming BGM, spatial audio, mixer graph, compressed decode, or async loading.
 - Input is limited to a small keyboard/mouse snapshot. There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - Collision is limited to SDK-side AABB helpers and sample-owned checks. There is no physics engine, rigid body solver, broadphase, swept collision system, or collision component model.

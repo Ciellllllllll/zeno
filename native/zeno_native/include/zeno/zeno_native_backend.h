@@ -32,6 +32,8 @@ extern "C" {
 #define ZEN_DEBUG_LINE_DESC_SIZE ((uint32_t)sizeof(ZenDebugLineDesc))
 #define ZEN_DEBUG_RECT_DESC_API_VERSION 1u
 #define ZEN_DEBUG_RECT_DESC_SIZE ((uint32_t)sizeof(ZenDebugRectDesc))
+#define ZEN_DEBUG_TEXT_DESC_API_VERSION 1u
+#define ZEN_DEBUG_TEXT_DESC_SIZE ((uint32_t)sizeof(ZenDebugTextDesc))
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -294,6 +296,22 @@ typedef struct ZenDebugRectDesc {
     float z;
     float color[4];
 } ZenDebugRectDesc;
+
+typedef struct ZenDebugTextDesc {
+    /* Must be set to ZEN_DEBUG_TEXT_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_DEBUG_TEXT_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    uint32_t reserved[2];
+    /* UTF-8 or ASCII bytes borrowed only for the call. Unsupported glyphs become spaces. */
+    const char* text;
+    uint64_t text_length;
+    /* Baseline origin in world/debug coordinates. */
+    float origin[3];
+    /* Glyph scale in world/debug coordinate units. */
+    float scale;
+    float color[4];
+} ZenDebugTextDesc;
 
 /*
  * Creates the native backend shell.
@@ -663,6 +681,17 @@ ZenResultCode zen_native_backend_draw_debug_line(
 ZenResultCode zen_native_backend_draw_debug_rect(
     ZenNativeBackendHandle backend,
     const ZenDebugRectDesc* desc);
+
+/*
+ * Draws minimal debug overlay text using an embedded 5x7 ASCII line font.
+ *
+ * This is intended for FPS/state diagnostics, not general text rendering.
+ * backend: must have an initialized renderer and an active frame.
+ * desc: borrowed POD descriptor, copied during the call.
+ */
+ZenResultCode zen_native_backend_draw_debug_text(
+    ZenNativeBackendHandle backend,
+    const ZenDebugTextDesc* desc);
 
 /*
  * Creates a backend-owned XAudio2 audio engine.

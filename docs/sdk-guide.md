@@ -11,6 +11,7 @@
 - A first Windows dynamic module loader that uses a C-compatible descriptor entry point without exposing SDK classes, STL, Win32, DirectX, or Rust internals across the DLL boundary.
 - A DirectX 11 resize baseline that rebuilds swap-chain render target/depth resources and detects device removed/reset without claiming full recovery.
 - SDK-side ResourceManager IDs that decouple scene render components from raw SDK wrapper pointers and native backend handles.
+- A minimal embedded 5x7 ASCII debug overlay for FPS, frame, score, state, and diagnostics without external font assets.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
 - A packaged SDK layout and external CMake example that prove SDK consumption outside the repository sample/template graph.
@@ -45,7 +46,7 @@
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
-- Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, SDK ResourceManager ownership for texture/mesh/material/sound/triangle references, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
+- Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, SDK ResourceManager ownership for texture/mesh/material/sound/triangle references, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, minimal embedded debug overlay text, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. `GameApp` removes boilerplate from game hosts while still exposing the low-level wrappers for focused tests and future engine work.
 - Build, verification, and package scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical while CI remains conservative and headless by default.
@@ -61,6 +62,7 @@
 
 - No gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - No shader reflection, material graph, hot reload, mesh importer, atlas system, font rendering, or generalized render pipeline beyond the fixed DirectX 11 triangle, sprite, and mesh paths.
+- Debug overlay text is limited to an embedded 5x7 ASCII line font for diagnostics. It is not a general font renderer, UI toolkit, rich text system, or Unicode shaping implementation.
 - No streaming BGM, 3D spatial audio, mixer graph, or compressed audio decode.
 - Math/collision is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, 3D collision volumes, physics solver, swept collision, broadphase, or SIMD optimizations yet.
 - No asset pipeline.
@@ -93,6 +95,6 @@ Later:
 - The project uses Rust for high-level runtime safety while keeping Windows and DirectX work in C++.
 - The C ABI boundary avoids unstable Rust/C++ layout and calling convention issues.
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
-- The sample is deliberately modest but playable: the C++ host delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, keyboard movement, goal score/restart flow, SDK-side AABB checks with debug visualization, short WAV effect playback, static-linked game-module lifecycle, and clean shutdown.
+- The sample is deliberately modest but playable: the C++ host delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, keyboard movement, goal score/restart flow, SDK-side AABB checks with debug visualization, overlay diagnostics, short WAV effect playback, static-linked game-module lifecycle, and clean shutdown.
 - The current v0 baseline is intentionally modest but reproducible: clone, build, run the sample/template, package the runtime layout, and explain the boundaries.
 - The next most valuable technical step is ABI-safe host services and renderer robustness, not adding an editor or multi-platform abstraction.

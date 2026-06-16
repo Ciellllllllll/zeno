@@ -204,6 +204,24 @@ ZenDebugRectDesc make_native_debug_rect_desc(const Aabb2& bounds, float z, const
     return desc;
 }
 
+ZenDebugTextDesc make_native_debug_text_desc(const DebugTextDesc& source)
+{
+    ZenDebugTextDesc desc{};
+    desc.size = ZEN_DEBUG_TEXT_DESC_SIZE;
+    desc.api_version = ZEN_DEBUG_TEXT_DESC_API_VERSION;
+    desc.text = source.text.data();
+    desc.text_length = source.text.size();
+    desc.origin[0] = source.origin.x;
+    desc.origin[1] = source.origin.y;
+    desc.origin[2] = source.origin.z;
+    desc.scale = source.scale;
+    desc.color[0] = source.color.r;
+    desc.color[1] = source.color.g;
+    desc.color[2] = source.color.b;
+    desc.color[3] = source.color.a;
+    return desc;
+}
+
 ZenMeshDesc make_native_mesh_desc(
     const MeshVertex* vertices,
     std::uint32_t vertex_count,
@@ -759,6 +777,22 @@ Result NativeBackend::draw_debug_rect_2d(const Aabb2& bounds, float z, const Col
 {
     const ZenDebugRectDesc desc = make_native_debug_rect_desc(bounds, z, color);
     return Result(zen_native_backend_draw_debug_rect(handle_, &desc));
+}
+
+Result NativeBackend::draw_debug_text(const DebugTextDesc& source)
+{
+    const ZenDebugTextDesc desc = make_native_debug_text_desc(source);
+    return Result(zen_native_backend_draw_debug_text(handle_, &desc));
+}
+
+Result NativeBackend::draw_debug_text(std::string_view text, const Vec3& origin, float scale, const Color& color)
+{
+    DebugTextDesc desc{};
+    desc.text = text;
+    desc.origin = origin;
+    desc.scale = scale;
+    desc.color = color;
+    return draw_debug_text(desc);
 }
 
 Result NativeBackend::present()

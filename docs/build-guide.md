@@ -114,8 +114,9 @@ cmake --build build\external-game
 | CTest listing | `ctest --preset windows-msvc-debug -N` | Lists current smoke tests | Does not execute tests. |
 | Headless CTest | `ctest --preset windows-msvc-debug -E "window|sample|manual"` | Passes | Excludes window-capable and manual run tests by name; tests are also labeled for local selection. |
 | Diagnostics smoke | `build/windows-msvc-debug/bin/Debug/zeno_sdk_diagnostics_smoke.exe` | Verifies SDK log sink and last-diagnostic messages | Headless smoke; included in `test-headless.ps1`. |
+| Debug overlay smoke | `ctest --preset windows-msvc-debug -R zeno_debug_draw_smoke --output-on-failure` | Verifies debug line/rect/text descriptor validation | Headless smoke. |
 | Full CTest smoke | `ctest --preset windows-msvc-debug` | Manual window validation | May open windows. |
-| Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly | Window run. |
+| Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly with debug overlay visible | Window run. |
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
 | SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout | Includes headers, static libs, ABI import lib/DLL, and CMake config files. |

@@ -151,6 +151,13 @@ struct SpriteDrawDesc final {
     Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
+struct DebugTextDesc final {
+    std::string_view text{};
+    Vec3 origin{ -0.95f, 0.88f, 0.0f };
+    float scale = 0.008f;
+    Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 struct MeshVertex final {
     Vec3 position{};
     Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -293,6 +300,8 @@ public:
     Result draw_mesh(const Mesh& mesh, const Material& material, const Transform& transform);
     Result draw_debug_line(const Vec3& start, const Vec3& end, const Color& color);
     Result draw_debug_rect_2d(const Aabb2& bounds, float z, const Color& color);
+    Result draw_debug_text(const DebugTextDesc& desc);
+    Result draw_debug_text(std::string_view text, const Vec3& origin, float scale, const Color& color);
     Result present();
     void reset();
 

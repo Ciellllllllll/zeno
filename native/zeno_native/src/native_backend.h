@@ -86,6 +86,14 @@ struct DebugRectDesc final {
     float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
+struct DebugTextDesc final {
+    const char* text = nullptr;
+    std::uint64_t text_length = 0;
+    float origin[3]{};
+    float scale = 1.0f;
+    float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 struct ShaderCompileLog final {
     char message[1024]{};
     std::uint32_t message_length = 0;
@@ -169,6 +177,7 @@ public:
     RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix);
     RenderCommandResult draw_debug_line(const DebugLineDesc& desc);
     RenderCommandResult draw_debug_rect(const DebugRectDesc& desc);
+    RenderCommandResult draw_debug_text(const DebugTextDesc& desc);
     AudioCommandResult create_audio_engine(std::uint64_t& out_handle);
     bool destroy_audio_engine(std::uint64_t handle);
     AudioCommandResult create_sound_from_wav_memory(

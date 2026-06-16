@@ -14,6 +14,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <cstddef>
@@ -159,6 +160,54 @@ struct DebugLineVertex final {
     float position[3];
     float color[4];
 };
+
+std::array<std::uint8_t, 7> debug_glyph_rows(char input)
+{
+    const char c = input >= 'a' && input <= 'z' ? static_cast<char>(input - 'a' + 'A') : input;
+    switch (c) {
+    case '0': return { 0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e };
+    case '1': return { 0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e };
+    case '2': return { 0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f };
+    case '3': return { 0x1f, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0e };
+    case '4': return { 0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02 };
+    case '5': return { 0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e };
+    case '6': return { 0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e };
+    case '7': return { 0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08 };
+    case '8': return { 0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e };
+    case '9': return { 0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c };
+    case 'A': return { 0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11 };
+    case 'B': return { 0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e };
+    case 'C': return { 0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e };
+    case 'D': return { 0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e };
+    case 'E': return { 0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f };
+    case 'F': return { 0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10 };
+    case 'G': return { 0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f };
+    case 'H': return { 0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11 };
+    case 'I': return { 0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e };
+    case 'J': return { 0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c };
+    case 'K': return { 0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11 };
+    case 'L': return { 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f };
+    case 'M': return { 0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11 };
+    case 'N': return { 0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11 };
+    case 'O': return { 0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e };
+    case 'P': return { 0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10 };
+    case 'Q': return { 0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d };
+    case 'R': return { 0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11 };
+    case 'S': return { 0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e };
+    case 'T': return { 0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04 };
+    case 'U': return { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e };
+    case 'V': return { 0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04 };
+    case 'W': return { 0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11 };
+    case 'X': return { 0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11 };
+    case 'Y': return { 0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04 };
+    case 'Z': return { 0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f };
+    case '-': return { 0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00 };
+    case ':': return { 0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00 };
+    case '.': return { 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c };
+    case '/': return { 0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10 };
+    default: return { 0, 0, 0, 0, 0, 0, 0 };
+    }
+}
 
 struct TriangleResource final {
     Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
@@ -2052,6 +2101,71 @@ public:
         return draw_debug_vertices(vertices, 8);
     }
 
+    RenderCommandResult draw_debug_text(const DebugTextDesc& desc)
+    {
+        const float values[] = {
+            desc.origin[0],
+            desc.origin[1],
+            desc.origin[2],
+            desc.scale,
+            desc.color[0],
+            desc.color[1],
+            desc.color[2],
+            desc.color[3],
+        };
+        if (desc.text == nullptr || desc.text_length == 0 || !all_finite(values, std::size(values)) || desc.scale <= 0.0f) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        std::vector<DebugLineVertex> vertices;
+        vertices.reserve(static_cast<std::size_t>(desc.text_length) * 5u * 7u * 8u);
+
+        const auto add_line = [&vertices, &desc](float x0, float y0, float x1, float y1) {
+            vertices.push_back({ { x0, y0, desc.origin[2] }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } });
+            vertices.push_back({ { x1, y1, desc.origin[2] }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } });
+        };
+
+        const auto add_cell = [&add_line, &desc](float x, float y) {
+            const float x1 = x + desc.scale;
+            const float y1 = y - desc.scale;
+            add_line(x, y, x1, y);
+            add_line(x1, y, x1, y1);
+            add_line(x1, y1, x, y1);
+            add_line(x, y1, x, y);
+        };
+
+        float cursor_x = desc.origin[0];
+        float cursor_y = desc.origin[1];
+        for (std::uint64_t index = 0; index < desc.text_length; ++index) {
+            const char c = desc.text[index];
+            if (c == '\n') {
+                cursor_x = desc.origin[0];
+                cursor_y -= desc.scale * 9.0f;
+                continue;
+            }
+
+            const std::array<std::uint8_t, 7> rows = debug_glyph_rows(c);
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                for (std::size_t column = 0; column < 5; ++column) {
+                    const std::uint8_t mask = static_cast<std::uint8_t>(1u << (4u - column));
+                    if ((rows[row] & mask) != 0) {
+                        add_cell(
+                            cursor_x + static_cast<float>(column) * desc.scale,
+                            cursor_y - static_cast<float>(row) * desc.scale);
+                    }
+                }
+            }
+
+            cursor_x += desc.scale * 6.0f;
+        }
+
+        if (vertices.empty()) {
+            return RenderCommandResult::ok;
+        }
+
+        return draw_debug_vertices(vertices.data(), static_cast<std::uint32_t>(vertices.size()), identity_matrix());
+    }
+
     RenderCommandResult draw_triangle(std::uint64_t handle)
     {
         return draw_triangle_transformed(handle, identity_matrix());
@@ -2322,6 +2436,14 @@ private:
 
     RenderCommandResult draw_debug_vertices(const DebugLineVertex* vertices, std::uint32_t vertex_count)
     {
+        return draw_debug_vertices(vertices, vertex_count, view_projection_matrix_);
+    }
+
+    RenderCommandResult draw_debug_vertices(
+        const DebugLineVertex* vertices,
+        std::uint32_t vertex_count,
+        const Matrix4x4& view_projection_matrix)
+    {
         if (vertices == nullptr || vertex_count == 0) {
             return RenderCommandResult::wrong_state;
         }
@@ -2350,7 +2472,7 @@ private:
         const Matrix4x4 identity = identity_matrix();
         for (int i = 0; i < 16; ++i) {
             constants.world[i] = identity.elements[i];
-            constants.view_projection[i] = view_projection_matrix_.elements[i];
+            constants.view_projection[i] = view_projection_matrix.elements[i];
         }
         context_->UpdateSubresource(debug_line_constant_buffer_.Get(), 0, nullptr, &constants, 0, 0);
 
@@ -2840,6 +2962,15 @@ RenderCommandResult NativeBackend::draw_debug_rect(const DebugRectDesc& desc)
     }
 
     return renderer_->draw_debug_rect(desc);
+}
+
+RenderCommandResult NativeBackend::draw_debug_text(const DebugTextDesc& desc)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_debug_text(desc);
 }
 
 AudioCommandResult NativeBackend::create_audio_engine(std::uint64_t& out_handle)
