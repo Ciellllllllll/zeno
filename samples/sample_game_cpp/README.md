@@ -16,6 +16,12 @@ cmake --build --preset windows-msvc-debug
 
 The sample target is part of the repository-level CMake preset graph. Visual Studio 2022 Open Folder, VS Code CMake Tools, and CLI builds all use the same `zeno_sample_game_cpp` target.
 
+## Assets
+
+Source assets live in `samples/sample_game_cpp/assets/`. The CMake sample target copies that directory to `$<TARGET_FILE_DIR:zeno_sample_game_cpp>/assets` after build and installs it to `bin/assets`. The sample resolves assets from the executable directory, not from the current working directory.
+
+The current sample reads `sample_manifest.txt` during `on_init` to prove the copied runtime layout is available before rendering.
+
 ## Run
 
 ```powershell

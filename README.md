@@ -12,6 +12,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Handle-based native backend resources for clear colors and a minimal DirectX 11 triangle draw path.
 - Keyboard and mouse input snapshot support for a small engine-owned key/button set.
 - Minimal C++ SDK math foundations: vectors, row-major matrices, transforms, and orthographic/perspective cameras.
+- Executable-relative sample asset root support with copied `assets/` content.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
 - Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, draws a visible triangle, and shuts down cleanly.
@@ -78,6 +79,8 @@ Run the sample:
 
 The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds and a visible rotating colored triangle. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, and Escape requests shutdown. Console output shows native backend initialization/shutdown and sample module init/shutdown.
 
+Sample assets live under `samples/sample_game_cpp/assets/` in source and are copied beside the sample executable as `assets/` during the CMake build. The sample resolves assets from the executable directory, not the process working directory, so CLI, Visual Studio 2022, and VS Code launches use the same runtime layout.
+
 Visual Studio 2022 should open this repository as a folder and consume `CMakePresets.json`. VS Code should use rust-analyzer for the Cargo workspace and CMake Tools for the same presets. Both IDEs are auxiliary entry points over the same targets used by the CLI.
 
 Clean generated local outputs:
@@ -99,6 +102,7 @@ zeno/
     cpp/                C++ Game SDK wrappers over the ABI/backend APIs
   samples/
     sample_game_cpp/    Sample C++ game using the SDK/module path
+      assets/           Source sample assets copied to the runtime output
   scripts/              Local Windows build/run helpers
   tools/                Reserved for future local tools
   CMakePresets.json     Canonical C++ configure/build/test presets

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <string>
+#include <string_view>
 
 #include <zeno/zeno_abi.h>
 #include <zeno/math.hpp>
@@ -31,6 +34,40 @@ public:
 
 private:
     ZenResultCode code_ = ZEN_RESULT_OK;
+};
+
+class AssetPath final {
+public:
+    AssetPath() = default;
+
+    const std::filesystem::path& path() const { return path_; }
+    bool valid() const { return !path_.empty(); }
+
+private:
+    friend class AssetRoot;
+
+    explicit AssetPath(std::filesystem::path path);
+
+    std::filesystem::path path_{};
+};
+
+class AssetRoot final {
+public:
+    AssetRoot() = default;
+
+    static Result from_executable(AssetRoot& out_root);
+    static Result from_path(const std::filesystem::path& root, AssetRoot& out_root);
+
+    Result resolve(std::string_view relative_path_utf8, AssetPath& out_path) const;
+    Result read_text(std::string_view relative_path_utf8, std::string& out_text) const;
+
+    const std::filesystem::path& path() const { return root_; }
+    bool valid() const { return !root_.empty(); }
+
+private:
+    explicit AssetRoot(std::filesystem::path root);
+
+    std::filesystem::path root_{};
 };
 
 struct EngineConfig final {

@@ -26,12 +26,20 @@ int main()
     }
 
     zeno::GameModule module = create_sample_game_module();
+    zeno::AssetRoot asset_root;
+    result = zeno::AssetRoot::from_executable(asset_root);
+    if (!result.ok()) {
+        std::cerr << "asset root resolve failed: " << result.message() << "\n";
+        return 4;
+    }
+
     zeno::GameContext context{};
     context.backend = &backend;
+    context.assets = &asset_root;
 
     result = zeno::initialize_game_module(module, context);
     if (!result.ok()) {
-        return 4;
+        return 5;
     }
 
     int exit_code = 0;
@@ -44,7 +52,7 @@ int main()
         bool window_should_close = false;
         result = backend.poll_events(window_should_close);
         if (!result.ok()) {
-            exit_code = 5;
+            exit_code = 6;
             break;
         }
         context.should_close = window_should_close;
@@ -54,13 +62,13 @@ int main()
 
         result = backend.input_snapshot(context.input);
         if (!result.ok()) {
-            exit_code = 6;
+            exit_code = 7;
             break;
         }
 
         result = zeno::run_game_module_frame(module, context);
         if (!result.ok()) {
-            exit_code = 7;
+            exit_code = 8;
             break;
         }
 
@@ -70,7 +78,7 @@ int main()
 
     result = zeno::shutdown_game_module(module, context);
     if (!result.ok()) {
-        return 8;
+        return 9;
     }
 
     return exit_code;

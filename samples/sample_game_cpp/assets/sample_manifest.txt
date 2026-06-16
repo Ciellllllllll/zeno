@@ -1,0 +1,3 @@
+ZENO sample asset manifest
+phase=20
+purpose=verify executable-relative asset loading

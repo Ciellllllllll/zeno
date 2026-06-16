@@ -21,6 +21,7 @@ endif()
 
 add_library(zeno_sdk_cpp STATIC
     src/zeno.cpp
+    src/asset.cpp
     src/math.cpp
 )
 target_compile_features(zeno_sdk_cpp PUBLIC cxx_std_20)
@@ -41,6 +42,11 @@ target_compile_features(zeno_sdk_math_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_math_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_math_smoke COMMAND zeno_sdk_math_smoke)
 
+add_executable(zeno_sdk_asset_smoke src/asset_smoke.cpp)
+target_compile_features(zeno_sdk_asset_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_sdk_asset_smoke PRIVATE zeno_sdk_cpp)
+add_test(NAME zeno_sdk_asset_smoke COMMAND zeno_sdk_asset_smoke)
+
 add_custom_command(TARGET zeno_sdk_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:zeno_abi_rust>"
@@ -51,4 +57,10 @@ add_custom_command(TARGET zeno_sdk_math_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:zeno_abi_rust>"
         "$<TARGET_FILE_DIR:zeno_sdk_math_smoke>"
+)
+
+add_custom_command(TARGET zeno_sdk_asset_smoke POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:zeno_abi_rust>"
+        "$<TARGET_FILE_DIR:zeno_sdk_asset_smoke>"
 )

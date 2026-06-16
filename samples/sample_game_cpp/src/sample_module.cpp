@@ -1,6 +1,7 @@
 #include "sample_module.h"
 
 #include <iostream>
+#include <string>
 
 namespace {
 
@@ -19,14 +20,24 @@ zeno::Result on_init(zeno::GameContext& context)
     if (context.backend == nullptr) {
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
+    if (context.assets == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
 
     g_elapsed_seconds = 0.0;
     g_keyboard_tint = 0.0f;
     g_triangle_transform = zeno::Transform{};
     g_triangle_transform.scale = zeno::Vec3{ 0.75f, 0.75f, 1.0f };
     g_camera = zeno::Camera::orthographic(2.0f, 2.0f, 0.0f, 1.0f);
+    std::string manifest;
+    zeno::Result result = context.assets->read_text("sample_manifest.txt", manifest);
+    if (!result.ok()) {
+        return result;
+    }
+
     std::cerr << "[ZENO][sample] game init\n";
-    zeno::Result result = context.backend->set_camera_matrix(g_camera.view_projection());
+    std::cerr << "[ZENO][sample] asset manifest bytes: " << manifest.size() << "\n";
+    result = context.backend->set_camera_matrix(g_camera.view_projection());
     if (!result.ok()) {
         return result;
     }
