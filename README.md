@@ -23,6 +23,8 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Runnable sample game whose C++ host loads project/scene data, drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, uses simple AABB collision, score/goal/restart gameplay, short WAV effects, and renders a scene-managed triangle goal, material-driven texture-backed player sprite, material-driven obstacle mesh, and debug collision rectangles before shutting down cleanly.
 - Minimal C++ template game under `templates/game-cpp/` that builds through the same SDK, `GameApp`, and CMake preset graph as the sample.
 - Runtime packaging script that installs the sample, template game, copied assets, startup config, and `zeno_abi.dll` into a local package layout.
+- SDK packaging script that creates an external-consumption layout with `include/`, `lib/`, `bin/`, and `cmake/` directories plus imported CMake target `ZENO::zeno_sdk_cpp`.
+- External C++ game example under `examples/external-game/` that consumes only the packaged SDK through `find_package(ZENO CONFIG REQUIRED)`.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for format checks, headless tests, local window-capable tests, package verification, run, and cleanup.
 - Windows GitHub Actions baseline for format, ABI scan, headless tests, and package creation.
@@ -122,6 +124,15 @@ Package the sample and template runtime layout:
 
 The package is written under `build/package/windows-msvc-debug/bin/`. The sample runtime is installed at `bin/`, and the template runtime is installed at `bin/template-game/` with its own executable, copied `zeno_abi.dll`, and `assets/project.zproj`.
 
+Package the SDK and verify external consumption:
+
+```powershell
+.\scripts\package-sdk.ps1
+.\scripts\verify-external-game.ps1
+```
+
+The SDK package is written under `build/package-sdk/windows-msvc-debug/` with public headers, `zeno_sdk_cpp.lib`, `zeno_native.lib`, `zeno_abi.dll.lib`, `zeno_abi.dll`, `cmake/ZENOConfig.cmake`, and `cmake/ZENOConfigVersion.cmake`. The package config exposes `ZENO::zeno_sdk_cpp` and `ZENO_VERSION` as `0.1.0`.
+
 Minimal static-linked game host:
 
 ```cpp
@@ -165,6 +176,8 @@ zeno/
       assets/           Source sample assets copied to the runtime output
   templates/
     game-cpp/           Minimal C++ game template using GameApp and SDK targets
+  examples/
+    external-game/      CMake project consuming a packaged ZENO SDK
   scripts/              Local Windows build/run helpers
   tools/                Reserved for future local tools
   CMakePresets.json     Canonical C++ configure/build/test presets

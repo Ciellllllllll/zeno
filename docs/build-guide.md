@@ -74,6 +74,33 @@ The package is written under `build/package/windows-msvc-debug/bin/` by default:
 - `bin/template-game/zeno_abi.dll`
 - `bin/template-game/assets/`
 
+Runtime packaging is for running the in-repository sample/template executables.
+
+```powershell
+.\scripts\package-sdk.ps1
+.\scripts\verify-external-game.ps1
+```
+
+SDK packaging is for external CMake projects. It creates `build/package-sdk/windows-msvc-debug/` with:
+
+- `include/zeno/`
+- `lib/zeno_sdk_cpp.lib`
+- `lib/zeno_native.lib`
+- `lib/zeno_abi.dll.lib`
+- `bin/zeno_abi.dll`
+- `cmake/ZENOConfig.cmake`
+- `cmake/ZENOConfigVersion.cmake`
+
+`ZENOConfig.cmake` exposes imported CMake targets `ZENO::zeno_sdk_cpp`, `ZENO::zeno_native`, and `ZENO::zeno_abi_rust`. It also defines `ZENO_VERSION` as `0.1.0`.
+
+External projects can consume it with:
+
+```powershell
+$zenoDir = (Resolve-Path .\build\package-sdk\windows-msvc-debug\cmake).Path
+cmake -S examples\external-game -B build\external-game -DZENO_DIR="$zenoDir"
+cmake --build build\external-game
+```
+
 ## Regression Matrix
 
 | Purpose | Command | Expected Result | Notes |
@@ -89,6 +116,8 @@ The package is written under `build/package/windows-msvc-debug/bin/` by default:
 | Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly | Window run. |
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
+| SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout | Includes headers, static libs, ABI import lib/DLL, and CMake config files. |
+| External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZENO::zeno_sdk_cpp`, not in-tree includes. |
 | Package layout | `Test-Path build/package/windows-msvc-debug/bin/zeno_abi.dll` and related sample/template asset paths | Passes | Also check the package does not contain `AGENTS.md`, `docs`, or `goal`. |
 | CI-style baseline | `.\scripts\verify-all.ps1` | Passes | Runs format, ABI, headless test, and package scripts. |
 | Local full validation | `.\scripts\test-all-local.ps1` | Passes | Includes window-capable checks; run manually. |

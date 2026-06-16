@@ -9,6 +9,7 @@
 - A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and static-linked module lifecycle into one host API.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
+- A packaged SDK layout and external CMake example that prove SDK consumption outside the repository sample/template graph.
 - A minimal handle-owned DirectX 11 triangle draw path.
 - Backend-owned DirectX 11 vertex/pixel shader handles with bounded compile diagnostics.
 - Backend-owned texture handles and a small sprite draw path using WIC-loaded image bytes.
@@ -33,6 +34,7 @@
 - `GameApp` is SDK-owned orchestration over existing Rust/runtime and native/backend handles, not a new cross-language ABI.
 - Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
 - Runtime packaging is intentionally a local script over the canonical build/install graph, not a custom installer or separate project generator.
+- SDK packaging exposes imported CMake targets for external projects while keeping private specs, generated build trees, and Codex files out of the package.
 - SDK matrices are row-major, row-vector, left-handed, and DirectX clip-space oriented so the first renderer and sample can stay easy to inspect.
 
 ## Tradeoffs
