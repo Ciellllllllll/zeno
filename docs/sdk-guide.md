@@ -21,6 +21,7 @@
 - A small math, transform, and camera foundation with documented DirectX-first conventions.
 - Practical Windows build workflow using Cargo, CMakePresets, and Visual Studio 2022/MSVC.
 - A documented v0 regression baseline covering clean build, smoke tests, sample/template runs, packaging, and ABI forbidden-type checks.
+- A conservative Windows CI baseline for format, ABI scan, headless smoke tests, and package creation.
 
 ## Design Decisions
 
@@ -40,7 +41,7 @@
 - Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. `GameApp` removes boilerplate from game hosts while still exposing the low-level wrappers for focused tests and future engine work.
-- Build and package scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation or an installer.
+- Build, verification, and package scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical while CI remains conservative and headless by default.
 
 ## Difficult Parts
 
@@ -60,7 +61,7 @@
 - No application plugin loading or hot reload; `GameApp` currently runs static-linked modules only.
 - No project generator or installer; the template game and packaging script are deliberately minimal.
 - No editor.
-- No CI yet.
+- CI covers the headless baseline only; visual sample/template execution remains local/manual.
 - No multi-platform support.
 - No checked-in screenshots or GIFs yet; capture approved media from the sample window when needed.
 - No generated Visual Studio solution or project files are source-of-truth artifacts; IDEs consume the preset-based build graph.
@@ -70,7 +71,7 @@
 Near-term:
 
 - Introduce dynamic C ABI game-module entry points.
-- Add conservative Windows CI.
+- Harden Rust C ABI panic containment.
 
 Later:
 
@@ -86,4 +87,4 @@ Later:
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
 - The sample is deliberately modest but playable: the C++ host delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, keyboard movement, goal score/restart flow, SDK-side AABB checks with debug visualization, short WAV effect playback, static-linked game-module lifecycle, and clean shutdown.
 - The current v0 baseline is intentionally modest but reproducible: clone, build, run the sample/template, package the runtime layout, and explain the boundaries.
-- The next most valuable technical step is dynamic module loading and CI, not adding an editor or multi-platform abstraction.
+- The next most valuable technical step is Rust ABI panic containment and dynamic module loading, not adding an editor or multi-platform abstraction.

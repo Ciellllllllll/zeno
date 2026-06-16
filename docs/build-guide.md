@@ -21,6 +21,23 @@ The source-of-truth build files are `Cargo.toml`, `CMakeLists.txt`, and `CMakePr
 
 `build-all.ps1` builds the Rust ABI crate, runs Rust workspace tests, configures/builds the CMake preset, and runs the non-window smoke executables used by the current local workflow.
 
+## Verification Scripts
+
+```powershell
+.\scripts\verify-format.ps1
+.\scripts\verify-abi.ps1
+.\scripts\test-headless.ps1
+.\scripts\verify-all.ps1
+```
+
+`verify-all.ps1` is the CI-style local baseline: Rust format, whitespace checks, ABI forbidden-type scan, Cargo tests, CMake configure/build, headless CTest, and package creation.
+
+```powershell
+.\scripts\test-all-local.ps1
+```
+
+`test-all-local.ps1` adds window-capable CTest smoke and launches the sample/template executables. It is intentionally local/manual, not part of the default CI workflow.
+
 ## Manual Commands
 
 ```powershell
@@ -31,7 +48,7 @@ cmake --build --preset windows-msvc-debug
 ctest --preset windows-msvc-debug
 ```
 
-`ctest --preset windows-msvc-debug` includes smoke executables that may open a window. Run it from an environment where window creation is acceptable.
+`ctest --preset windows-msvc-debug` includes smoke executables that may open a window. Run it from an environment where window creation is acceptable. CI uses `ctest --preset windows-msvc-debug -E "window|sample|manual"`.
 
 ## Run
 
@@ -62,16 +79,17 @@ The package is written under `build/package/windows-msvc-debug/bin/` by default:
 | Purpose | Command | Expected Result | Notes |
 | --- | --- | --- | --- |
 | Clean generated outputs | `.\scripts\clean-build.ps1` | Removes `build/` and `target/` | Destructive only for generated local output. |
-| Rust format | `cargo fmt --check` | Passes | No source rewriting. |
+| Rust/whitespace format | `.\scripts\verify-format.ps1` | Passes | Runs `cargo fmt --check` and `git diff --check`. |
+| ABI surface | `.\scripts\verify-abi.ps1` | Passes | Scans C ABI headers for forbidden C++/Win32/DirectX/XAudio surface text. |
 | Rust tests | `cargo test --workspace` | Passes | Covered by `build-all.ps1`. |
 | Configure/build/smoke subset | `.\scripts\build-all.ps1` | Passes | Uses Cargo plus `windows-msvc-debug`; runs non-window smoke executables. |
 | CTest listing | `ctest --preset windows-msvc-debug -N` | Lists current smoke tests | Does not execute tests. |
-| CTest excluding window-capable smoke | `ctest --preset windows-msvc-debug -E "zeno_native_backend_smoke|zeno_sdk_smoke"` | Passes | Useful before window interaction is approved. |
+| Headless CTest | `ctest --preset windows-msvc-debug -E "window|sample|manual"` | Passes | Excludes window-capable and manual run tests by name; tests are also labeled for local selection. |
 | Full CTest smoke | `ctest --preset windows-msvc-debug` | Passes | May open windows. |
 | Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly | Window run. |
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
 | Package layout | `Test-Path build/package/windows-msvc-debug/bin/zeno_abi.dll` and related sample/template asset paths | Passes | Also check the package does not contain `AGENTS.md`, `docs`, or `goal`. |
-| ABI forbidden type scan | `rg -n "std::string|std::vector|std::filesystem|template|class |HRESULT|ComPtr|IXAudio|XAUDIO|WAVEFORMAT|HWND|ID3D|IWIC|DXGI|D3D11|std::" native/zeno_native/include/zeno/zeno_native_backend.h native/zeno_native/include/zeno/zeno_abi.h -S` | No matches | `rg` exits 1 when there are no matches. |
-| Whitespace | `git diff --check` | Passes | Run before commit. |
-| Final status | `git status --short --ignored` | Review tracked and ignored output | `AGENTS.md`, `docs/`, `goal/`, `build/`, and `target/` are intentionally ignored locally. |
+| CI-style baseline | `.\scripts\verify-all.ps1` | Passes | Runs format, ABI, headless test, and package scripts. |
+| Local full validation | `.\scripts\test-all-local.ps1` | Passes | Includes window-capable checks; run manually. |
+| Final status | `git status --short --ignored` | Review tracked and ignored output | `AGENTS.md`, `goal/`, `build/`, `target/`, and private `docs/*` inputs remain ignored locally. |

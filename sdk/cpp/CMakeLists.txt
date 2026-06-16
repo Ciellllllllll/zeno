@@ -37,42 +37,50 @@ target_link_libraries(zeno_sdk_cpp PUBLIC zeno_native)
 add_executable(zeno_sdk_smoke src/sdk_smoke.cpp)
 target_compile_features(zeno_sdk_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_smoke PRIVATE zeno_sdk_cpp)
-add_test(NAME zeno_sdk_smoke COMMAND zeno_sdk_smoke)
+add_test(NAME zeno_window_sdk_smoke COMMAND zeno_sdk_smoke)
+set_tests_properties(zeno_window_sdk_smoke PROPERTIES LABELS "window")
 
 add_executable(zeno_sdk_math_smoke src/math_smoke.cpp)
 target_compile_features(zeno_sdk_math_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_math_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_math_smoke COMMAND zeno_sdk_math_smoke)
+set_tests_properties(zeno_sdk_math_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_sdk_collision_smoke src/collision_smoke.cpp)
 target_compile_features(zeno_sdk_collision_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_collision_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_collision_smoke COMMAND zeno_sdk_collision_smoke)
+set_tests_properties(zeno_sdk_collision_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_sdk_asset_smoke src/asset_smoke.cpp)
 target_compile_features(zeno_sdk_asset_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_asset_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_asset_smoke COMMAND zeno_sdk_asset_smoke)
+set_tests_properties(zeno_sdk_asset_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_sdk_audio_smoke src/audio_smoke.cpp)
 target_compile_features(zeno_sdk_audio_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_audio_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_audio_smoke COMMAND zeno_sdk_audio_smoke)
+set_tests_properties(zeno_sdk_audio_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_sdk_app_smoke src/app_smoke.cpp)
 target_compile_features(zeno_sdk_app_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_app_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_app_smoke COMMAND zeno_sdk_app_smoke)
+set_tests_properties(zeno_sdk_app_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_sdk_scene_smoke src/scene_smoke.cpp)
 target_compile_features(zeno_sdk_scene_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_scene_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_scene_smoke COMMAND zeno_sdk_scene_smoke)
+set_tests_properties(zeno_sdk_scene_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_sdk_serialization_smoke src/serialization_smoke.cpp)
 target_compile_features(zeno_sdk_serialization_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_serialization_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_serialization_smoke COMMAND zeno_sdk_serialization_smoke)
+set_tests_properties(zeno_sdk_serialization_smoke PROPERTIES LABELS "headless")
 
 add_custom_command(TARGET zeno_sdk_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

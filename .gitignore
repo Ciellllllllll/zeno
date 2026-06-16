@@ -4,7 +4,6 @@ target/
 # Local Codex/spec materials
 .codex/
 .codex/
-docs/
 
 # Visual Studio / MSVC
 .vs/

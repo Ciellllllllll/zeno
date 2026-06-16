@@ -10,12 +10,13 @@ ZENO is at a v0 usable milestone: it can build, run, and package a small Windows
 - The sample game demonstrates input, scene startup data, texture/sprite rendering, mesh rendering, materials, audio effects, AABB checks, debug draw, and clean shutdown.
 - The template game demonstrates how a second static-linked game executable uses `zeno::GameApp`.
 - The package script creates a local runtime layout for sample and template executables, assets, config, and `zeno_abi.dll`.
+- Windows CI runs the current headless baseline: format, ABI scan, Cargo tests, CMake build, headless CTest, and package creation.
 
 ## Near-Term
 
-- Add conservative Windows CI for format, build, smoke, and package checks.
 - Add a small public media capture after the sample window has approved screenshots or GIFs.
 - Add dynamic game-module loading through C ABI entry points.
+- Harden Rust C ABI panic containment.
 
 ## Later
 

@@ -31,6 +31,7 @@ target_include_directories(zeno_abi_smoke PRIVATE
 )
 target_link_libraries(zeno_abi_smoke PRIVATE zeno_abi_rust)
 add_test(NAME zeno_abi_smoke COMMAND zeno_abi_smoke)
+set_tests_properties(zeno_abi_smoke PROPERTIES LABELS "headless")
 
 add_custom_command(TARGET zeno_abi_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -41,39 +42,47 @@ add_custom_command(TARGET zeno_abi_smoke POST_BUILD
 add_executable(zeno_native_backend_smoke src/native_backend_smoke.cpp)
 target_compile_features(zeno_native_backend_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_native_backend_smoke PRIVATE zeno_native)
-add_test(NAME zeno_native_backend_smoke COMMAND zeno_native_backend_smoke)
+add_test(NAME zeno_window_native_backend_smoke COMMAND zeno_native_backend_smoke)
+set_tests_properties(zeno_window_native_backend_smoke PROPERTIES LABELS "window")
 
 add_executable(zeno_input_smoke src/input_smoke.cpp)
 target_compile_features(zeno_input_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_input_smoke PRIVATE zeno_native)
 add_test(NAME zeno_input_smoke COMMAND zeno_input_smoke)
+set_tests_properties(zeno_input_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_shader_smoke src/shader_smoke.cpp)
 target_compile_features(zeno_shader_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_shader_smoke PRIVATE zeno_native)
 add_test(NAME zeno_shader_smoke COMMAND zeno_shader_smoke)
+set_tests_properties(zeno_shader_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_texture_smoke src/texture_smoke.cpp)
 target_compile_features(zeno_texture_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_texture_smoke PRIVATE zeno_native)
 add_test(NAME zeno_texture_smoke COMMAND zeno_texture_smoke)
+set_tests_properties(zeno_texture_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_mesh_smoke src/mesh_smoke.cpp)
 target_compile_features(zeno_mesh_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_mesh_smoke PRIVATE zeno_native)
 add_test(NAME zeno_mesh_smoke COMMAND zeno_mesh_smoke)
+set_tests_properties(zeno_mesh_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_material_smoke src/material_smoke.cpp)
 target_compile_features(zeno_material_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_material_smoke PRIVATE zeno_native)
 add_test(NAME zeno_material_smoke COMMAND zeno_material_smoke)
+set_tests_properties(zeno_material_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_audio_smoke src/audio_smoke.cpp)
 target_compile_features(zeno_audio_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_audio_smoke PRIVATE zeno_native)
 add_test(NAME zeno_audio_smoke COMMAND zeno_audio_smoke)
+set_tests_properties(zeno_audio_smoke PROPERTIES LABELS "headless")
 
 add_executable(zeno_debug_draw_smoke src/debug_draw_smoke.cpp)
 target_compile_features(zeno_debug_draw_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_debug_draw_smoke PRIVATE zeno_native)
 add_test(NAME zeno_debug_draw_smoke COMMAND zeno_debug_draw_smoke)
+set_tests_properties(zeno_debug_draw_smoke PROPERTIES LABELS "headless")

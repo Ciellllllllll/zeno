@@ -1,0 +1,41 @@
+name: Windows CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  verify:
+    name: Windows MSVC Debug
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Verify format
+        shell: pwsh
+        run: .\scripts\verify-format.ps1
+
+      - name: Verify ABI surface
+        shell: pwsh
+        run: .\scripts\verify-abi.ps1
+
+      - name: Run headless tests
+        shell: pwsh
+        run: .\scripts\test-headless.ps1
+
+      - name: Package runtime
+        shell: pwsh
+        run: .\scripts\package-runtime.ps1

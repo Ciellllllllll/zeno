@@ -24,7 +24,8 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Minimal C++ template game under `templates/game-cpp/` that builds through the same SDK, `GameApp`, and CMake preset graph as the sample.
 - Runtime packaging script that installs the sample, template game, copied assets, startup config, and `zeno_abi.dll` into a local package layout.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
-- Windows helper scripts for local build, run, and cleanup.
+- Windows helper scripts for format checks, headless tests, local window-capable tests, package verification, run, and cleanup.
+- Windows GitHub Actions baseline for format, ABI scan, headless tests, and package creation.
 - Public build, roadmap, and regression baseline notes for the v0 usable milestone.
 
 ## Why This Shape
@@ -62,6 +63,20 @@ Recommended full local build:
 ```powershell
 .\scripts\build-all.ps1
 ```
+
+Recommended CI-style local verification:
+
+```powershell
+.\scripts\verify-all.ps1
+```
+
+Window-capable local validation:
+
+```powershell
+.\scripts\test-all-local.ps1
+```
+
+`test-all-local.ps1` runs window-capable smoke tests and launches the sample/template executables. Use it only when opening local windows is acceptable.
 
 Manual Rust build:
 
@@ -162,7 +177,7 @@ zeno/
 - [samples/sample_game_cpp/README.md](samples/sample_game_cpp/README.md) gives sample-specific build and run notes.
 - [templates/game-cpp/README.md](templates/game-cpp/README.md) explains the minimal template game and package layout.
 
-The local `docs/` directory contains phase specs and phase reports in this working copy, but it is intentionally ignored and not part of the public repository.
+Public phase reports live in `docs/phase-reports/`. Codex/private planning inputs live under `goal/` or other ignored local files and are not part of the public repository.
 
 ## Screenshots Or GIFs
 
@@ -187,7 +202,7 @@ Near-term realistic next steps:
 
 - Add a small asset pipeline convention for sample resources.
 - Introduce dynamic game module loading through C ABI entry points.
-- Add conservative Windows CI once the local workflow remains stable.
+- Expand the Windows CI baseline after the local workflow remains stable.
 
 Longer-term ideas:
 
