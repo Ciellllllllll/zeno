@@ -22,6 +22,7 @@ try {
     & (Join-Path $runtimeDir "zeno_shader_smoke.exe")
     & (Join-Path $runtimeDir "zeno_texture_smoke.exe")
     & (Join-Path $runtimeDir "zeno_mesh_smoke.exe")
+    & (Join-Path $runtimeDir "zeno_material_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_asset_smoke.exe")
 }
 finally {

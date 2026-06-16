@@ -111,6 +111,31 @@ ZenMeshDesc make_mesh_desc()
     return desc;
 }
 
+ZenMaterialDesc make_sprite_material_desc(ZenTextureHandle texture)
+{
+    ZenMaterialDesc desc{};
+    desc.size = ZEN_MATERIAL_DESC_SIZE;
+    desc.api_version = ZEN_MATERIAL_DESC_API_VERSION;
+    desc.kind = ZEN_MATERIAL_KIND_SPRITE_TEXTURE;
+    desc.blend_mode = ZEN_BLEND_MODE_ALPHA;
+    desc.depth_mode = ZEN_DEPTH_MODE_DISABLED;
+    desc.cull_mode = ZEN_CULL_MODE_NONE;
+    desc.texture = texture;
+    return desc;
+}
+
+ZenMaterialDesc make_mesh_material_desc()
+{
+    ZenMaterialDesc desc{};
+    desc.size = ZEN_MATERIAL_DESC_SIZE;
+    desc.api_version = ZEN_MATERIAL_DESC_API_VERSION;
+    desc.kind = ZEN_MATERIAL_KIND_MESH_COLOR;
+    desc.blend_mode = ZEN_BLEND_MODE_OPAQUE;
+    desc.depth_mode = ZEN_DEPTH_MODE_ENABLED;
+    desc.cull_mode = ZEN_CULL_MODE_BACK;
+    return desc;
+}
+
 ZenSpriteDrawDesc make_sprite_draw_desc()
 {
     ZenSpriteDrawDesc desc{};
@@ -380,6 +405,38 @@ int main()
         return 132;
     }
 
+    ZenMaterialHandle invalid_dependency_material{ 777 };
+    ZenTextureHandle fake_texture{ 999999 };
+    ZenMaterialDesc fake_sprite_material_desc = make_sprite_material_desc(fake_texture);
+    result = zen_native_backend_create_material(backend, &fake_sprite_material_desc, &invalid_dependency_material);
+    if (result != ZEN_RESULT_NOT_INITIALIZED || invalid_dependency_material.value != 777) {
+        zen_native_backend_destroy_mesh(backend, mesh);
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 142;
+    }
+
+    ZenMaterialDesc sprite_material_desc = make_sprite_material_desc(texture);
+    ZenMaterialHandle sprite_material{};
+    result = zen_native_backend_create_material(backend, &sprite_material_desc, &sprite_material);
+    if (result != ZEN_RESULT_OK || sprite_material.value == 0) {
+        zen_native_backend_destroy_mesh(backend, mesh);
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 143;
+    }
+
+    ZenMaterialDesc mesh_material_desc = make_mesh_material_desc();
+    ZenMaterialHandle mesh_material{};
+    result = zen_native_backend_create_material(backend, &mesh_material_desc, &mesh_material);
+    if (result != ZEN_RESULT_OK || mesh_material.value == 0 || mesh_material.value == sprite_material.value) {
+        zen_native_backend_destroy_material(backend, sprite_material);
+        zen_native_backend_destroy_mesh(backend, mesh);
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 144;
+    }
+
     ZenShaderCompileLog shader_log = make_log();
     ZenVertexShaderHandle vertex_shader{};
     result = zen_native_backend_create_vertex_shader_from_source(
@@ -609,6 +666,22 @@ int main()
         return 135;
     }
 
+    result = zen_native_backend_draw_sprite_with_material(backend, sprite_material, &sprite_desc);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 145;
+    }
+
+    result = zen_native_backend_draw_mesh_with_material(backend, mesh, mesh_material, &identity);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 146;
+    }
+
     result = zen_native_backend_begin_frame(backend);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
@@ -677,6 +750,24 @@ int main()
         return 136;
     }
 
+    result = zen_native_backend_draw_sprite_with_material(backend, sprite_material, &sprite_desc);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 147;
+    }
+
+    result = zen_native_backend_draw_mesh_with_material(backend, mesh, mesh_material, &identity);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 148;
+    }
+
     result = zen_native_backend_present(backend);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
@@ -723,6 +814,14 @@ int main()
         zen_native_backend_destroy_clear_color(backend, clear_color);
         zen_native_backend_destroy(backend);
         return 137;
+    }
+
+    result = zen_native_backend_draw_mesh_with_material(backend, mesh, mesh_material, &identity);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 149;
     }
 
     for (int i = 0; i < 120; ++i) {
@@ -777,6 +876,14 @@ int main()
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
             return 138;
+        }
+
+        result = zen_native_backend_draw_mesh_with_material(backend, mesh, mesh_material, &identity);
+        if (result != ZEN_RESULT_OK) {
+            zen_native_backend_destroy_triangle(backend, triangle);
+            zen_native_backend_destroy_clear_color(backend, clear_color);
+            zen_native_backend_destroy(backend);
+            return 150;
         }
 
         result = zen_native_backend_present(backend);
@@ -838,6 +945,12 @@ int main()
         return 124;
     }
 
+    result = zen_native_backend_draw_sprite_with_material(backend, sprite_material, &sprite_desc);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 151;
+    }
+
     result = zen_native_backend_draw_sprite(backend, texture, &sprite_desc);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
@@ -856,6 +969,12 @@ int main()
         return 139;
     }
 
+    result = zen_native_backend_draw_mesh_with_material(backend, mesh, mesh_material, &identity);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 152;
+    }
+
     result = zen_native_backend_draw_mesh(backend, mesh, &identity);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
@@ -866,6 +985,30 @@ int main()
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
         return 141;
+    }
+
+    result = zen_native_backend_destroy_material(backend, sprite_material);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 153;
+    }
+
+    result = zen_native_backend_destroy_material(backend, sprite_material);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 154;
+    }
+
+    result = zen_native_backend_destroy_material(backend, mesh_material);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 155;
+    }
+
+    result = zen_native_backend_draw_mesh_with_material(backend, mesh, mesh_material, &identity);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 156;
     }
 
     result = zen_native_backend_draw_triangle(backend, triangle);

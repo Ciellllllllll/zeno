@@ -24,6 +24,8 @@ extern "C" {
 #define ZEN_SPRITE_DRAW_DESC_SIZE ((uint32_t)sizeof(ZenSpriteDrawDesc))
 #define ZEN_MESH_DESC_API_VERSION 1u
 #define ZEN_MESH_DESC_SIZE ((uint32_t)sizeof(ZenMeshDesc))
+#define ZEN_MATERIAL_DESC_API_VERSION 1u
+#define ZEN_MATERIAL_DESC_SIZE ((uint32_t)sizeof(ZenMaterialDesc))
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -81,6 +83,31 @@ typedef struct ZenMeshHandle {
     /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
     uint64_t value;
 } ZenMeshHandle;
+
+typedef struct ZenMaterialHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenMaterialHandle;
+
+typedef enum ZenMaterialKind {
+    ZEN_MATERIAL_KIND_SPRITE_TEXTURE = 1,
+    ZEN_MATERIAL_KIND_MESH_COLOR = 2
+} ZenMaterialKind;
+
+typedef enum ZenBlendMode {
+    ZEN_BLEND_MODE_OPAQUE = 1,
+    ZEN_BLEND_MODE_ALPHA = 2
+} ZenBlendMode;
+
+typedef enum ZenDepthMode {
+    ZEN_DEPTH_MODE_DISABLED = 1,
+    ZEN_DEPTH_MODE_ENABLED = 2
+} ZenDepthMode;
+
+typedef enum ZenCullMode {
+    ZEN_CULL_MODE_NONE = 1,
+    ZEN_CULL_MODE_BACK = 2
+} ZenCullMode;
 
 typedef enum ZenVertexInputSemantic {
     ZEN_VERTEX_INPUT_SEMANTIC_POSITION = 1,
@@ -202,6 +229,24 @@ typedef struct ZenMeshDesc {
     const uint32_t* index_data;
     uint64_t index_count;
 } ZenMeshDesc;
+
+typedef struct ZenMaterialDesc {
+    /* Must be set to ZEN_MATERIAL_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_MATERIAL_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    /* One of ZenMaterialKind. */
+    uint32_t kind;
+    /* One of ZenBlendMode. */
+    uint32_t blend_mode;
+    /* One of ZenDepthMode. */
+    uint32_t depth_mode;
+    /* One of ZenCullMode. */
+    uint32_t cull_mode;
+    uint32_t reserved[2];
+    /* Required for ZEN_MATERIAL_KIND_SPRITE_TEXTURE, otherwise must be zero. */
+    ZenTextureHandle texture;
+} ZenMaterialDesc;
 
 /*
  * Creates the native backend shell.
@@ -483,6 +528,36 @@ ZenResultCode zen_native_backend_draw_sprite(
     const ZenSpriteDrawDesc* desc);
 
 /*
+ * Creates a backend-owned material handle from shader/texture/state choices.
+ *
+ * The Phase 24 material kinds use backend-internal shaders:
+ * ZEN_MATERIAL_KIND_SPRITE_TEXTURE uses the fixed sprite shader and requires
+ * a valid texture handle.
+ * ZEN_MATERIAL_KIND_MESH_COLOR uses the fixed position/color mesh shader and
+ * requires texture.value == 0.
+ * Materials do not own their dependent texture resources.
+ */
+ZenResultCode zen_native_backend_create_material(
+    ZenNativeBackendHandle backend,
+    const ZenMaterialDesc* desc,
+    ZenMaterialHandle* out_material);
+
+/*
+ * Destroys a backend-owned material handle.
+ */
+ZenResultCode zen_native_backend_destroy_material(
+    ZenNativeBackendHandle backend,
+    ZenMaterialHandle material);
+
+/*
+ * Draws a sprite using a material-owned texture and render state.
+ */
+ZenResultCode zen_native_backend_draw_sprite_with_material(
+    ZenNativeBackendHandle backend,
+    ZenMaterialHandle material,
+    const ZenSpriteDrawDesc* desc);
+
+/*
  * Creates a backend-owned indexed mesh from caller-owned POD vertex/index data.
  *
  * Mesh vertices for this phase must use position float3 at byte offset 0 and
@@ -513,6 +588,15 @@ ZenResultCode zen_native_backend_destroy_mesh(
 ZenResultCode zen_native_backend_draw_mesh(
     ZenNativeBackendHandle backend,
     ZenMeshHandle mesh,
+    const ZenMatrix4x4* model_matrix);
+
+/*
+ * Draws a mesh using a material-owned render state.
+ */
+ZenResultCode zen_native_backend_draw_mesh_with_material(
+    ZenNativeBackendHandle backend,
+    ZenMeshHandle mesh,
+    ZenMaterialHandle material,
     const ZenMatrix4x4* model_matrix);
 
 /*

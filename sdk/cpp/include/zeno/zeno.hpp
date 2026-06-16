@@ -128,6 +128,33 @@ struct MeshVertex final {
     Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
+enum class MaterialKind : std::uint32_t {
+    sprite_texture = ZEN_MATERIAL_KIND_SPRITE_TEXTURE,
+    mesh_color = ZEN_MATERIAL_KIND_MESH_COLOR,
+};
+
+enum class BlendMode : std::uint32_t {
+    opaque = ZEN_BLEND_MODE_OPAQUE,
+    alpha = ZEN_BLEND_MODE_ALPHA,
+};
+
+enum class DepthMode : std::uint32_t {
+    disabled = ZEN_DEPTH_MODE_DISABLED,
+    enabled = ZEN_DEPTH_MODE_ENABLED,
+};
+
+enum class CullMode : std::uint32_t {
+    none = ZEN_CULL_MODE_NONE,
+    back = ZEN_CULL_MODE_BACK,
+};
+
+struct MaterialDesc final {
+    MaterialKind kind = MaterialKind::mesh_color;
+    BlendMode blend_mode = BlendMode::opaque;
+    DepthMode depth_mode = DepthMode::enabled;
+    CullMode cull_mode = CullMode::back;
+};
+
 enum class Key : std::uint32_t {
     unknown = ZEN_INPUT_KEY_UNKNOWN,
     escape = ZEN_INPUT_KEY_ESCAPE,
@@ -172,6 +199,7 @@ class VertexShader;
 class PixelShader;
 class Texture;
 class Mesh;
+class Material;
 
 class NativeBackend final {
 public:
@@ -214,6 +242,11 @@ public:
         const std::uint32_t* indices,
         std::uint32_t index_count,
         Mesh& out_mesh);
+    Result create_material(const MaterialDesc& desc, Material& out_material);
+    Result create_sprite_material(
+        const Texture& texture,
+        const MaterialDesc& desc,
+        Material& out_material);
     Result create_triangle(RenderTriangle& out_triangle);
     Result create_triangle(const VertexShader& vertex_shader, const PixelShader& pixel_shader, RenderTriangle& out_triangle);
     Result set_camera_matrix(const Mat4& camera_matrix);
@@ -221,8 +254,11 @@ public:
     Result draw_triangle(const RenderTriangle& triangle, const Mat4& model_matrix);
     Result draw_triangle(const RenderTriangle& triangle, const Transform& transform);
     Result draw_sprite(const Texture& texture, const SpriteDrawDesc& desc);
+    Result draw_sprite(const Material& material, const SpriteDrawDesc& desc);
     Result draw_mesh(const Mesh& mesh, const Mat4& model_matrix);
     Result draw_mesh(const Mesh& mesh, const Transform& transform);
+    Result draw_mesh(const Mesh& mesh, const Material& material, const Mat4& model_matrix);
+    Result draw_mesh(const Mesh& mesh, const Material& material, const Transform& transform);
     Result present();
     void reset();
 
@@ -352,6 +388,30 @@ private:
 
     ZenNativeBackendHandle backend_{};
     ZenMeshHandle handle_{};
+};
+
+class Material final {
+public:
+    Material() = default;
+    ~Material();
+
+    Material(const Material&) = delete;
+    Material& operator=(const Material&) = delete;
+
+    Material(Material&& other) noexcept;
+    Material& operator=(Material&& other) noexcept;
+
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+
+    Material(ZenNativeBackendHandle backend, ZenMaterialHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenMaterialHandle handle_{};
 };
 
 } // namespace zeno

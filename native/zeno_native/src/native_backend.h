@@ -56,6 +56,14 @@ struct MeshDesc final {
     std::uint64_t index_count = 0;
 };
 
+struct MaterialDesc final {
+    std::uint32_t kind = 0;
+    std::uint32_t blend_mode = 0;
+    std::uint32_t depth_mode = 0;
+    std::uint32_t cull_mode = 0;
+    std::uint64_t texture = 0;
+};
+
 struct ShaderCompileLog final {
     char message[1024]{};
     std::uint32_t message_length = 0;
@@ -132,6 +140,10 @@ public:
     bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle);
     bool destroy_mesh(std::uint64_t handle);
     RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix);
+    RenderCommandResult create_material(const MaterialDesc& desc, std::uint64_t& out_handle);
+    bool destroy_material(std::uint64_t handle);
+    RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc);
+    RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix);
     RenderCommandResult draw_triangle(std::uint64_t handle);
     bool set_camera_matrix(const Matrix4x4& matrix);
     RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix);

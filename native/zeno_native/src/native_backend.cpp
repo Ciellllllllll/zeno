@@ -155,6 +155,14 @@ struct MeshResource final {
     std::uint32_t index_count = 0;
 };
 
+struct MaterialResource final {
+    std::uint32_t kind = 0;
+    std::uint32_t depth_mode = 0;
+    std::uint64_t texture = 0;
+    Microsoft::WRL::ComPtr<ID3D11BlendState> blend_state;
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterizer_state;
+};
+
 struct TriangleTransformConstants final {
     float world[16];
     float view_projection[16];
@@ -534,6 +542,7 @@ public:
         }
 
         frame_active_ = false;
+        material_resources_.clear();
         mesh_resources_.clear();
         mesh_input_layout_.Reset();
         mesh_pixel_shader_.Reset();
@@ -1036,6 +1045,79 @@ public:
         return destroyed;
     }
 
+    RenderCommandResult create_material(const MaterialDesc& desc, std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || next_material_handle_ == UINT64_MAX) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (desc.kind == 1) {
+            if (texture_resources_.find(desc.texture) == texture_resources_.end()) {
+                return RenderCommandResult::missing_resource;
+            }
+        } else if (desc.kind == 2) {
+            if (desc.texture != 0) {
+                return RenderCommandResult::missing_resource;
+            }
+        } else {
+            return RenderCommandResult::wrong_state;
+        }
+
+        MaterialResource resource{};
+        resource.kind = desc.kind;
+        resource.depth_mode = desc.depth_mode;
+        resource.texture = desc.texture;
+
+        D3D11_BLEND_DESC blend_desc{};
+        blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        if (desc.blend_mode == 2) {
+            blend_desc.RenderTarget[0].BlendEnable = TRUE;
+            blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+            blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+            blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+            blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+            blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+            blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        }
+        HRESULT result = device_->CreateBlendState(&blend_desc, resource.blend_state.GetAddressOf());
+        if (FAILED(result)) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        D3D11_RASTERIZER_DESC rasterizer_desc{};
+        rasterizer_desc.FillMode = D3D11_FILL_SOLID;
+        rasterizer_desc.CullMode = desc.cull_mode == 2 ? D3D11_CULL_BACK : D3D11_CULL_NONE;
+        rasterizer_desc.DepthClipEnable = TRUE;
+        result = device_->CreateRasterizerState(&rasterizer_desc, resource.rasterizer_state.GetAddressOf());
+        if (FAILED(result)) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        const std::uint64_t handle = next_material_handle_++;
+        if (handle == 0) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        material_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        std::cerr << "[ZENO][native] material resource created\n";
+        return RenderCommandResult::ok;
+    }
+
+    bool destroy_material(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = material_resources_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] material resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
     bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle)
     {
         if (device_ == nullptr || context_ == nullptr || next_mesh_handle_ == UINT64_MAX) {
@@ -1432,6 +1514,73 @@ public:
         return RenderCommandResult::ok;
     }
 
+    RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc)
+    {
+        const auto found_material = material_resources_.find(material);
+        if (found_material == material_resources_.end()) {
+            return RenderCommandResult::missing_resource;
+        }
+
+        const MaterialResource& material_resource = found_material->second;
+        if (material_resource.kind != 1) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        const auto found_texture = texture_resources_.find(material_resource.texture);
+        if (found_texture == texture_resources_.end()) {
+            return RenderCommandResult::missing_resource;
+        }
+
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (!ensure_sprite_pipeline()) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        SpriteConstants constants{};
+        for (int i = 0; i < 16; ++i) {
+            constants.world[i] = desc.model_matrix.elements[i];
+            constants.view_projection[i] = view_projection_matrix_.elements[i];
+        }
+        for (int i = 0; i < 4; ++i) {
+            constants.color[i] = desc.color[i];
+        }
+
+        context_->UpdateSubresource(sprite_constant_buffer_.Get(), 0, nullptr, &constants, 0, 0);
+
+        constexpr UINT stride = sizeof(SpriteVertex);
+        constexpr UINT offset = 0;
+        ID3D11Buffer* vertex_buffers[] = { sprite_vertex_buffer_.Get() };
+        ID3D11Buffer* constant_buffers[] = { sprite_constant_buffer_.Get() };
+        ID3D11ShaderResourceView* shader_resource_views[] = { found_texture->second.shader_resource_view.Get() };
+        ID3D11SamplerState* samplers[] = { sprite_sampler_state_.Get() };
+        float blend_factor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+        context_->IASetInputLayout(sprite_input_layout_.Get());
+        context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        context_->VSSetShader(sprite_vertex_shader_.Get(), nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShader(sprite_pixel_shader_.Get(), nullptr, 0);
+        context_->PSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShaderResources(0, 1, shader_resource_views);
+        context_->PSSetSamplers(0, 1, samplers);
+        context_->OMSetDepthStencilState(
+            material_resource.depth_mode == 2 ? depth_stencil_state_.Get() : disabled_depth_stencil_state_.Get(),
+            0);
+        context_->OMSetBlendState(material_resource.blend_state.Get(), blend_factor, 0xffffffff);
+        context_->RSSetState(material_resource.rasterizer_state.Get());
+        context_->Draw(6, 0);
+
+        ID3D11ShaderResourceView* null_srvs[] = { nullptr };
+        context_->PSSetShaderResources(0, 1, null_srvs);
+        context_->OMSetBlendState(nullptr, blend_factor, 0xffffffff);
+        context_->RSSetState(nullptr);
+        return RenderCommandResult::ok;
+    }
+
     RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix)
     {
         const auto found = mesh_resources_.find(mesh);
@@ -1469,6 +1618,62 @@ public:
         context_->OMSetDepthStencilState(depth_stencil_state_.Get(), 0);
         context_->OMSetBlendState(nullptr, nullptr, 0xffffffff);
         context_->DrawIndexed(resource.index_count, 0, 0);
+        return RenderCommandResult::ok;
+    }
+
+    RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix)
+    {
+        const auto found_mesh = mesh_resources_.find(mesh);
+        if (found_mesh == mesh_resources_.end()) {
+            return RenderCommandResult::missing_resource;
+        }
+
+        const auto found_material = material_resources_.find(material);
+        if (found_material == material_resources_.end()) {
+            return RenderCommandResult::missing_resource;
+        }
+
+        const MaterialResource& material_resource = found_material->second;
+        if (material_resource.kind != 2) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (!ensure_mesh_pipeline()) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        TriangleTransformConstants constants{};
+        for (int i = 0; i < 16; ++i) {
+            constants.world[i] = model_matrix.elements[i];
+            constants.view_projection[i] = view_projection_matrix_.elements[i];
+        }
+        context_->UpdateSubresource(triangle_transform_buffer_.Get(), 0, nullptr, &constants, 0, 0);
+
+        const MeshResource& resource = found_mesh->second;
+        const UINT stride = resource.vertex_stride_bytes;
+        constexpr UINT offset = 0;
+        ID3D11Buffer* vertex_buffers[] = { resource.vertex_buffer.Get() };
+        ID3D11Buffer* constant_buffers[] = { triangle_transform_buffer_.Get() };
+        float blend_factor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        context_->IASetInputLayout(mesh_input_layout_.Get());
+        context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
+        context_->IASetIndexBuffer(resource.index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        context_->VSSetShader(mesh_vertex_shader_.Get(), nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShader(mesh_pixel_shader_.Get(), nullptr, 0);
+        context_->OMSetDepthStencilState(
+            material_resource.depth_mode == 2 ? depth_stencil_state_.Get() : disabled_depth_stencil_state_.Get(),
+            0);
+        context_->OMSetBlendState(material_resource.blend_state.Get(), blend_factor, 0xffffffff);
+        context_->RSSetState(material_resource.rasterizer_state.Get());
+        context_->DrawIndexed(resource.index_count, 0, 0);
+        context_->OMSetBlendState(nullptr, blend_factor, 0xffffffff);
+        context_->RSSetState(nullptr);
         return RenderCommandResult::ok;
     }
 
@@ -1563,12 +1768,14 @@ private:
     std::unordered_map<std::uint64_t, PixelShaderResource> pixel_shader_resources_;
     std::unordered_map<std::uint64_t, TextureResource> texture_resources_;
     std::unordered_map<std::uint64_t, MeshResource> mesh_resources_;
+    std::unordered_map<std::uint64_t, MaterialResource> material_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
     std::uint64_t next_triangle_handle_ = 1;
     std::uint64_t next_vertex_shader_handle_ = 1;
     std::uint64_t next_pixel_shader_handle_ = 1;
     std::uint64_t next_texture_handle_ = 1;
     std::uint64_t next_mesh_handle_ = 1;
+    std::uint64_t next_material_handle_ = 1;
 };
 
 bool NativeBackend::initialize(const NativeBackendConfig& config)
@@ -1925,6 +2132,41 @@ RenderCommandResult NativeBackend::draw_mesh(std::uint64_t mesh, const Matrix4x4
     }
 
     return renderer_->draw_mesh(mesh, model_matrix);
+}
+
+RenderCommandResult NativeBackend::create_material(const MaterialDesc& desc, std::uint64_t& out_handle)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->create_material(desc, out_handle);
+}
+
+bool NativeBackend::destroy_material(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_material(handle);
+}
+
+RenderCommandResult NativeBackend::draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_sprite_with_material(material, desc);
+}
+
+RenderCommandResult NativeBackend::draw_mesh_with_material(
+    std::uint64_t mesh,
+    std::uint64_t material,
+    const Matrix4x4& model_matrix)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_mesh_with_material(mesh, material, model_matrix);
 }
 
 RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)

@@ -62,3 +62,8 @@ add_executable(zeno_mesh_smoke src/mesh_smoke.cpp)
 target_compile_features(zeno_mesh_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_mesh_smoke PRIVATE zeno_native)
 add_test(NAME zeno_mesh_smoke COMMAND zeno_mesh_smoke)
+
+add_executable(zeno_material_smoke src/material_smoke.cpp)
+target_compile_features(zeno_material_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_material_smoke PRIVATE zeno_native)
+add_test(NAME zeno_material_smoke COMMAND zeno_material_smoke)

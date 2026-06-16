@@ -16,6 +16,8 @@ zeno::VertexShader g_vertex_shader;
 zeno::PixelShader g_pixel_shader;
 zeno::Texture g_sprite_texture;
 zeno::Mesh g_cube_mesh;
+zeno::Material g_sprite_material;
+zeno::Material g_cube_material;
 zeno::Transform g_triangle_transform;
 zeno::Transform g_sprite_transform;
 zeno::Transform g_cube_transform;
@@ -92,6 +94,16 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
+    zeno::MaterialDesc sprite_material_desc{};
+    sprite_material_desc.kind = zeno::MaterialKind::sprite_texture;
+    sprite_material_desc.blend_mode = zeno::BlendMode::alpha;
+    sprite_material_desc.depth_mode = zeno::DepthMode::disabled;
+    sprite_material_desc.cull_mode = zeno::CullMode::none;
+    result = context.backend->create_sprite_material(g_sprite_texture, sprite_material_desc, g_sprite_material);
+    if (!result.ok()) {
+        return result;
+    }
+
     constexpr zeno::MeshVertex cube_vertices[] = {
         { { -0.5f, -0.5f, -0.5f }, { 0.95f, 0.20f, 0.20f, 1.0f } },
         { { -0.5f, 0.5f, -0.5f }, { 0.95f, 0.55f, 0.20f, 1.0f } },
@@ -112,6 +124,16 @@ zeno::Result on_init(zeno::GameContext& context)
     };
 
     result = context.backend->create_mesh(cube_vertices, 8, cube_indices, 36, g_cube_mesh);
+    if (!result.ok()) {
+        return result;
+    }
+
+    zeno::MaterialDesc cube_material_desc{};
+    cube_material_desc.kind = zeno::MaterialKind::mesh_color;
+    cube_material_desc.blend_mode = zeno::BlendMode::opaque;
+    cube_material_desc.depth_mode = zeno::DepthMode::enabled;
+    cube_material_desc.cull_mode = zeno::CullMode::back;
+    result = context.backend->create_material(cube_material_desc, g_cube_material);
     if (!result.ok()) {
         return result;
     }
@@ -182,7 +204,7 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
-    result = context.backend->draw_mesh(g_cube_mesh, g_cube_transform);
+    result = context.backend->draw_mesh(g_cube_mesh, g_cube_material, g_cube_transform);
     if (!result.ok()) {
         return result;
     }
@@ -195,7 +217,7 @@ zeno::Result on_render(zeno::GameContext& context)
     zeno::SpriteDrawDesc sprite_desc{};
     sprite_desc.transform = g_sprite_transform;
     sprite_desc.color = zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f };
-    result = context.backend->draw_sprite(g_sprite_texture, sprite_desc);
+    result = context.backend->draw_sprite(g_sprite_material, sprite_desc);
     if (!result.ok()) {
         return result;
     }
@@ -206,6 +228,8 @@ zeno::Result on_render(zeno::GameContext& context)
 zeno::Result on_shutdown(zeno::GameContext&)
 {
     g_triangle.reset();
+    g_cube_material.reset();
+    g_sprite_material.reset();
     g_cube_mesh.reset();
     g_sprite_texture.reset();
     g_pixel_shader.reset();

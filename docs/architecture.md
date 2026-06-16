@@ -53,13 +53,13 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 - render target creation,
 - depth buffer and depth state creation,
 - clear/present operations,
-- backend-owned clear-color, shader, texture, sprite, triangle, and mesh render resources.
+- backend-owned clear-color, shader, texture, sprite, material, triangle, and mesh render resources.
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
 
-Renderer resources such as shaders, textures, sprite state, mesh vertex/index buffers, depth buffers, and DirectX state objects are owned by the native backend. The SDK owns RAII wrappers over opaque handles only.
+Renderer resources such as shaders, textures, materials, sprite state, mesh vertex/index buffers, depth buffers, and DirectX state objects are owned by the native backend. The SDK owns RAII wrappers over opaque handles only.
 
-Vertex and index data cross the ABI as borrowed pointers plus explicit counts and stride. The native backend copies that data into backend-owned GPU buffers during creation. Transform and camera data cross as POD matrices. DirectX buffers, input layouts, depth stencil objects, shader resource views, COM pointers, and Win32 handles remain native-backend private.
+Vertex and index data cross the ABI as borrowed pointers plus explicit counts and stride. The native backend copies that data into backend-owned GPU buffers during creation. Material choices cross as fixed integer enums and handles. Transform and camera data cross as POD matrices. DirectX buffers, input layouts, blend/rasterizer/depth stencil objects, shader resource views, COM pointers, and Win32 handles remain native-backend private.
 
 ## Input Model
 
@@ -114,7 +114,7 @@ SDK classes are allowed for game code ergonomics, but they do not cross the Rust
 - `on_render`,
 - `on_shutdown`.
 
-The current sample changes the DirectX 11 clear color over time, draws a fixed colored triangle, a texture-backed sprite, and a basic indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
+The current sample changes the DirectX 11 clear color over time, draws a fixed colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

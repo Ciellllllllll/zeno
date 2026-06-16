@@ -94,6 +94,19 @@ ZenMeshDesc make_native_mesh_desc(
     return desc;
 }
 
+ZenMaterialDesc make_native_material_desc(const MaterialDesc& desc, ZenTextureHandle texture = {})
+{
+    ZenMaterialDesc native_desc{};
+    native_desc.size = ZEN_MATERIAL_DESC_SIZE;
+    native_desc.api_version = ZEN_MATERIAL_DESC_API_VERSION;
+    native_desc.kind = static_cast<std::uint32_t>(desc.kind);
+    native_desc.blend_mode = static_cast<std::uint32_t>(desc.blend_mode);
+    native_desc.depth_mode = static_cast<std::uint32_t>(desc.depth_mode);
+    native_desc.cull_mode = static_cast<std::uint32_t>(desc.cull_mode);
+    native_desc.texture = texture;
+    return native_desc;
+}
+
 } // namespace
 
 bool InputSnapshot::down(Key key) const
@@ -416,6 +429,35 @@ Result NativeBackend::create_mesh(
     return Result();
 }
 
+Result NativeBackend::create_material(const MaterialDesc& desc, Material& out_material)
+{
+    ZenMaterialDesc native_desc = make_native_material_desc(desc);
+    ZenMaterialHandle handle{};
+    const ZenResultCode result = zen_native_backend_create_material(handle_, &native_desc, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_material = Material(handle_, handle);
+    return Result();
+}
+
+Result NativeBackend::create_sprite_material(
+    const Texture& texture,
+    const MaterialDesc& desc,
+    Material& out_material)
+{
+    ZenMaterialDesc native_desc = make_native_material_desc(desc, texture.handle_);
+    ZenMaterialHandle handle{};
+    const ZenResultCode result = zen_native_backend_create_material(handle_, &native_desc, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_material = Material(handle_, handle);
+    return Result();
+}
+
 Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
 {
     ZenRenderTriangleHandle handle{};
@@ -477,6 +519,12 @@ Result NativeBackend::draw_sprite(const Texture& texture, const SpriteDrawDesc& 
     return Result(zen_native_backend_draw_sprite(handle_, texture.handle_, &native_desc));
 }
 
+Result NativeBackend::draw_sprite(const Material& material, const SpriteDrawDesc& desc)
+{
+    const ZenSpriteDrawDesc native_desc = make_native_sprite_draw_desc(desc);
+    return Result(zen_native_backend_draw_sprite_with_material(handle_, material.handle_, &native_desc));
+}
+
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Mat4& model_matrix)
 {
     const ZenMatrix4x4 native_model_matrix = to_native_matrix(model_matrix);
@@ -486,6 +534,17 @@ Result NativeBackend::draw_mesh(const Mesh& mesh, const Mat4& model_matrix)
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Transform& transform)
 {
     return draw_mesh(mesh, transform.matrix());
+}
+
+Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, const Mat4& model_matrix)
+{
+    const ZenMatrix4x4 native_model_matrix = to_native_matrix(model_matrix);
+    return Result(zen_native_backend_draw_mesh_with_material(handle_, mesh.handle_, material.handle_, &native_model_matrix));
+}
+
+Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, const Transform& transform)
+{
+    return draw_mesh(mesh, material, transform.matrix());
 }
 
 Result NativeBackend::present()
@@ -694,6 +753,45 @@ void Mesh::reset()
     }
 
     zen_native_backend_destroy_mesh(backend_, handle_);
+    backend_ = {};
+    handle_ = {};
+}
+
+Material::Material(ZenNativeBackendHandle backend, ZenMaterialHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+Material::~Material()
+{
+    reset();
+}
+
+Material::Material(Material&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenMaterialHandle{}))
+{
+}
+
+Material& Material::operator=(Material&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenMaterialHandle{});
+    }
+
+    return *this;
+}
+
+void Material::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_material(backend_, handle_);
     backend_ = {};
     handle_ = {};
 }

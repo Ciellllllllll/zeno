@@ -23,6 +23,8 @@ constexpr std::uint32_t kSpriteDrawDescApiVersion = 1;
 constexpr std::uint32_t kSpriteDrawDescSize = sizeof(ZenSpriteDrawDesc);
 constexpr std::uint32_t kMeshDescApiVersion = 1;
 constexpr std::uint32_t kMeshDescSize = sizeof(ZenMeshDesc);
+constexpr std::uint32_t kMaterialDescApiVersion = 1;
+constexpr std::uint32_t kMaterialDescSize = sizeof(ZenMaterialDesc);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
@@ -88,6 +90,50 @@ bool is_valid_mesh_desc(const ZenMeshDesc& desc)
 
     return desc.vertex_count <= UINT64_MAX / desc.vertex_stride_bytes
         && desc.index_count <= UINT64_MAX / sizeof(std::uint32_t);
+}
+
+bool is_valid_material_kind(std::uint32_t kind)
+{
+    return kind == ZEN_MATERIAL_KIND_SPRITE_TEXTURE
+        || kind == ZEN_MATERIAL_KIND_MESH_COLOR;
+}
+
+bool is_valid_blend_mode(std::uint32_t blend_mode)
+{
+    return blend_mode == ZEN_BLEND_MODE_OPAQUE
+        || blend_mode == ZEN_BLEND_MODE_ALPHA;
+}
+
+bool is_valid_depth_mode(std::uint32_t depth_mode)
+{
+    return depth_mode == ZEN_DEPTH_MODE_DISABLED
+        || depth_mode == ZEN_DEPTH_MODE_ENABLED;
+}
+
+bool is_valid_cull_mode(std::uint32_t cull_mode)
+{
+    return cull_mode == ZEN_CULL_MODE_NONE
+        || cull_mode == ZEN_CULL_MODE_BACK;
+}
+
+bool is_valid_material_desc(const ZenMaterialDesc& desc)
+{
+    if (desc.size != kMaterialDescSize
+        || desc.api_version != kMaterialDescApiVersion
+        || !is_valid_material_kind(desc.kind)
+        || !is_valid_blend_mode(desc.blend_mode)
+        || !is_valid_depth_mode(desc.depth_mode)
+        || !is_valid_cull_mode(desc.cull_mode)
+        || desc.reserved[0] != 0
+        || desc.reserved[1] != 0) {
+        return false;
+    }
+
+    if (desc.kind == ZEN_MATERIAL_KIND_SPRITE_TEXTURE) {
+        return desc.texture.value != 0;
+    }
+
+    return desc.texture.value == 0;
 }
 
 bool allocate_handle(std::uint64_t& out_handle)
@@ -158,6 +204,17 @@ zeno::native::MeshDesc to_native_mesh_desc(const ZenMeshDesc& desc)
     native_desc.vertex_stride_bytes = desc.vertex_stride_bytes;
     native_desc.index_data = desc.index_data;
     native_desc.index_count = desc.index_count;
+    return native_desc;
+}
+
+zeno::native::MaterialDesc to_native_material_desc(const ZenMaterialDesc& desc)
+{
+    zeno::native::MaterialDesc native_desc{};
+    native_desc.kind = desc.kind;
+    native_desc.blend_mode = desc.blend_mode;
+    native_desc.depth_mode = desc.depth_mode;
+    native_desc.cull_mode = desc.cull_mode;
+    native_desc.texture = desc.texture.value;
     return native_desc;
 }
 
@@ -754,6 +811,78 @@ extern "C" ZenResultCode zen_native_backend_draw_sprite(
     }
 }
 
+extern "C" ZenResultCode zen_native_backend_create_material(
+    ZenNativeBackendHandle backend,
+    const ZenMaterialDesc* desc,
+    ZenMaterialHandle* out_material)
+{
+    try {
+        if (desc == nullptr || out_material == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_material_desc(*desc)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [desc, out_material](zeno::native::NativeBackend& native_backend) {
+            std::uint64_t handle = 0;
+            const ZenResultCode result = map_render_command_result(
+                native_backend.create_material(to_native_material_desc(*desc), handle));
+            if (result != ZEN_RESULT_OK) {
+                return result;
+            }
+
+            out_material->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_material(
+    ZenNativeBackendHandle backend,
+    ZenMaterialHandle material)
+{
+    try {
+        if (material.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [material](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_material(material.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_sprite_with_material(
+    ZenNativeBackendHandle backend,
+    ZenMaterialHandle material,
+    const ZenSpriteDrawDesc* desc)
+{
+    try {
+        if (material.value == 0 || desc == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_sprite_draw_desc(*desc)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [material, desc](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(
+                native_backend.draw_sprite_with_material(material.value, to_native_sprite_draw_desc(*desc)));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
 extern "C" ZenResultCode zen_native_backend_create_mesh(
     ZenNativeBackendHandle backend,
     const ZenMeshDesc* desc,
@@ -814,6 +943,28 @@ extern "C" ZenResultCode zen_native_backend_draw_mesh(
         return with_backend(backend, [mesh, model_matrix](zeno::native::NativeBackend& native_backend) {
             return map_render_command_result(
                 native_backend.draw_mesh(mesh.value, to_native_matrix(*model_matrix)));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_mesh_with_material(
+    ZenNativeBackendHandle backend,
+    ZenMeshHandle mesh,
+    ZenMaterialHandle material,
+    const ZenMatrix4x4* model_matrix)
+{
+    try {
+        if (mesh.value == 0 || material.value == 0 || model_matrix == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [mesh, material, model_matrix](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(native_backend.draw_mesh_with_material(
+                mesh.value,
+                material.value,
+                to_native_matrix(*model_matrix)));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

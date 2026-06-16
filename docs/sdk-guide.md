@@ -11,6 +11,7 @@
 - Backend-owned DirectX 11 vertex/pixel shader handles with bounded compile diagnostics.
 - Backend-owned texture handles and a small sprite draw path using WIC-loaded image bytes.
 - Backend-owned indexed mesh handles with immutable vertex/index buffers and depth testing.
+- Backend-owned material handles that bundle fixed shader choice, texture dependency, blend mode, depth mode, and cull mode.
 - A keyboard/mouse input snapshot connected to the Win32 message loop.
 - A small math, transform, and camera foundation with documented DirectX-first conventions.
 - Practical Windows build workflow using Cargo, CMakePresets, and Visual Studio 2022/MSVC.
@@ -28,7 +29,7 @@
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
-- Rendering is intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture and mesh resource creation, transform/camera constant buffer binding, depth testing, and fixed triangle/sprite/mesh draw paths, not a full renderer.
+- Rendering is intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, transform/camera constant buffer binding, depth testing, and fixed triangle/sprite/mesh draw paths, not a full renderer.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. It is enough to demonstrate ownership and lifecycle without introducing a framework too early.
 - Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
@@ -57,7 +58,7 @@
 
 Near-term:
 
-- Add material and render-state control around the fixed resource paths.
+- Add scene/object ownership around the fixed resource paths.
 - Introduce dynamic C ABI game-module entry points.
 - Add conservative Windows CI.
 
@@ -73,5 +74,5 @@ Later:
 - The project uses Rust for high-level runtime safety while keeping Windows and DirectX work in C++.
 - The C ABI boundary avoids unstable Rust/C++ layout and calling convention issues.
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
-- The sample is deliberately modest: the C++ host proves engine boot, window creation, DirectX 11 presentation, handle-owned triangle, sprite, and mesh draw paths, SDK use, static-linked game-module lifecycle, and clean shutdown.
-- The next most valuable technical step is material/render-state control on top of the handle-owned draw path, not adding an editor or multi-platform abstraction.
+- The sample is deliberately modest: the C++ host proves engine boot, window creation, DirectX 11 presentation, handle-owned triangle, materialized sprite and mesh draw paths, SDK use, static-linked game-module lifecycle, and clean shutdown.
+- The next most valuable technical step is scene/object ownership on top of the handle-owned draw path, not adding an editor or multi-platform abstraction.
