@@ -6,6 +6,7 @@
 - A C ABI boundary designed around handles, POD structs, and stable result codes.
 - C++ native backend ownership for Win32 and DirectX 11 resources.
 - A C++ SDK layer that is ergonomic for game code without leaking through the ABI.
+- A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and static-linked module lifecycle into one host API.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A minimal handle-owned DirectX 11 triangle draw path.
 - Backend-owned DirectX 11 vertex/pixel shader handles with bounded compile diagnostics.
@@ -26,6 +27,7 @@
 - C ABI is used instead of Rust/C++ native ABI to keep the boundary compiler-stable and easy to audit.
 - DirectX 11 is the first renderer to keep the milestone narrow and demonstrable.
 - Static game-module linking is used for the first module phase; dynamic loading should use C ABI entry points later.
+- `GameApp` is SDK-owned orchestration over existing Rust/runtime and native/backend handles, not a new cross-language ABI.
 - Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
 - SDK matrices are row-major, row-vector, left-handed, and DirectX clip-space oriented so the first renderer and sample can stay easy to inspect.
 
@@ -34,7 +36,7 @@
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
 - Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
-- The SDK is intentionally small. It is enough to demonstrate ownership and lifecycle without introducing a framework too early.
+- The SDK is intentionally small. `GameApp` removes boilerplate from game hosts while still exposing the low-level wrappers for focused tests and future engine work.
 - Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
 
 ## Difficult Parts
@@ -52,6 +54,7 @@
 - Math/collision is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, 3D collision volumes, physics solver, swept collision, broadphase, or SIMD optimizations yet.
 - No asset pipeline.
 - No dynamic game-module loading yet.
+- No application plugin loading or hot reload; `GameApp` currently runs static-linked modules only.
 - No editor.
 - No CI yet.
 - No multi-platform support.
@@ -77,5 +80,5 @@ Later:
 - The project uses Rust for high-level runtime safety while keeping Windows and DirectX work in C++.
 - The C ABI boundary avoids unstable Rust/C++ layout and calling convention issues.
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
-- The sample is deliberately modest: the C++ host proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, SDK-side AABB checks with debug visualization, short WAV effect playback, SDK use, static-linked game-module lifecycle, and clean shutdown.
+- The sample is deliberately modest: the C++ host now delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, SDK-side AABB checks with debug visualization, short WAV effect playback, SDK use, static-linked game-module lifecycle, and clean shutdown.
 - The next most valuable technical step is dynamic module loading and packaging, not adding an editor or multi-platform abstraction.

@@ -23,9 +23,7 @@ zeno::Texture g_sprite_texture;
 zeno::Mesh g_cube_mesh;
 zeno::Material g_sprite_material;
 zeno::Material g_cube_material;
-zeno::AudioEngine g_audio_engine;
 zeno::Sound g_event_sound;
-zeno::Scene g_scene;
 zeno::ObjectId g_cube_object;
 zeno::ObjectId g_triangle_object;
 zeno::ObjectId g_sprite_object;
@@ -45,9 +43,9 @@ const zeno::SceneObjectDesc* find_scene_object(
     return nullptr;
 }
 
-zeno::Aabb2 bounds_for_object(zeno::ObjectId object)
+zeno::Aabb2 bounds_for_object(const zeno::Scene& scene, zeno::ObjectId object)
 {
-    const zeno::Transform* transform = g_scene.transform(object);
+    const zeno::Transform* transform = scene.transform(object);
     if (transform == nullptr) {
         return {};
     }
@@ -80,6 +78,12 @@ zeno::Result on_init(zeno::GameContext& context)
     if (context.assets == nullptr) {
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
+    if (context.audio == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+    if (context.runtime_scene == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
     if (context.scene == nullptr) {
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
@@ -88,7 +92,7 @@ zeno::Result on_init(zeno::GameContext& context)
     g_keyboard_tint = 0.0f;
     g_debug_draw_enabled = true;
     g_player_touching_item = false;
-    g_scene.clear();
+    context.runtime_scene->clear();
     g_cube_object = {};
     g_triangle_object = {};
     g_sprite_object = {};
@@ -183,11 +187,7 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
-    result = context.backend->create_audio_engine(g_audio_engine);
-    if (!result.ok()) {
-        return result;
-    }
-    result = g_audio_engine.load_sound(*context.assets, "audio/sample_click.wav", g_event_sound);
+    result = context.audio->load_sound(*context.assets, "audio/sample_click.wav", g_event_sound);
     if (!result.ok()) {
         return result;
     }
@@ -201,32 +201,32 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
-    g_cube_object = g_scene.create_object();
-    result = g_scene.set_transform(g_cube_object, cube_object->transform);
+    g_cube_object = context.runtime_scene->create_object();
+    result = context.runtime_scene->set_transform(g_cube_object, cube_object->transform);
     if (!result.ok()) {
         return result;
     }
-    result = g_scene.set_mesh_renderer(g_cube_object, zeno::MeshRenderer{ &g_cube_mesh, &g_cube_material });
-    if (!result.ok()) {
-        return result;
-    }
-
-    g_triangle_object = g_scene.create_object();
-    result = g_scene.set_transform(g_triangle_object, triangle_object->transform);
-    if (!result.ok()) {
-        return result;
-    }
-    result = g_scene.set_triangle_renderer(g_triangle_object, zeno::TriangleRenderer{ &g_triangle });
+    result = context.runtime_scene->set_mesh_renderer(g_cube_object, zeno::MeshRenderer{ &g_cube_mesh, &g_cube_material });
     if (!result.ok()) {
         return result;
     }
 
-    g_sprite_object = g_scene.create_object();
-    result = g_scene.set_transform(g_sprite_object, sprite_object->transform);
+    g_triangle_object = context.runtime_scene->create_object();
+    result = context.runtime_scene->set_transform(g_triangle_object, triangle_object->transform);
     if (!result.ok()) {
         return result;
     }
-    result = g_scene.set_sprite_renderer(
+    result = context.runtime_scene->set_triangle_renderer(g_triangle_object, zeno::TriangleRenderer{ &g_triangle });
+    if (!result.ok()) {
+        return result;
+    }
+
+    g_sprite_object = context.runtime_scene->create_object();
+    result = context.runtime_scene->set_transform(g_sprite_object, sprite_object->transform);
+    if (!result.ok()) {
+        return result;
+    }
+    result = context.runtime_scene->set_sprite_renderer(
         g_sprite_object,
         zeno::SpriteRenderer{ &g_sprite_material, sprite_object->color });
     if (!result.ok()) {
@@ -262,9 +262,13 @@ zeno::Result on_update(zeno::GameContext& context)
         g_keyboard_tint = 0.25f;
     }
 
-    zeno::Transform* triangle_transform = g_scene.transform(g_triangle_object);
-    zeno::Transform* sprite_transform = g_scene.transform(g_sprite_object);
-    zeno::Transform* cube_transform = g_scene.transform(g_cube_object);
+    if (context.runtime_scene == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
+    zeno::Transform* triangle_transform = context.runtime_scene->transform(g_triangle_object);
+    zeno::Transform* sprite_transform = context.runtime_scene->transform(g_sprite_object);
+    zeno::Transform* cube_transform = context.runtime_scene->transform(g_cube_object);
     if (triangle_transform == nullptr || sprite_transform == nullptr || cube_transform == nullptr) {
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
@@ -303,7 +307,9 @@ zeno::Result on_update(zeno::GameContext& context)
     sprite_transform->rotation_z_radians = -0.5f * static_cast<float>(g_elapsed_seconds);
     cube_transform->rotation_z_radians = 0.7f * static_cast<float>(g_elapsed_seconds);
 
-    const bool touching_item = zeno::intersects(bounds_for_object(g_sprite_object), bounds_for_object(g_triangle_object));
+    const bool touching_item = zeno::intersects(
+        bounds_for_object(*context.runtime_scene, g_sprite_object),
+        bounds_for_object(*context.runtime_scene, g_triangle_object));
     if (touching_item && !g_player_touching_item && g_event_sound.valid()) {
         zeno::Result result = g_event_sound.play();
         if (!result.ok()) {
@@ -315,7 +321,9 @@ zeno::Result on_update(zeno::GameContext& context)
     const zeno::Color player_color = touching_item
         ? zeno::Color{ 1.0f, 0.85f, 0.20f, 0.90f }
         : zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f };
-    zeno::Result result = g_scene.set_sprite_renderer(g_sprite_object, zeno::SpriteRenderer{ &g_sprite_material, player_color });
+    zeno::Result result = context.runtime_scene->set_sprite_renderer(
+        g_sprite_object,
+        zeno::SpriteRenderer{ &g_sprite_material, player_color });
     if (!result.ok()) {
         return result;
     }
@@ -327,6 +335,9 @@ zeno::Result on_update(zeno::GameContext& context)
 zeno::Result on_render(zeno::GameContext& context)
 {
     if (context.backend == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+    if (context.runtime_scene == nullptr) {
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
@@ -355,7 +366,7 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
-    result = g_scene.render(*context.backend);
+    result = context.runtime_scene->render(*context.backend);
     if (!result.ok()) {
         return result;
     }
@@ -364,19 +375,22 @@ zeno::Result on_render(zeno::GameContext& context)
         const zeno::Color player_bounds_color = g_player_touching_item
             ? zeno::Color{ 1.0f, 0.9f, 0.2f, 1.0f }
             : zeno::Color{ 0.2f, 0.95f, 1.0f, 1.0f };
-        result = context.backend->draw_debug_rect_2d(bounds_for_object(g_sprite_object), 1.6f, player_bounds_color);
+        result = context.backend->draw_debug_rect_2d(
+            bounds_for_object(*context.runtime_scene, g_sprite_object),
+            1.6f,
+            player_bounds_color);
         if (!result.ok()) {
             return result;
         }
         result = context.backend->draw_debug_rect_2d(
-            bounds_for_object(g_triangle_object),
+            bounds_for_object(*context.runtime_scene, g_triangle_object),
             1.9f,
             zeno::Color{ 1.0f, 0.35f, 0.35f, 1.0f });
         if (!result.ok()) {
             return result;
         }
         result = context.backend->draw_debug_rect_2d(
-            bounds_for_object(g_cube_object),
+            bounds_for_object(*context.runtime_scene, g_cube_object),
             2.8f,
             zeno::Color{ 0.45f, 1.0f, 0.35f, 1.0f });
         if (!result.ok()) {
@@ -387,14 +401,15 @@ zeno::Result on_render(zeno::GameContext& context)
     return context.backend->present();
 }
 
-zeno::Result on_shutdown(zeno::GameContext&)
+zeno::Result on_shutdown(zeno::GameContext& context)
 {
-    g_scene.clear();
+    if (context.runtime_scene != nullptr) {
+        context.runtime_scene->clear();
+    }
     g_cube_object = {};
     g_triangle_object = {};
     g_sprite_object = {};
     g_event_sound.reset();
-    g_audio_engine.reset();
     g_triangle.reset();
     g_cube_material.reset();
     g_sprite_material.reset();

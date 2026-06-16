@@ -236,6 +236,19 @@ Result Engine::step()
     return Result(zen_engine_step(handle_));
 }
 
+Result Engine::step_frame(EngineFrameInfo& out_frame_info)
+{
+    ZenEngineFrameInfo native_frame_info{};
+    const Result result(zen_engine_step_frame(handle_, &native_frame_info));
+    if (!result.ok()) {
+        return result;
+    }
+
+    out_frame_info.frame_index = native_frame_info.frame_index;
+    out_frame_info.delta_time_seconds = native_frame_info.delta_time_seconds;
+    return result;
+}
+
 Result Engine::request_shutdown()
 {
     return Result(zen_engine_request_shutdown(handle_));
@@ -1024,6 +1037,231 @@ Result shutdown_game_module(GameModule& module, GameContext& context)
     }
 
     return module.on_shutdown(context);
+}
+
+GameApp::~GameApp()
+{
+    reset();
+}
+
+GameApp::GameApp(GameApp&& other) noexcept
+    : engine_(std::move(other.engine_))
+    , backend_(std::move(other.backend_))
+    , assets_(std::move(other.assets_))
+    , audio_(std::move(other.audio_))
+    , runtime_scene_(std::move(other.runtime_scene_))
+    , project_(std::move(other.project_))
+    , scene_(std::move(other.scene_))
+    , context_(other.context_)
+    , running_(std::exchange(other.running_, false))
+    , module_initialized_(std::exchange(other.module_initialized_, false))
+{
+    context_.engine = &engine_;
+    context_.backend = &backend_;
+    context_.assets = &assets_;
+    context_.audio = &audio_;
+    context_.runtime_scene = &runtime_scene_;
+    context_.project = &project_;
+    context_.scene = &scene_;
+    other.context_ = {};
+}
+
+GameApp& GameApp::operator=(GameApp&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        engine_ = std::move(other.engine_);
+        backend_ = std::move(other.backend_);
+        assets_ = std::move(other.assets_);
+        audio_ = std::move(other.audio_);
+        runtime_scene_ = std::move(other.runtime_scene_);
+        project_ = std::move(other.project_);
+        scene_ = std::move(other.scene_);
+        context_ = other.context_;
+        running_ = std::exchange(other.running_, false);
+        module_initialized_ = std::exchange(other.module_initialized_, false);
+        context_.engine = &engine_;
+        context_.backend = &backend_;
+        context_.assets = &assets_;
+        context_.audio = &audio_;
+        context_.runtime_scene = &runtime_scene_;
+        context_.project = &project_;
+        context_.scene = &scene_;
+        other.context_ = {};
+    }
+
+    return *this;
+}
+
+Result GameApp::initialize(const GameAppConfig& config)
+{
+    reset();
+
+    Result result = Engine::create(config.engine, engine_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    result = NativeBackend::create(backend_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    result = AssetRoot::from_executable(assets_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    result = load_project_config(assets_, config.project_path, project_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    if (project_.asset_root != ".") {
+        AssetPath project_asset_root;
+        result = assets_.resolve(project_.asset_root, project_asset_root);
+        if (!result.ok()) {
+            reset();
+            return result;
+        }
+
+        result = AssetRoot::from_path(project_asset_root.path(), assets_);
+        if (!result.ok()) {
+            reset();
+            return result;
+        }
+    }
+
+    result = load_scene_description(assets_, project_.initial_scene, scene_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    result = backend_.create_window(WindowConfig{ project_.window_width, project_.window_height });
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    result = backend_.initialize_renderer();
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    result = backend_.create_audio_engine(audio_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+
+    context_ = {};
+    context_.engine = &engine_;
+    context_.backend = &backend_;
+    context_.assets = &assets_;
+    context_.audio = &audio_;
+    context_.runtime_scene = &runtime_scene_;
+    context_.project = &project_;
+    context_.scene = &scene_;
+    running_ = true;
+    return Result();
+}
+
+Result GameApp::poll_frame()
+{
+    EngineFrameInfo frame_info{};
+    Result result = engine_.step_frame(frame_info);
+    if (!result.ok()) {
+        return result;
+    }
+
+    context_.frame_index = frame_info.frame_index;
+    context_.delta_time_seconds = frame_info.delta_time_seconds;
+
+    bool window_should_close = false;
+    result = backend_.poll_events(window_should_close);
+    if (!result.ok()) {
+        return result;
+    }
+
+    context_.should_close = window_should_close;
+    if (context_.should_close) {
+        return Result();
+    }
+
+    return backend_.input_snapshot(context_.input);
+}
+
+Result GameApp::shutdown(GameModule& module)
+{
+    Result result;
+    if (module_initialized_) {
+        result = shutdown_game_module(module, context_);
+        module_initialized_ = false;
+    }
+
+    reset();
+    return result;
+}
+
+Result GameApp::run(GameModule module, const GameAppConfig& config)
+{
+    Result result = initialize(config);
+    if (!result.ok()) {
+        return result;
+    }
+
+    result = initialize_game_module(module, context_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+    module_initialized_ = true;
+
+    while (!context_.should_close) {
+        result = poll_frame();
+        if (!result.ok() || context_.should_close) {
+            break;
+        }
+
+        result = run_game_module_frame(module, context_);
+        if (!result.ok()) {
+            break;
+        }
+    }
+
+    if (context_.should_close && engine_.valid()) {
+        const Result shutdown_request = engine_.request_shutdown();
+        if (!shutdown_request.ok() && result.ok()) {
+            result = shutdown_request;
+        }
+    }
+
+    const Result shutdown_result = shutdown(module);
+    if (!shutdown_result.ok()) {
+        return shutdown_result;
+    }
+
+    return result;
+}
+
+void GameApp::reset()
+{
+    module_initialized_ = false;
+    running_ = false;
+    context_ = {};
+    runtime_scene_.clear();
+    audio_.reset();
+    backend_.reset();
+    engine_.reset();
+    assets_ = {};
+    project_ = {};
+    scene_ = {};
 }
 
 } // namespace zeno

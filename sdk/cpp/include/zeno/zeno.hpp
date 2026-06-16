@@ -77,6 +77,11 @@ struct EngineConfig final {
     std::uint64_t max_test_frames = ZEN_MAX_TEST_FRAMES_UNLIMITED;
 };
 
+struct EngineFrameInfo final {
+    std::uint64_t frame_index = 0;
+    double delta_time_seconds = 0.0;
+};
+
 class Engine final {
 public:
     Engine() = default;
@@ -91,6 +96,7 @@ public:
     static Result create(const EngineConfig& config, Engine& out_engine);
 
     Result step();
+    Result step_frame(EngineFrameInfo& out_frame_info);
     Result request_shutdown();
     void reset();
 

@@ -59,6 +59,11 @@ target_compile_features(zeno_sdk_audio_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_audio_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_audio_smoke COMMAND zeno_sdk_audio_smoke)
 
+add_executable(zeno_sdk_app_smoke src/app_smoke.cpp)
+target_compile_features(zeno_sdk_app_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_sdk_app_smoke PRIVATE zeno_sdk_cpp)
+add_test(NAME zeno_sdk_app_smoke COMMAND zeno_sdk_app_smoke)
+
 add_executable(zeno_sdk_scene_smoke src/scene_smoke.cpp)
 target_compile_features(zeno_sdk_scene_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_scene_smoke PRIVATE zeno_sdk_cpp)
@@ -97,6 +102,14 @@ add_custom_command(TARGET zeno_sdk_audio_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:zeno_abi_rust>"
         "$<TARGET_FILE_DIR:zeno_sdk_audio_smoke>"
+)
+
+add_custom_command(TARGET zeno_sdk_app_smoke POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:zeno_abi_rust>"
+        "$<TARGET_FILE_DIR:zeno_sdk_app_smoke>"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:zeno_sdk_app_smoke>/assets"
 )
 
 add_custom_command(TARGET zeno_sdk_scene_smoke POST_BUILD

@@ -9,7 +9,7 @@ Sample Game Host
     `-- C++ Game SDK -> C++ Native Backend -> Windows / DirectX 11
 ```
 
-The current sample host owns the outer loop. It calls the SDK/module lifecycle and drives the native backend render path through the SDK. The Rust runtime path is verified by Rust, ABI, and SDK smoke tests in this milestone; wiring it in as the sample's outer frame scheduler is future work.
+The current sample host delegates the outer loop to `zeno::GameApp`. `GameApp` owns the Rust engine runtime wrapper, native backend wrapper, asset root, audio engine, runtime scene, project/scene startup data, input snapshot, and static-linked module lifecycle. The game module still renders through SDK calls and does not access native backend internals directly.
 
 ## Canonical Build Graph
 
@@ -107,7 +107,7 @@ Only POD matrix data crosses the native backend ABI as `ZenMatrix4x4`. SDK math 
 
 ## C++ Game SDK
 
-`sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, a minimal component-lite `zeno::Scene`, and game-module callback helpers.
+`sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, a minimal component-lite `zeno::Scene`, `zeno::GameApp`, and game-module callback helpers.
 
 SDK classes are allowed for game code ergonomics, but they do not cross the Rust/C++ ABI boundary.
 
@@ -115,9 +115,11 @@ The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderab
 
 Project and scene loading are also SDK-owned. The current format is a strict versioned UTF-8 line format used for sample startup data. Parsed scene data becomes SDK objects and existing resource creation calls; filenames and scene structures do not cross the C ABI.
 
+`GameApp` is a high-level SDK runtime, not a new ABI layer. It centralizes the current static-linked app setup sequence: create Rust engine runtime, create native backend, resolve executable-relative assets, load project/scene text data, create the Win32 window, initialize the DirectX 11 renderer, create the minimal audio engine, poll input, step the Rust runtime, invoke module update/render callbacks, and clean up in reverse ownership order.
+
 ## Game Module And Sample
 
-`samples/sample_game_cpp` statically links a small game module into the sample executable. The module implements:
+`samples/sample_game_cpp` statically links a small game module into the sample executable and launches it through `zeno::GameApp`. The module implements:
 
 - `on_init`,
 - `on_update`,

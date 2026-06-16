@@ -25,6 +25,7 @@ try {
     & (Join-Path $runtimeDir "zeno_material_smoke.exe")
     & (Join-Path $runtimeDir "zeno_audio_smoke.exe")
     & (Join-Path $runtimeDir "zeno_debug_draw_smoke.exe")
+    & (Join-Path $runtimeDir "zeno_sdk_app_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_collision_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_audio_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_asset_smoke.exe")

@@ -18,6 +18,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Temporary DirectX 11 debug line/rectangle draw calls for visualizing sample collision bounds.
 - Executable-relative sample asset root support with copied `assets/` content.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
+- High-level `zeno::GameApp` SDK runtime that owns engine, backend, asset, audio, scene, input, and module lifecycle setup for static-linked games.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
 - Runnable sample game whose C++ host loads project/scene data, drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, uses simple AABB collision, plays a short WAV effect on collision, and renders a scene-managed triangle, material-driven texture-backed sprite, material-driven basic 3D mesh, and debug collision rectangles before shutting down cleanly.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
@@ -33,7 +34,7 @@ The boundary is C ABI because C++ ABI and Rust layout are not stable cross-langu
 
 DirectX 11 is first because it is practical for a Windows portfolio slice, has broad tooling support, and is smaller in scope than starting with multiple graphics APIs.
 
-The current sample executable is an integration smoke for the C++ SDK, static-linked game module, native backend, and DirectX 11 presentation path. The Rust runtime is built and tested through the Rust and SDK/ABI smoke paths, but it is not yet the outer loop that drives the sample window.
+The current sample executable is an integration smoke for the C++ SDK, static-linked game module, native backend, Rust runtime stepping, and DirectX 11 presentation path. The sample uses `zeno::GameApp` as the high-level host runtime.
 
 ## Build And Test
 
@@ -79,6 +80,21 @@ Run the sample:
 
 ```powershell
 .\scripts\run-sample.ps1
+```
+
+Minimal static-linked game host:
+
+```cpp
+#include <zeno/game_module.hpp>
+
+zeno::GameModule create_sample_game_module();
+
+int main()
+{
+    zeno::GameApp app;
+    zeno::Result result = app.run(create_sample_game_module());
+    return result.ok() ? 0 : 1;
+}
 ```
 
 The sample should show a 640x360 window configured by `assets/project.zproj`, with a DirectX 11 clear color that changes for a few seconds, a visible rotating colored triangle drawn with shader assets, a small BMP-backed sprite using an alpha material, and a basic 3D cube mesh using an opaque depth-tested material. The sample loads initial object data from `assets/scenes/sample_scene.zscene` and organizes those visible objects through the SDK's minimal component-lite scene layer. Mouse position influences the background tint, WASD/arrows move the sprite, sprite/triangle AABB overlap changes the sprite color and plays a short PCM WAV effect, Space toggles debug collision rectangles, and Escape requests shutdown. Console output shows native backend initialization/shutdown, sample module init/shutdown, and asset shader compile failures if they occur.
@@ -132,7 +148,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 - Collision is limited to SDK-side AABB helpers and sample-owned checks. There is no physics engine, rigid body solver, broadphase, swept collision system, or collision component model.
 - There is no shader reflection, material graph, hot reload, mesh importer, atlas system, font rendering, asset pipeline, editor, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
-- The sample loop currently drives the native backend directly through the C++ SDK; integrating the Rust runtime as the sample's outer frame scheduler is future work.
+- `GameApp` supports the current static-linked module path only. Dynamic plugin loading, hot reload, and scripting are not implemented.
 - The first milestone is Windows-only.
 
 ## Roadmap

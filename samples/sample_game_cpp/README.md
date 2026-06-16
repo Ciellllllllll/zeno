@@ -1,8 +1,8 @@
 # ZENO Sample Game
 
-This sample is a small C++ game-module demo that runs through the ZENO C++ SDK.
+This sample is a small C++ game-module demo that runs through the ZENO C++ SDK `GameApp` runtime.
 
-It loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the DirectX 11 renderer and minimal audio path, calls the sample module lifecycle, reads a keyboard/mouse input snapshot, compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through a component-lite scene layer, checks sample-owned AABB collision, clears the screen with a changing color, draws a visible transformed triangle, materialized texture-backed sprite, materialized basic cube mesh, and debug collision rectangles through a perspective camera for a few seconds, and shuts down cleanly.
+`GameApp` loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the Rust runtime, DirectX 11 renderer, and minimal audio path, calls the sample module lifecycle, and reads a keyboard/mouse input snapshot. The module compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through the runtime scene, checks sample-owned AABB collision, clears the screen with a changing color, draws a visible transformed triangle, materialized texture-backed sprite, materialized basic cube mesh, and debug collision rectangles through a perspective camera for a few seconds, and shuts down cleanly.
 
 ## Build
 
@@ -14,7 +14,7 @@ cmake --preset windows-msvc-debug
 cmake --build --preset windows-msvc-debug
 ```
 
-The sample target is part of the repository-level CMake preset graph. Visual Studio 2022 Open Folder, VS Code CMake Tools, and CLI builds all use the same `zeno_sample_game_cpp` target.
+The sample target is part of the repository-level CMake preset graph. Visual Studio 2022 Open Folder, VS Code CMake Tools, and CLI builds all use the same `zeno_sample_game_cpp` target. The executable `main.cpp` only creates `zeno::GameApp` and runs the static-linked module.
 
 ## Assets
 
@@ -42,6 +42,7 @@ A 640x360 window opens using the size from `project.zproj`. The background clear
 - Debug draw is temporary development visualization for collision bounds.
 - Project/scene loading is a strict minimal text format for startup data. It is not an editor save format, binary scene format, prefab system, or asset database.
 - Audio is limited to short PCM WAV effects. There is no streaming BGM, spatial audio, mixer graph, or compressed audio decode.
+- `GameApp` currently runs static-linked modules only. It is not dynamic plugin loading, hot reload, or scripting.
 - Input is limited to a small keyboard/mouse snapshot.
 - There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture yet.
 - There is no mesh loader, atlas system, font renderer, or asset pipeline yet.
