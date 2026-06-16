@@ -3,6 +3,7 @@
 #include "native_backend.h"
 
 #include <cstdint>
+#include <cmath>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -27,6 +28,10 @@ constexpr std::uint32_t kMaterialDescApiVersion = 1;
 constexpr std::uint32_t kMaterialDescSize = sizeof(ZenMaterialDesc);
 constexpr std::uint32_t kAudioDescApiVersion = 1;
 constexpr std::uint32_t kAudioDescSize = sizeof(ZenAudioDesc);
+constexpr std::uint32_t kDebugLineDescApiVersion = 1;
+constexpr std::uint32_t kDebugLineDescSize = sizeof(ZenDebugLineDesc);
+constexpr std::uint32_t kDebugRectDescApiVersion = 1;
+constexpr std::uint32_t kDebugRectDescSize = sizeof(ZenDebugRectDesc);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
@@ -146,6 +151,42 @@ bool is_valid_audio_desc(const ZenAudioDesc& desc)
         && desc.reserved[1] == 0;
 }
 
+bool all_finite(const float* values, std::uint32_t count)
+{
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (!std::isfinite(values[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool is_valid_debug_line_desc(const ZenDebugLineDesc& desc)
+{
+    return desc.size == kDebugLineDescSize
+        && desc.api_version == kDebugLineDescApiVersion
+        && desc.reserved[0] == 0
+        && desc.reserved[1] == 0
+        && all_finite(desc.start, 3)
+        && all_finite(desc.end, 3)
+        && all_finite(desc.color, 4);
+}
+
+bool is_valid_debug_rect_desc(const ZenDebugRectDesc& desc)
+{
+    return desc.size == kDebugRectDescSize
+        && desc.api_version == kDebugRectDescApiVersion
+        && desc.reserved[0] == 0
+        && desc.reserved[1] == 0
+        && all_finite(desc.center, 2)
+        && all_finite(desc.half_extents, 2)
+        && std::isfinite(desc.z)
+        && all_finite(desc.color, 4)
+        && desc.half_extents[0] >= 0.0f
+        && desc.half_extents[1] >= 0.0f;
+}
+
 bool allocate_handle(std::uint64_t& out_handle)
 {
     if (g_next_backend_handle == UINT64_MAX) {
@@ -242,6 +283,35 @@ zeno::native::MaterialDesc to_native_material_desc(const ZenMaterialDesc& desc)
     native_desc.depth_mode = desc.depth_mode;
     native_desc.cull_mode = desc.cull_mode;
     native_desc.texture = desc.texture.value;
+    return native_desc;
+}
+
+zeno::native::DebugLineDesc to_native_debug_line_desc(const ZenDebugLineDesc& desc)
+{
+    zeno::native::DebugLineDesc native_desc{};
+    for (std::uint32_t i = 0; i < 3; ++i) {
+        native_desc.start[i] = desc.start[i];
+        native_desc.end[i] = desc.end[i];
+    }
+    for (std::uint32_t i = 0; i < 4; ++i) {
+        native_desc.color[i] = desc.color[i];
+    }
+
+    return native_desc;
+}
+
+zeno::native::DebugRectDesc to_native_debug_rect_desc(const ZenDebugRectDesc& desc)
+{
+    zeno::native::DebugRectDesc native_desc{};
+    for (std::uint32_t i = 0; i < 2; ++i) {
+        native_desc.center[i] = desc.center[i];
+        native_desc.half_extents[i] = desc.half_extents[i];
+    }
+    native_desc.z = desc.z;
+    for (std::uint32_t i = 0; i < 4; ++i) {
+        native_desc.color[i] = desc.color[i];
+    }
+
     return native_desc;
 }
 
@@ -992,6 +1062,40 @@ extern "C" ZenResultCode zen_native_backend_draw_mesh_with_material(
                 mesh.value,
                 material.value,
                 to_native_matrix(*model_matrix)));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_debug_line(
+    ZenNativeBackendHandle backend,
+    const ZenDebugLineDesc* desc)
+{
+    try {
+        if (desc == nullptr || !is_valid_debug_line_desc(*desc)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [desc](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(native_backend.draw_debug_line(to_native_debug_line_desc(*desc)));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_debug_rect(
+    ZenNativeBackendHandle backend,
+    const ZenDebugRectDesc* desc)
+{
+    try {
+        if (desc == nullptr || !is_valid_debug_rect_desc(*desc)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [desc](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(native_backend.draw_debug_rect(to_native_debug_rect_desc(*desc)));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

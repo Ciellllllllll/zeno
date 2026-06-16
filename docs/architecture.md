@@ -53,7 +53,7 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 - render target creation,
 - depth buffer and depth state creation,
 - clear/present operations,
-- backend-owned clear-color, shader, texture, sprite, material, triangle, mesh render resources, audio engines, and sound resources.
+- backend-owned clear-color, shader, texture, sprite, material, triangle, mesh render resources, temporary debug line/rectangle draw state, audio engines, and sound resources.
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
 
@@ -62,6 +62,8 @@ Renderer resources such as shaders, textures, materials, sprite state, mesh vert
 Audio resources follow the same boundary rule. XAudio2 engine, mastering voice, source voices, WAV parsing, and PCM sample storage are native backend internals. ABI-facing audio data is limited to handles, a small POD descriptor, borrowed WAV bytes, primitive volume values, and result codes.
 
 Vertex and index data cross the ABI as borrowed pointers plus explicit counts and stride. The native backend copies that data into backend-owned GPU buffers during creation. Material choices cross as fixed integer enums and handles. Transform and camera data cross as POD matrices. DirectX buffers, input layouts, blend/rasterizer/depth stencil objects, shader resource views, COM pointers, and Win32 handles remain native-backend private.
+
+Debug draw is an immediate development visualization path, not a general renderer feature set. Debug line and rectangle data cross the native backend ABI as POD descriptors with primitive coordinates and color values only. Collision helpers stay SDK/sample-owned and do not introduce native collision resources.
 
 ## Input Model
 
@@ -86,7 +88,7 @@ present
 
 ## Math And Coordinate Convention
 
-The SDK math layer is intentionally small and DirectX-first. It defines `Vec2`, `Vec3`, `Vec4`, `Mat4`, `Transform`, and `Camera` for sample/game-facing code.
+The SDK math layer is intentionally small and DirectX-first. It defines `Vec2`, `Vec3`, `Vec4`, `Mat4`, `Transform`, `Camera`, and SDK-side 2D AABB helpers for sample/game-facing code.
 
 ZENO uses a left-handed coordinate system for this milestone:
 
@@ -100,6 +102,8 @@ ZENO uses a left-handed coordinate system for this milestone:
 `Mat4` stores 16 `float` values in row-major order and uses row-vector multiplication. Translation lives in elements `12`, `13`, and `14`, equivalent to row 3, columns 0 through 2. Transform composition is `scale * rotation * translation`, and camera composition is `view * projection`. The DirectX 11 triangle shader declares matrices as `row_major` and transforms vertices with `mul(position, matrix)`.
 
 Only POD matrix data crosses the native backend ABI as `ZenMatrix4x4`. SDK math types and C++ helper classes remain SDK-only and do not cross the ABI boundary.
+
+`Aabb2` is a helper primitive, not a physics subsystem. It supports simple overlap and point containment checks for axis-aligned rectangles; rotation is ignored when deriving an AABB from a transform.
 
 ## C++ Game SDK
 
@@ -120,7 +124,7 @@ Project and scene loading are also SDK-owned. The current format is a strict ver
 - `on_render`,
 - `on_shutdown`.
 
-The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
+The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, moves a sprite with keyboard input, checks sample-owned AABB overlap against the triangle, draws collision debug rectangles, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

@@ -72,3 +72,8 @@ add_executable(zeno_audio_smoke src/audio_smoke.cpp)
 target_compile_features(zeno_audio_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_audio_smoke PRIVATE zeno_native)
 add_test(NAME zeno_audio_smoke COMMAND zeno_audio_smoke)
+
+add_executable(zeno_debug_draw_smoke src/debug_draw_smoke.cpp)
+target_compile_features(zeno_debug_draw_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_debug_draw_smoke PRIVATE zeno_native)
+add_test(NAME zeno_debug_draw_smoke COMMAND zeno_debug_draw_smoke)

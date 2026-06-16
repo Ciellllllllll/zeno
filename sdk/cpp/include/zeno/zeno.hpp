@@ -262,6 +262,8 @@ public:
     Result draw_mesh(const Mesh& mesh, const Transform& transform);
     Result draw_mesh(const Mesh& mesh, const Material& material, const Mat4& model_matrix);
     Result draw_mesh(const Mesh& mesh, const Material& material, const Transform& transform);
+    Result draw_debug_line(const Vec3& start, const Vec3& end, const Color& color);
+    Result draw_debug_rect_2d(const Aabb2& bounds, float z, const Color& color);
     Result present();
     void reset();
 

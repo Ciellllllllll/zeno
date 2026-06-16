@@ -28,6 +28,10 @@ extern "C" {
 #define ZEN_MATERIAL_DESC_SIZE ((uint32_t)sizeof(ZenMaterialDesc))
 #define ZEN_AUDIO_DESC_API_VERSION 1u
 #define ZEN_AUDIO_DESC_SIZE ((uint32_t)sizeof(ZenAudioDesc))
+#define ZEN_DEBUG_LINE_DESC_API_VERSION 1u
+#define ZEN_DEBUG_LINE_DESC_SIZE ((uint32_t)sizeof(ZenDebugLineDesc))
+#define ZEN_DEBUG_RECT_DESC_API_VERSION 1u
+#define ZEN_DEBUG_RECT_DESC_SIZE ((uint32_t)sizeof(ZenDebugRectDesc))
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -267,6 +271,29 @@ typedef struct ZenAudioDesc {
     uint32_t api_version;
     uint32_t reserved[2];
 } ZenAudioDesc;
+
+typedef struct ZenDebugLineDesc {
+    /* Must be set to ZEN_DEBUG_LINE_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_DEBUG_LINE_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    uint32_t reserved[2];
+    float start[3];
+    float end[3];
+    float color[4];
+} ZenDebugLineDesc;
+
+typedef struct ZenDebugRectDesc {
+    /* Must be set to ZEN_DEBUG_RECT_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_DEBUG_RECT_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    uint32_t reserved[2];
+    float center[2];
+    float half_extents[2];
+    float z;
+    float color[4];
+} ZenDebugRectDesc;
 
 /*
  * Creates the native backend shell.
@@ -618,6 +645,24 @@ ZenResultCode zen_native_backend_draw_mesh_with_material(
     ZenMeshHandle mesh,
     ZenMaterialHandle material,
     const ZenMatrix4x4* model_matrix);
+
+/*
+ * Draws a temporary debug line using the current camera matrix.
+ *
+ * Debug draw is a development visualization feature for this milestone.
+ * backend: must have an initialized renderer and an active frame.
+ * desc: borrowed POD descriptor, copied during the call.
+ */
+ZenResultCode zen_native_backend_draw_debug_line(
+    ZenNativeBackendHandle backend,
+    const ZenDebugLineDesc* desc);
+
+/*
+ * Draws a temporary axis-aligned debug rectangle in the XY plane.
+ */
+ZenResultCode zen_native_backend_draw_debug_rect(
+    ZenNativeBackendHandle backend,
+    const ZenDebugRectDesc* desc);
 
 /*
  * Creates a backend-owned XAudio2 audio engine.

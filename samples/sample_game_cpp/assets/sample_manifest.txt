@@ -1,4 +1,4 @@
 ZENO sample asset manifest
-phase=27
-purpose=verify executable-relative asset loading, scene startup data, and PCM WAV sample audio
+phase=28
+purpose=verify executable-relative asset loading, scene startup data, PCM WAV sample audio, collision helpers, and debug draw
 audio=audio/sample_click.wav

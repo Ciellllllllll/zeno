@@ -2,6 +2,24 @@
 
 namespace zeno {
 
+Aabb2 Aabb2::from_center_half_extents(const Vec2& center, const Vec2& half_extents)
+{
+    Aabb2 result{};
+    result.center = center;
+    result.half_extents = Vec2{ std::fabs(half_extents.x), std::fabs(half_extents.y) };
+    return result;
+}
+
+Vec2 Aabb2::min() const
+{
+    return Vec2{ center.x - half_extents.x, center.y - half_extents.y };
+}
+
+Vec2 Aabb2::max() const
+{
+    return Vec2{ center.x + half_extents.x, center.y + half_extents.y };
+}
+
 Mat4 Mat4::identity()
 {
     Mat4 result{};
@@ -88,6 +106,35 @@ Mat4 Transform::matrix() const
     const Mat4 rotation_matrix = Mat4::rotation_z(rotation_z_radians);
     const Mat4 translation_matrix = Mat4::translation(position);
     return multiply(multiply(scale_matrix, rotation_matrix), translation_matrix);
+}
+
+bool intersects(const Aabb2& left, const Aabb2& right)
+{
+    const Vec2 left_min = left.min();
+    const Vec2 left_max = left.max();
+    const Vec2 right_min = right.min();
+    const Vec2 right_max = right.max();
+    return left_min.x <= right_max.x
+        && left_max.x >= right_min.x
+        && left_min.y <= right_max.y
+        && left_max.y >= right_min.y;
+}
+
+bool contains(const Aabb2& box, const Vec2& point)
+{
+    const Vec2 box_min = box.min();
+    const Vec2 box_max = box.max();
+    return point.x >= box_min.x
+        && point.x <= box_max.x
+        && point.y >= box_min.y
+        && point.y <= box_max.y;
+}
+
+Aabb2 aabb_from_transform_2d(const Transform& transform)
+{
+    return Aabb2::from_center_half_extents(
+        Vec2{ transform.position.x, transform.position.y },
+        Vec2{ transform.scale.x * 0.5f, transform.scale.y * 0.5f });
 }
 
 Camera Camera::orthographic(float width, float height, float near_z, float far_z)

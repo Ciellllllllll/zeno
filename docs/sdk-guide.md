@@ -14,6 +14,7 @@
 - Backend-owned material handles that bundle fixed shader choice, texture dependency, blend mode, depth mode, and cull mode.
 - SDK-owned component-lite scene objects and strict project/scene startup data loading.
 - Backend-owned XAudio2 audio engine and short PCM WAV sound handles.
+- SDK-side 2D AABB collision helpers and temporary DirectX 11 debug line/rectangle visualization.
 - A keyboard/mouse input snapshot connected to the Win32 message loop.
 - A small math, transform, and camera foundation with documented DirectX-first conventions.
 - Practical Windows build workflow using Cargo, CMakePresets, and Visual Studio 2022/MSVC.
@@ -31,7 +32,7 @@
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
-- Rendering and audio are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, and short PCM WAV effects, not a full renderer or audio engine.
+- Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. It is enough to demonstrate ownership and lifecycle without introducing a framework too early.
 - Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
@@ -48,7 +49,7 @@
 - No gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - No shader reflection, material graph, hot reload, mesh importer, atlas system, font rendering, or generalized render pipeline beyond the fixed DirectX 11 triangle, sprite, and mesh paths.
 - No streaming BGM, 3D spatial audio, mixer graph, or compressed audio decode.
-- Math is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, collision primitives, or SIMD optimizations yet.
+- Math/collision is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, 3D collision volumes, physics solver, swept collision, broadphase, or SIMD optimizations yet.
 - No asset pipeline.
 - No dynamic game-module loading yet.
 - No editor.
@@ -76,5 +77,5 @@ Later:
 - The project uses Rust for high-level runtime safety while keeping Windows and DirectX work in C++.
 - The C ABI boundary avoids unstable Rust/C++ layout and calling convention issues.
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
-- The sample is deliberately modest: the C++ host proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, short WAV effect playback, SDK use, static-linked game-module lifecycle, and clean shutdown.
+- The sample is deliberately modest: the C++ host proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, SDK-side AABB checks with debug visualization, short WAV effect playback, SDK use, static-linked game-module lifecycle, and clean shutdown.
 - The next most valuable technical step is dynamic module loading and packaging, not adding an editor or multi-platform abstraction.

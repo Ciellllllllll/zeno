@@ -77,6 +77,41 @@ ZenSpriteDrawDesc make_native_sprite_draw_desc(const SpriteDrawDesc& desc)
     return native_desc;
 }
 
+ZenDebugLineDesc make_native_debug_line_desc(const Vec3& start, const Vec3& end, const Color& color)
+{
+    ZenDebugLineDesc desc{};
+    desc.size = ZEN_DEBUG_LINE_DESC_SIZE;
+    desc.api_version = ZEN_DEBUG_LINE_DESC_API_VERSION;
+    desc.start[0] = start.x;
+    desc.start[1] = start.y;
+    desc.start[2] = start.z;
+    desc.end[0] = end.x;
+    desc.end[1] = end.y;
+    desc.end[2] = end.z;
+    desc.color[0] = color.r;
+    desc.color[1] = color.g;
+    desc.color[2] = color.b;
+    desc.color[3] = color.a;
+    return desc;
+}
+
+ZenDebugRectDesc make_native_debug_rect_desc(const Aabb2& bounds, float z, const Color& color)
+{
+    ZenDebugRectDesc desc{};
+    desc.size = ZEN_DEBUG_RECT_DESC_SIZE;
+    desc.api_version = ZEN_DEBUG_RECT_DESC_API_VERSION;
+    desc.center[0] = bounds.center.x;
+    desc.center[1] = bounds.center.y;
+    desc.half_extents[0] = bounds.half_extents.x;
+    desc.half_extents[1] = bounds.half_extents.y;
+    desc.z = z;
+    desc.color[0] = color.r;
+    desc.color[1] = color.g;
+    desc.color[2] = color.b;
+    desc.color[3] = color.a;
+    return desc;
+}
+
 ZenMeshDesc make_native_mesh_desc(
     const MeshVertex* vertices,
     std::uint32_t vertex_count,
@@ -566,6 +601,18 @@ Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, cons
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, const Transform& transform)
 {
     return draw_mesh(mesh, material, transform.matrix());
+}
+
+Result NativeBackend::draw_debug_line(const Vec3& start, const Vec3& end, const Color& color)
+{
+    const ZenDebugLineDesc desc = make_native_debug_line_desc(start, end, color);
+    return Result(zen_native_backend_draw_debug_line(handle_, &desc));
+}
+
+Result NativeBackend::draw_debug_rect_2d(const Aabb2& bounds, float z, const Color& color)
+{
+    const ZenDebugRectDesc desc = make_native_debug_rect_desc(bounds, z, color);
+    return Result(zen_native_backend_draw_debug_rect(handle_, &desc));
 }
 
 Result NativeBackend::present()

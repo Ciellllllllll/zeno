@@ -1,5 +1,6 @@
 #include "sample_module.h"
 
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -9,9 +10,12 @@ namespace {
 constexpr double kDemoDurationSeconds = 4.0;
 constexpr double kColorCycleSeconds = 2.0;
 constexpr float kMouseColorScale = 1.0f / 640.0f;
+constexpr float kPlayerMoveSpeed = 0.55f;
 
 double g_elapsed_seconds = 0.0;
 float g_keyboard_tint = 0.0f;
+bool g_debug_draw_enabled = true;
+bool g_player_touching_item = false;
 zeno::RenderTriangle g_triangle;
 zeno::VertexShader g_vertex_shader;
 zeno::PixelShader g_pixel_shader;
@@ -39,6 +43,16 @@ const zeno::SceneObjectDesc* find_scene_object(
     }
 
     return nullptr;
+}
+
+zeno::Aabb2 bounds_for_object(zeno::ObjectId object)
+{
+    const zeno::Transform* transform = g_scene.transform(object);
+    if (transform == nullptr) {
+        return {};
+    }
+
+    return zeno::aabb_from_transform_2d(*transform);
 }
 
 void log_shader_failure(
@@ -72,6 +86,8 @@ zeno::Result on_init(zeno::GameContext& context)
 
     g_elapsed_seconds = 0.0;
     g_keyboard_tint = 0.0f;
+    g_debug_draw_enabled = true;
+    g_player_touching_item = false;
     g_scene.clear();
     g_cube_object = {};
     g_triangle_object = {};
@@ -227,11 +243,8 @@ zeno::Result on_update(zeno::GameContext& context)
         context.should_close = true;
         return zeno::Result();
     }
-    if (context.input.pressed(zeno::Key::space) && g_event_sound.valid()) {
-        zeno::Result result = g_event_sound.play();
-        if (!result.ok()) {
-            return result;
-        }
+    if (context.input.pressed(zeno::Key::space)) {
+        g_debug_draw_enabled = !g_debug_draw_enabled;
     }
 
     if (context.input.down(zeno::Key::a) || context.input.down(zeno::Key::left)) {
@@ -256,10 +269,56 @@ zeno::Result on_update(zeno::GameContext& context)
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 
+    zeno::Vec2 player_move{};
+    if (context.input.down(zeno::Key::a) || context.input.down(zeno::Key::left)) {
+        player_move.x -= 1.0f;
+    }
+    if (context.input.down(zeno::Key::d) || context.input.down(zeno::Key::right)) {
+        player_move.x += 1.0f;
+    }
+    if (context.input.down(zeno::Key::w) || context.input.down(zeno::Key::up)) {
+        player_move.y += 1.0f;
+    }
+    if (context.input.down(zeno::Key::s) || context.input.down(zeno::Key::down)) {
+        player_move.y -= 1.0f;
+    }
+
+    sprite_transform->position.x += player_move.x * kPlayerMoveSpeed * static_cast<float>(context.delta_time_seconds);
+    sprite_transform->position.y += player_move.y * kPlayerMoveSpeed * static_cast<float>(context.delta_time_seconds);
+    if (sprite_transform->position.x < -0.9f) {
+        sprite_transform->position.x = -0.9f;
+    }
+    if (sprite_transform->position.x > 0.9f) {
+        sprite_transform->position.x = 0.9f;
+    }
+    if (sprite_transform->position.y < -0.55f) {
+        sprite_transform->position.y = -0.55f;
+    }
+    if (sprite_transform->position.y > 0.55f) {
+        sprite_transform->position.y = 0.55f;
+    }
+
     triangle_transform->rotation_z_radians = static_cast<float>(g_elapsed_seconds);
-    triangle_transform->position.x = 0.25f * g_keyboard_tint;
+    triangle_transform->position.x = 0.15f * std::sin(static_cast<float>(g_elapsed_seconds));
     sprite_transform->rotation_z_radians = -0.5f * static_cast<float>(g_elapsed_seconds);
     cube_transform->rotation_z_radians = 0.7f * static_cast<float>(g_elapsed_seconds);
+
+    const bool touching_item = zeno::intersects(bounds_for_object(g_sprite_object), bounds_for_object(g_triangle_object));
+    if (touching_item && !g_player_touching_item && g_event_sound.valid()) {
+        zeno::Result result = g_event_sound.play();
+        if (!result.ok()) {
+            return result;
+        }
+    }
+    g_player_touching_item = touching_item;
+
+    const zeno::Color player_color = touching_item
+        ? zeno::Color{ 1.0f, 0.85f, 0.20f, 0.90f }
+        : zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f };
+    zeno::Result result = g_scene.set_sprite_renderer(g_sprite_object, zeno::SpriteRenderer{ &g_sprite_material, player_color });
+    if (!result.ok()) {
+        return result;
+    }
 
     context.should_close = g_elapsed_seconds >= kDemoDurationSeconds;
     return zeno::Result();
@@ -299,6 +358,30 @@ zeno::Result on_render(zeno::GameContext& context)
     result = g_scene.render(*context.backend);
     if (!result.ok()) {
         return result;
+    }
+
+    if (g_debug_draw_enabled) {
+        const zeno::Color player_bounds_color = g_player_touching_item
+            ? zeno::Color{ 1.0f, 0.9f, 0.2f, 1.0f }
+            : zeno::Color{ 0.2f, 0.95f, 1.0f, 1.0f };
+        result = context.backend->draw_debug_rect_2d(bounds_for_object(g_sprite_object), 1.6f, player_bounds_color);
+        if (!result.ok()) {
+            return result;
+        }
+        result = context.backend->draw_debug_rect_2d(
+            bounds_for_object(g_triangle_object),
+            1.9f,
+            zeno::Color{ 1.0f, 0.35f, 0.35f, 1.0f });
+        if (!result.ok()) {
+            return result;
+        }
+        result = context.backend->draw_debug_rect_2d(
+            bounds_for_object(g_cube_object),
+            2.8f,
+            zeno::Color{ 0.45f, 1.0f, 0.35f, 1.0f });
+        if (!result.ok()) {
+            return result;
+        }
     }
 
     return context.backend->present();

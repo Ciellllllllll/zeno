@@ -73,6 +73,19 @@ struct MaterialDesc final {
     std::uint64_t texture = 0;
 };
 
+struct DebugLineDesc final {
+    float start[3]{};
+    float end[3]{};
+    float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
+struct DebugRectDesc final {
+    float center[2]{};
+    float half_extents[2]{};
+    float z = 0.0f;
+    float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 struct ShaderCompileLog final {
     char message[1024]{};
     std::uint32_t message_length = 0;
@@ -153,6 +166,8 @@ public:
     bool destroy_material(std::uint64_t handle);
     RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc);
     RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix);
+    RenderCommandResult draw_debug_line(const DebugLineDesc& desc);
+    RenderCommandResult draw_debug_rect(const DebugRectDesc& desc);
     AudioCommandResult create_audio_engine(std::uint64_t& out_handle);
     bool destroy_audio_engine(std::uint64_t handle);
     AudioCommandResult create_sound_from_wav_memory(

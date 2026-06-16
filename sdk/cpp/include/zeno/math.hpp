@@ -9,6 +9,15 @@ struct Vec2 final {
     float y = 0.0f;
 };
 
+struct Aabb2 final {
+    Vec2 center{};
+    Vec2 half_extents{};
+
+    static Aabb2 from_center_half_extents(const Vec2& center, const Vec2& half_extents);
+    Vec2 min() const;
+    Vec2 max() const;
+};
+
 struct Vec3 final {
     float x = 0.0f;
     float y = 0.0f;
@@ -45,6 +54,10 @@ struct Transform final {
 
     Mat4 matrix() const;
 };
+
+bool intersects(const Aabb2& left, const Aabb2& right);
+bool contains(const Aabb2& box, const Vec2& point);
+Aabb2 aabb_from_transform_2d(const Transform& transform);
 
 struct Camera final {
     Mat4 view = Mat4::identity();

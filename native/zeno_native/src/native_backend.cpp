@@ -117,6 +117,34 @@ float4 ps_main(PSInput input) : SV_TARGET {
 }
 )";
 
+constexpr char kDebugLineShaderSource[] = R"(
+cbuffer DebugLineConstants : register(b0) {
+    row_major float4x4 u_world;
+    row_major float4x4 u_view_projection;
+};
+
+struct VSInput {
+    float3 position : POSITION;
+    float4 color : COLOR;
+};
+
+struct PSInput {
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+PSInput vs_main(VSInput input) {
+    PSInput output;
+    output.position = mul(mul(float4(input.position, 1.0), u_world), u_view_projection);
+    output.color = input.color;
+    return output;
+}
+
+float4 ps_main(PSInput input) : SV_TARGET {
+    return input.color;
+}
+)";
+
 struct TriangleVertex final {
     float position[3];
     float color[4];
@@ -125,6 +153,11 @@ struct TriangleVertex final {
 struct SpriteVertex final {
     float position[3];
     float uv[2];
+};
+
+struct DebugLineVertex final {
+    float position[3];
+    float color[4];
 };
 
 struct TriangleResource final {
@@ -187,6 +220,17 @@ Matrix4x4 identity_matrix()
     matrix.elements[10] = 1.0f;
     matrix.elements[15] = 1.0f;
     return matrix;
+}
+
+bool all_finite(const float* values, std::size_t count)
+{
+    for (std::size_t i = 0; i < count; ++i) {
+        if (!std::isfinite(values[i])) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void set_compile_log(ShaderCompileLog& compile_log, const char* message, std::size_t length)
@@ -851,6 +895,11 @@ public:
         frame_active_ = false;
         material_resources_.clear();
         mesh_resources_.clear();
+        debug_line_blend_state_.Reset();
+        debug_line_constant_buffer_.Reset();
+        debug_line_input_layout_.Reset();
+        debug_line_pixel_shader_.Reset();
+        debug_line_vertex_shader_.Reset();
         mesh_input_layout_.Reset();
         mesh_pixel_shader_.Reset();
         mesh_vertex_shader_.Reset();
@@ -1984,6 +2033,53 @@ public:
         return RenderCommandResult::ok;
     }
 
+    RenderCommandResult draw_debug_line(const DebugLineDesc& desc)
+    {
+        if (!all_finite(desc.start, 3) || !all_finite(desc.end, 3) || !all_finite(desc.color, 4)) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        const DebugLineVertex vertices[] = {
+            { { desc.start[0], desc.start[1], desc.start[2] }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { desc.end[0], desc.end[1], desc.end[2] }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+        };
+        return draw_debug_vertices(vertices, 2);
+    }
+
+    RenderCommandResult draw_debug_rect(const DebugRectDesc& desc)
+    {
+        const float values[] = {
+            desc.center[0],
+            desc.center[1],
+            desc.half_extents[0],
+            desc.half_extents[1],
+            desc.z,
+            desc.color[0],
+            desc.color[1],
+            desc.color[2],
+            desc.color[3],
+        };
+        if (!all_finite(values, std::size(values)) || desc.half_extents[0] < 0.0f || desc.half_extents[1] < 0.0f) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        const float min_x = desc.center[0] - desc.half_extents[0];
+        const float max_x = desc.center[0] + desc.half_extents[0];
+        const float min_y = desc.center[1] - desc.half_extents[1];
+        const float max_y = desc.center[1] + desc.half_extents[1];
+        const DebugLineVertex vertices[] = {
+            { { min_x, min_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { max_x, min_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { max_x, min_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { max_x, max_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { max_x, max_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { min_x, max_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { min_x, max_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+            { { min_x, min_y, desc.z }, { desc.color[0], desc.color[1], desc.color[2], desc.color[3] } },
+        };
+        return draw_debug_vertices(vertices, 8);
+    }
+
     RenderCommandResult draw_triangle(std::uint64_t handle)
     {
         return draw_triangle_transformed(handle, identity_matrix());
@@ -2045,6 +2141,155 @@ public:
     }
 
 private:
+    bool ensure_debug_line_pipeline()
+    {
+        if (debug_line_vertex_shader_ != nullptr) {
+            return true;
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> vertex_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> pixel_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+
+        HRESULT result = D3DCompile(
+            kDebugLineShaderSource,
+            sizeof(kDebugLineShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "vs_main",
+            "vs_4_0",
+            0,
+            0,
+            vertex_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        error_blob.Reset();
+        result = D3DCompile(
+            kDebugLineShaderSource,
+            sizeof(kDebugLineShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "ps_main",
+            "ps_4_0",
+            0,
+            0,
+            pixel_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreateVertexShader(
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            nullptr,
+            debug_line_vertex_shader_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreatePixelShader(
+            pixel_shader_blob->GetBufferPointer(),
+            pixel_shader_blob->GetBufferSize(),
+            nullptr,
+            debug_line_pixel_shader_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr D3D11_INPUT_ELEMENT_DESC input_elements[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(DebugLineVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(DebugLineVertex, color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        result = device_->CreateInputLayout(
+            input_elements,
+            2,
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            debug_line_input_layout_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_BUFFER_DESC constant_buffer_desc{};
+        constant_buffer_desc.ByteWidth = sizeof(TriangleTransformConstants);
+        constant_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+        constant_buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        result = device_->CreateBuffer(&constant_buffer_desc, nullptr, debug_line_constant_buffer_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_BLEND_DESC blend_desc{};
+        blend_desc.RenderTarget[0].BlendEnable = TRUE;
+        blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        result = device_->CreateBlendState(&blend_desc, debug_line_blend_state_.GetAddressOf());
+        return SUCCEEDED(result);
+    }
+
+    RenderCommandResult draw_debug_vertices(const DebugLineVertex* vertices, std::uint32_t vertex_count)
+    {
+        if (vertices == nullptr || vertex_count == 0) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (!ensure_debug_line_pipeline()) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        D3D11_BUFFER_DESC vertex_buffer_desc{};
+        vertex_buffer_desc.ByteWidth = sizeof(DebugLineVertex) * vertex_count;
+        vertex_buffer_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        vertex_buffer_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA initial_data{};
+        initial_data.pSysMem = vertices;
+        Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
+        HRESULT result = device_->CreateBuffer(&vertex_buffer_desc, &initial_data, vertex_buffer.GetAddressOf());
+        if (FAILED(result)) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        TriangleTransformConstants constants{};
+        const Matrix4x4 identity = identity_matrix();
+        for (int i = 0; i < 16; ++i) {
+            constants.world[i] = identity.elements[i];
+            constants.view_projection[i] = view_projection_matrix_.elements[i];
+        }
+        context_->UpdateSubresource(debug_line_constant_buffer_.Get(), 0, nullptr, &constants, 0, 0);
+
+        constexpr UINT stride = sizeof(DebugLineVertex);
+        constexpr UINT offset = 0;
+        ID3D11Buffer* vertex_buffers[] = { vertex_buffer.Get() };
+        ID3D11Buffer* constant_buffers[] = { debug_line_constant_buffer_.Get() };
+        float blend_factor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        context_->IASetInputLayout(debug_line_input_layout_.Get());
+        context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        context_->VSSetShader(debug_line_vertex_shader_.Get(), nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShader(debug_line_pixel_shader_.Get(), nullptr, 0);
+        context_->OMSetDepthStencilState(disabled_depth_stencil_state_.Get(), 0);
+        context_->OMSetBlendState(debug_line_blend_state_.Get(), blend_factor, 0xffffffff);
+        context_->Draw(vertex_count, 0);
+        context_->OMSetBlendState(nullptr, blend_factor, 0xffffffff);
+        return RenderCommandResult::ok;
+    }
+
     Microsoft::WRL::ComPtr<ID3D11Device> device_;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
@@ -2054,6 +2299,11 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depth_stencil_state_;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> disabled_depth_stencil_state_;
     Microsoft::WRL::ComPtr<ID3D11Buffer> triangle_transform_buffer_;
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> debug_line_vertex_shader_;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> debug_line_pixel_shader_;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> debug_line_input_layout_;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> debug_line_constant_buffer_;
+    Microsoft::WRL::ComPtr<ID3D11BlendState> debug_line_blend_state_;
     Microsoft::WRL::ComPtr<ID3D11VertexShader> mesh_vertex_shader_;
     Microsoft::WRL::ComPtr<ID3D11PixelShader> mesh_pixel_shader_;
     Microsoft::WRL::ComPtr<ID3D11InputLayout> mesh_input_layout_;
@@ -2478,6 +2728,24 @@ RenderCommandResult NativeBackend::draw_mesh_with_material(
     }
 
     return renderer_->draw_mesh_with_material(mesh, material, model_matrix);
+}
+
+RenderCommandResult NativeBackend::draw_debug_line(const DebugLineDesc& desc)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_debug_line(desc);
+}
+
+RenderCommandResult NativeBackend::draw_debug_rect(const DebugRectDesc& desc)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_debug_rect(desc);
 }
 
 AudioCommandResult NativeBackend::create_audio_engine(std::uint64_t& out_handle)

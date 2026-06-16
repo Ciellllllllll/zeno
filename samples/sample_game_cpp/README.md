@@ -2,7 +2,7 @@
 
 This sample is a small C++ game-module demo that runs through the ZENO C++ SDK.
 
-It loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the DirectX 11 renderer and minimal audio path, calls the sample module lifecycle, reads a keyboard/mouse input snapshot, compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through a component-lite scene layer, clears the screen with a changing color, draws a visible transformed triangle, materialized texture-backed sprite, and materialized basic cube mesh through a perspective camera for a few seconds, and shuts down cleanly.
+It loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the DirectX 11 renderer and minimal audio path, calls the sample module lifecycle, reads a keyboard/mouse input snapshot, compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through a component-lite scene layer, checks sample-owned AABB collision, clears the screen with a changing color, draws a visible transformed triangle, materialized texture-backed sprite, materialized basic cube mesh, and debug collision rectangles through a perspective camera for a few seconds, and shuts down cleanly.
 
 ## Build
 
@@ -32,12 +32,14 @@ The current sample reads `sample_manifest.txt` during `on_init` to prove the cop
 
 ## Expected Result
 
-A 640x360 window opens using the size from `project.zproj`. The background clear color changes over time, a scene-managed colored triangle rendered through asset shader handles rotates through the SDK transform/camera path, a small scene-referenced texture-backed sprite is drawn with an alpha material, a cube mesh rotates with an opaque depth-tested material, then the sample closes after about four seconds. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, Space plays `audio/sample_click.wav`, and Escape requests shutdown. The console logs the native backend lifecycle and sample module init/shutdown calls.
+A 640x360 window opens using the size from `project.zproj`. The background clear color changes over time, a scene-managed colored triangle rendered through asset shader handles rotates through the SDK transform/camera path, a small scene-referenced texture-backed sprite is drawn with an alpha material, a cube mesh rotates with an opaque depth-tested material, then the sample closes after about four seconds. Mouse position influences the background tint, WASD/arrows move the sprite, sprite/triangle AABB overlap changes the sprite color and plays `audio/sample_click.wav`, Space toggles debug collision rectangles, and Escape requests shutdown. The console logs the native backend lifecycle and sample module init/shutdown calls.
 
 ## Limitations
 
 - Rendering is limited to a DirectX 11 clear color, fixed triangle resources with transform/camera matrices and explicit shader handles, a fixed sprite draw path with texture/material handles, and indexed position/color mesh resources with material render state.
 - The scene layer is component-lite organization for object IDs, transforms, and one renderable per object. It is not a full ECS, hierarchy, prefab, or editor system.
+- Collision is sample-owned SDK AABB helper usage. It is not a physics engine, rigid body solver, swept collision implementation, or scene collider component system.
+- Debug draw is temporary development visualization for collision bounds.
 - Project/scene loading is a strict minimal text format for startup data. It is not an editor save format, binary scene format, prefab system, or asset database.
 - Audio is limited to short PCM WAV effects. There is no streaming BGM, spatial audio, mixer graph, or compressed audio decode.
 - Input is limited to a small keyboard/mouse snapshot.

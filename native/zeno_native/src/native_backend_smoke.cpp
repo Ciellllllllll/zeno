@@ -1,6 +1,7 @@
 #include <zeno/zeno_native_backend.h>
 
 #include <chrono>
+#include <limits>
 #include <thread>
 
 namespace {
@@ -149,6 +150,41 @@ ZenSpriteDrawDesc make_sprite_draw_desc()
     return desc;
 }
 
+ZenDebugLineDesc make_debug_line_desc()
+{
+    ZenDebugLineDesc desc{};
+    desc.size = ZEN_DEBUG_LINE_DESC_SIZE;
+    desc.api_version = ZEN_DEBUG_LINE_DESC_API_VERSION;
+    desc.start[0] = -0.5f;
+    desc.start[1] = -0.5f;
+    desc.start[2] = 0.0f;
+    desc.end[0] = 0.5f;
+    desc.end[1] = 0.5f;
+    desc.end[2] = 0.0f;
+    desc.color[0] = 1.0f;
+    desc.color[1] = 0.2f;
+    desc.color[2] = 0.1f;
+    desc.color[3] = 1.0f;
+    return desc;
+}
+
+ZenDebugRectDesc make_debug_rect_desc()
+{
+    ZenDebugRectDesc desc{};
+    desc.size = ZEN_DEBUG_RECT_DESC_SIZE;
+    desc.api_version = ZEN_DEBUG_RECT_DESC_API_VERSION;
+    desc.center[0] = 0.0f;
+    desc.center[1] = 0.0f;
+    desc.half_extents[0] = 0.5f;
+    desc.half_extents[1] = 0.25f;
+    desc.z = 0.0f;
+    desc.color[0] = 0.1f;
+    desc.color[1] = 1.0f;
+    desc.color[2] = 0.2f;
+    desc.color[3] = 1.0f;
+    return desc;
+}
+
 } // namespace
 
 int main()
@@ -189,6 +225,11 @@ int main()
     invalid_backend.value = 123456;
     if (!expect(zen_native_backend_begin_frame(invalid_backend), ZEN_RESULT_NOT_INITIALIZED)) {
         return 6;
+    }
+
+    ZenDebugLineDesc debug_line_desc = make_debug_line_desc();
+    if (!expect(zen_native_backend_draw_debug_line(invalid_backend, &debug_line_desc), ZEN_RESULT_NOT_INITIALIZED)) {
+        return 61;
     }
 
     ZenNativeBackendHandle backend{};
@@ -232,6 +273,49 @@ int main()
     if (!expect(zen_native_backend_clear(backend, 0.0f, 0.0f, 0.0f, 1.0f), ZEN_RESULT_BACKEND_ERROR)) {
         zen_native_backend_destroy(backend);
         return 13;
+    }
+
+    if (!expect(zen_native_backend_draw_debug_line(backend, nullptr), ZEN_RESULT_INVALID_ARGUMENT)) {
+        zen_native_backend_destroy(backend);
+        return 131;
+    }
+
+    ZenDebugLineDesc invalid_debug_line_desc = make_debug_line_desc();
+    invalid_debug_line_desc.size = 0;
+    if (!expect(zen_native_backend_draw_debug_line(backend, &invalid_debug_line_desc), ZEN_RESULT_INVALID_ARGUMENT)) {
+        zen_native_backend_destroy(backend);
+        return 132;
+    }
+
+    invalid_debug_line_desc = make_debug_line_desc();
+    invalid_debug_line_desc.color[0] = std::numeric_limits<float>::infinity();
+    if (!expect(zen_native_backend_draw_debug_line(backend, &invalid_debug_line_desc), ZEN_RESULT_INVALID_ARGUMENT)) {
+        zen_native_backend_destroy(backend);
+        return 133;
+    }
+
+    debug_line_desc = make_debug_line_desc();
+    if (!expect(zen_native_backend_draw_debug_line(backend, &debug_line_desc), ZEN_RESULT_BACKEND_ERROR)) {
+        zen_native_backend_destroy(backend);
+        return 134;
+    }
+
+    ZenDebugRectDesc debug_rect_desc = make_debug_rect_desc();
+    if (!expect(zen_native_backend_draw_debug_rect(backend, nullptr), ZEN_RESULT_INVALID_ARGUMENT)) {
+        zen_native_backend_destroy(backend);
+        return 135;
+    }
+
+    ZenDebugRectDesc invalid_debug_rect_desc = make_debug_rect_desc();
+    invalid_debug_rect_desc.half_extents[0] = -0.1f;
+    if (!expect(zen_native_backend_draw_debug_rect(backend, &invalid_debug_rect_desc), ZEN_RESULT_INVALID_ARGUMENT)) {
+        zen_native_backend_destroy(backend);
+        return 136;
+    }
+
+    if (!expect(zen_native_backend_draw_debug_rect(backend, &debug_rect_desc), ZEN_RESULT_BACKEND_ERROR)) {
+        zen_native_backend_destroy(backend);
+        return 137;
     }
 
     ZenRenderClearColorHandle scratch_clear_color{ 777 };
