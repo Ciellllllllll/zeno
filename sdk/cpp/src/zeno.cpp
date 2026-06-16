@@ -107,6 +107,14 @@ ZenMaterialDesc make_native_material_desc(const MaterialDesc& desc, ZenTextureHa
     return native_desc;
 }
 
+ZenAudioDesc make_native_audio_desc()
+{
+    ZenAudioDesc desc{};
+    desc.size = ZEN_AUDIO_DESC_SIZE;
+    desc.api_version = ZEN_AUDIO_DESC_API_VERSION;
+    return desc;
+}
+
 } // namespace
 
 bool InputSnapshot::down(Key key) const
@@ -458,6 +466,19 @@ Result NativeBackend::create_sprite_material(
     return Result();
 }
 
+Result NativeBackend::create_audio_engine(AudioEngine& out_audio)
+{
+    ZenAudioDesc desc = make_native_audio_desc();
+    ZenAudioEngineHandle handle{};
+    const ZenResultCode result = zen_native_backend_create_audio_engine(handle_, &desc, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_audio = AudioEngine(handle_, handle);
+    return Result();
+}
+
 Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
 {
     ZenRenderTriangleHandle handle{};
@@ -793,6 +814,126 @@ void Material::reset()
 
     zen_native_backend_destroy_material(backend_, handle_);
     backend_ = {};
+    handle_ = {};
+}
+
+AudioEngine::AudioEngine(ZenNativeBackendHandle backend, ZenAudioEngineHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+AudioEngine::~AudioEngine()
+{
+    reset();
+}
+
+AudioEngine::AudioEngine(AudioEngine&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenAudioEngineHandle{}))
+{
+}
+
+AudioEngine& AudioEngine::operator=(AudioEngine&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenAudioEngineHandle{});
+    }
+
+    return *this;
+}
+
+Result AudioEngine::load_sound(const AssetRoot& assets, std::string_view relative_path_utf8, Sound& out_sound) const
+{
+    std::vector<std::uint8_t> bytes;
+    Result result = assets.read_binary(relative_path_utf8, bytes);
+    if (!result.ok()) {
+        return result;
+    }
+
+    ZenSoundHandle handle{};
+    const ZenResultCode native_result = zen_native_backend_create_sound_from_wav_memory(
+        backend_,
+        handle_,
+        bytes.data(),
+        bytes.size(),
+        &handle);
+    if (native_result != ZEN_RESULT_OK) {
+        return Result(native_result);
+    }
+
+    out_sound = Sound(backend_, handle_, handle);
+    return Result();
+}
+
+void AudioEngine::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_audio_engine(backend_, handle_);
+    backend_ = {};
+    handle_ = {};
+}
+
+Sound::Sound(ZenNativeBackendHandle backend, ZenAudioEngineHandle audio, ZenSoundHandle handle)
+    : backend_(backend)
+    , audio_(audio)
+    , handle_(handle)
+{
+}
+
+Sound::~Sound()
+{
+    reset();
+}
+
+Sound::Sound(Sound&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , audio_(std::exchange(other.audio_, ZenAudioEngineHandle{}))
+    , handle_(std::exchange(other.handle_, ZenSoundHandle{}))
+{
+}
+
+Sound& Sound::operator=(Sound&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        audio_ = std::exchange(other.audio_, ZenAudioEngineHandle{});
+        handle_ = std::exchange(other.handle_, ZenSoundHandle{});
+    }
+
+    return *this;
+}
+
+Result Sound::play() const
+{
+    return Result(zen_native_backend_play_sound(backend_, audio_, handle_));
+}
+
+Result Sound::stop() const
+{
+    return Result(zen_native_backend_stop_sound(backend_, audio_, handle_));
+}
+
+Result Sound::set_volume(float volume) const
+{
+    return Result(zen_native_backend_set_sound_volume(backend_, audio_, handle_, volume));
+}
+
+void Sound::reset()
+{
+    if (backend_.value == 0 || audio_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_sound(backend_, audio_, handle_);
+    backend_ = {};
+    audio_ = {};
     handle_ = {};
 }
 

@@ -12,7 +12,7 @@ target_compile_features(zeno_native PUBLIC cxx_std_20)
 target_include_directories(zeno_native PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-target_link_libraries(zeno_native PRIVATE user32 d3d11 dxgi d3dcompiler windowscodecs ole32)
+target_link_libraries(zeno_native PRIVATE user32 d3d11 dxgi d3dcompiler windowscodecs ole32 xaudio2)
 
 set(ZENO_ABI_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../target/${ZENO_RUST_PROFILE}")
 
@@ -67,3 +67,8 @@ add_executable(zeno_material_smoke src/material_smoke.cpp)
 target_compile_features(zeno_material_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_material_smoke PRIVATE zeno_native)
 add_test(NAME zeno_material_smoke COMMAND zeno_material_smoke)
+
+add_executable(zeno_audio_smoke src/audio_smoke.cpp)
+target_compile_features(zeno_audio_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_audio_smoke PRIVATE zeno_native)
+add_test(NAME zeno_audio_smoke COMMAND zeno_audio_smoke)

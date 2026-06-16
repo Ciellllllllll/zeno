@@ -19,6 +19,8 @@ zeno::Texture g_sprite_texture;
 zeno::Mesh g_cube_mesh;
 zeno::Material g_sprite_material;
 zeno::Material g_cube_material;
+zeno::AudioEngine g_audio_engine;
+zeno::Sound g_event_sound;
 zeno::Scene g_scene;
 zeno::ObjectId g_cube_object;
 zeno::ObjectId g_triangle_object;
@@ -165,6 +167,19 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
+    result = context.backend->create_audio_engine(g_audio_engine);
+    if (!result.ok()) {
+        return result;
+    }
+    result = g_audio_engine.load_sound(*context.assets, "audio/sample_click.wav", g_event_sound);
+    if (!result.ok()) {
+        return result;
+    }
+    result = g_event_sound.set_volume(0.35f);
+    if (!result.ok()) {
+        return result;
+    }
+
     result = context.backend->create_triangle(g_vertex_shader, g_pixel_shader, g_triangle);
     if (!result.ok()) {
         return result;
@@ -211,6 +226,12 @@ zeno::Result on_update(zeno::GameContext& context)
     if (context.input.pressed(zeno::Key::escape)) {
         context.should_close = true;
         return zeno::Result();
+    }
+    if (context.input.pressed(zeno::Key::space) && g_event_sound.valid()) {
+        zeno::Result result = g_event_sound.play();
+        if (!result.ok()) {
+            return result;
+        }
     }
 
     if (context.input.down(zeno::Key::a) || context.input.down(zeno::Key::left)) {
@@ -289,6 +310,8 @@ zeno::Result on_shutdown(zeno::GameContext&)
     g_cube_object = {};
     g_triangle_object = {};
     g_sprite_object = {};
+    g_event_sound.reset();
+    g_audio_engine.reset();
     g_triangle.reset();
     g_cube_material.reset();
     g_sprite_material.reset();

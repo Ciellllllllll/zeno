@@ -23,6 +23,8 @@ try {
     & (Join-Path $runtimeDir "zeno_texture_smoke.exe")
     & (Join-Path $runtimeDir "zeno_mesh_smoke.exe")
     & (Join-Path $runtimeDir "zeno_material_smoke.exe")
+    & (Join-Path $runtimeDir "zeno_audio_smoke.exe")
+    & (Join-Path $runtimeDir "zeno_sdk_audio_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_asset_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_scene_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_serialization_smoke.exe")

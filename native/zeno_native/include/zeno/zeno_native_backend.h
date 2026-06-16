@@ -26,6 +26,8 @@ extern "C" {
 #define ZEN_MESH_DESC_SIZE ((uint32_t)sizeof(ZenMeshDesc))
 #define ZEN_MATERIAL_DESC_API_VERSION 1u
 #define ZEN_MATERIAL_DESC_SIZE ((uint32_t)sizeof(ZenMaterialDesc))
+#define ZEN_AUDIO_DESC_API_VERSION 1u
+#define ZEN_AUDIO_DESC_SIZE ((uint32_t)sizeof(ZenAudioDesc))
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -88,6 +90,16 @@ typedef struct ZenMaterialHandle {
     /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
     uint64_t value;
 } ZenMaterialHandle;
+
+typedef struct ZenAudioEngineHandle {
+    /* Non-zero audio engine handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenAudioEngineHandle;
+
+typedef struct ZenSoundHandle {
+    /* Non-zero sound resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenSoundHandle;
 
 typedef enum ZenMaterialKind {
     ZEN_MATERIAL_KIND_SPRITE_TEXTURE = 1,
@@ -247,6 +259,14 @@ typedef struct ZenMaterialDesc {
     /* Required for ZEN_MATERIAL_KIND_SPRITE_TEXTURE, otherwise must be zero. */
     ZenTextureHandle texture;
 } ZenMaterialDesc;
+
+typedef struct ZenAudioDesc {
+    /* Must be set to ZEN_AUDIO_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_AUDIO_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    uint32_t reserved[2];
+} ZenAudioDesc;
 
 /*
  * Creates the native backend shell.
@@ -598,6 +618,64 @@ ZenResultCode zen_native_backend_draw_mesh_with_material(
     ZenMeshHandle mesh,
     ZenMaterialHandle material,
     const ZenMatrix4x4* model_matrix);
+
+/*
+ * Creates a backend-owned XAudio2 audio engine.
+ */
+ZenResultCode zen_native_backend_create_audio_engine(
+    ZenNativeBackendHandle backend,
+    const ZenAudioDesc* desc,
+    ZenAudioEngineHandle* out_audio);
+
+/*
+ * Destroys a backend-owned audio engine and its sound resources.
+ */
+ZenResultCode zen_native_backend_destroy_audio_engine(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio);
+
+/*
+ * Parses PCM WAV bytes and creates a backend-owned sound resource.
+ */
+ZenResultCode zen_native_backend_create_sound_from_wav_memory(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    const uint8_t* wav_bytes,
+    uint64_t wav_byte_count,
+    ZenSoundHandle* out_sound);
+
+/*
+ * Destroys a backend-owned sound resource.
+ */
+ZenResultCode zen_native_backend_destroy_sound(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound);
+
+/*
+ * Plays a backend-owned sound from the beginning.
+ */
+ZenResultCode zen_native_backend_play_sound(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound);
+
+/*
+ * Stops a backend-owned sound.
+ */
+ZenResultCode zen_native_backend_stop_sound(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound);
+
+/*
+ * Sets sound volume. Volume must be finite and non-negative.
+ */
+ZenResultCode zen_native_backend_set_sound_volume(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound,
+    float volume);
 
 /*
  * Draws a backend-owned minimal triangle render resource.

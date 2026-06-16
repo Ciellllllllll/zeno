@@ -53,11 +53,13 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 - render target creation,
 - depth buffer and depth state creation,
 - clear/present operations,
-- backend-owned clear-color, shader, texture, sprite, material, triangle, and mesh render resources.
+- backend-owned clear-color, shader, texture, sprite, material, triangle, mesh render resources, audio engines, and sound resources.
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
 
 Renderer resources such as shaders, textures, materials, sprite state, mesh vertex/index buffers, depth buffers, and DirectX state objects are owned by the native backend. The SDK owns RAII wrappers over opaque handles only.
+
+Audio resources follow the same boundary rule. XAudio2 engine, mastering voice, source voices, WAV parsing, and PCM sample storage are native backend internals. ABI-facing audio data is limited to handles, a small POD descriptor, borrowed WAV bytes, primitive volume values, and result codes.
 
 Vertex and index data cross the ABI as borrowed pointers plus explicit counts and stride. The native backend copies that data into backend-owned GPU buffers during creation. Material choices cross as fixed integer enums and handles. Transform and camera data cross as POD matrices. DirectX buffers, input layouts, blend/rasterizer/depth stencil objects, shader resource views, COM pointers, and Win32 handles remain native-backend private.
 

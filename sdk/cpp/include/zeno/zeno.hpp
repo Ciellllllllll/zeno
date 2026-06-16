@@ -200,6 +200,8 @@ class PixelShader;
 class Texture;
 class Mesh;
 class Material;
+class AudioEngine;
+class Sound;
 
 class NativeBackend final {
 public:
@@ -247,6 +249,7 @@ public:
         const Texture& texture,
         const MaterialDesc& desc,
         Material& out_material);
+    Result create_audio_engine(AudioEngine& out_audio);
     Result create_triangle(RenderTriangle& out_triangle);
     Result create_triangle(const VertexShader& vertex_shader, const PixelShader& pixel_shader, RenderTriangle& out_triangle);
     Result set_camera_matrix(const Mat4& camera_matrix);
@@ -522,6 +525,60 @@ private:
 
     ZenNativeBackendHandle backend_{};
     ZenMaterialHandle handle_{};
+};
+
+class AudioEngine final {
+public:
+    AudioEngine() = default;
+    ~AudioEngine();
+
+    AudioEngine(const AudioEngine&) = delete;
+    AudioEngine& operator=(const AudioEngine&) = delete;
+
+    AudioEngine(AudioEngine&& other) noexcept;
+    AudioEngine& operator=(AudioEngine&& other) noexcept;
+
+    Result load_sound(const AssetRoot& assets, std::string_view relative_path_utf8, Sound& out_sound) const;
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+    friend class Sound;
+
+    AudioEngine(ZenNativeBackendHandle backend, ZenAudioEngineHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenAudioEngineHandle handle_{};
+};
+
+class Sound final {
+public:
+    Sound() = default;
+    ~Sound();
+
+    Sound(const Sound&) = delete;
+    Sound& operator=(const Sound&) = delete;
+
+    Sound(Sound&& other) noexcept;
+    Sound& operator=(Sound&& other) noexcept;
+
+    Result play() const;
+    Result stop() const;
+    Result set_volume(float volume) const;
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class AudioEngine;
+
+    Sound(ZenNativeBackendHandle backend, ZenAudioEngineHandle audio, ZenSoundHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenAudioEngineHandle audio_{};
+    ZenSoundHandle handle_{};
 };
 
 } // namespace zeno

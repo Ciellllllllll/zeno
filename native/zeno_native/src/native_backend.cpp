@@ -10,9 +10,11 @@
 #include <objbase.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+#include <xaudio2.h>
 
 #include <array>
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <cstddef>
 #include <iostream>
@@ -393,7 +395,312 @@ bool register_window_class()
     return GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
 }
 
+std::uint16_t read_u16_le(const std::uint8_t* data)
+{
+    return static_cast<std::uint16_t>(data[0] | (data[1] << 8));
+}
+
+std::uint32_t read_u32_le(const std::uint8_t* data)
+{
+    return static_cast<std::uint32_t>(data[0]
+        | (data[1] << 8)
+        | (data[2] << 16)
+        | (data[3] << 24));
+}
+
+struct ParsedWav final {
+    WAVEFORMATEX format{};
+    std::vector<std::uint8_t> data{};
+};
+
+bool parse_pcm_wav(const std::uint8_t* bytes, std::uint64_t byte_count, ParsedWav& out_wav)
+{
+    if (bytes == nullptr || byte_count < 44 || byte_count > static_cast<std::uint64_t>(SIZE_MAX)) {
+        return false;
+    }
+
+    const auto size = static_cast<std::size_t>(byte_count);
+    if (std::memcmp(bytes, "RIFF", 4) != 0 || std::memcmp(bytes + 8, "WAVE", 4) != 0) {
+        return false;
+    }
+
+    bool saw_format = false;
+    bool saw_data = false;
+    WAVEFORMATEX format{};
+    std::vector<std::uint8_t> sample_data;
+    std::size_t offset = 12;
+    while (offset + 8 <= size) {
+        const std::uint8_t* chunk = bytes + offset;
+        const std::uint32_t chunk_size = read_u32_le(chunk + 4);
+        offset += 8;
+        if (chunk_size > size - offset) {
+            return false;
+        }
+
+        if (std::memcmp(chunk, "fmt ", 4) == 0) {
+            if (chunk_size < 16) {
+                return false;
+            }
+
+            const std::uint16_t format_tag = read_u16_le(bytes + offset);
+            const std::uint16_t channels = read_u16_le(bytes + offset + 2);
+            const std::uint32_t sample_rate = read_u32_le(bytes + offset + 4);
+            const std::uint32_t avg_bytes_per_sec = read_u32_le(bytes + offset + 8);
+            const std::uint16_t block_align = read_u16_le(bytes + offset + 12);
+            const std::uint16_t bits_per_sample = read_u16_le(bytes + offset + 14);
+            if (format_tag != WAVE_FORMAT_PCM
+                || (channels != 1 && channels != 2)
+                || sample_rate < 8000
+                || sample_rate > 96000
+                || (bits_per_sample != 8 && bits_per_sample != 16)) {
+                return false;
+            }
+
+            const std::uint16_t expected_block_align = static_cast<std::uint16_t>((channels * bits_per_sample) / 8);
+            if (block_align != expected_block_align || avg_bytes_per_sec != sample_rate * block_align) {
+                return false;
+            }
+
+            format.wFormatTag = WAVE_FORMAT_PCM;
+            format.nChannels = channels;
+            format.nSamplesPerSec = sample_rate;
+            format.nAvgBytesPerSec = avg_bytes_per_sec;
+            format.nBlockAlign = block_align;
+            format.wBitsPerSample = bits_per_sample;
+            format.cbSize = 0;
+            saw_format = true;
+        } else if (std::memcmp(chunk, "data", 4) == 0) {
+            if (chunk_size == 0) {
+                return false;
+            }
+            sample_data.assign(bytes + offset, bytes + offset + chunk_size);
+            saw_data = true;
+        }
+
+        offset += chunk_size + (chunk_size & 1u);
+    }
+
+    if (!saw_format || !saw_data || sample_data.size() % format.nBlockAlign != 0) {
+        return false;
+    }
+
+    out_wav.format = format;
+    out_wav.data = std::move(sample_data);
+    return true;
+}
+
 } // namespace
+
+struct AudioSystem final {
+    struct SoundResource final {
+        WAVEFORMATEX format{};
+        std::vector<std::uint8_t> data{};
+        IXAudio2SourceVoice* voice = nullptr;
+        float volume = 1.0f;
+    };
+
+    struct EngineResource final {
+        Microsoft::WRL::ComPtr<IXAudio2> engine;
+        IXAudio2MasteringVoice* mastering_voice = nullptr;
+        std::unordered_map<std::uint64_t, SoundResource> sounds;
+        std::uint64_t next_sound_handle = 1;
+    };
+
+    ~AudioSystem()
+    {
+        shutdown();
+    }
+
+    void shutdown()
+    {
+        for (auto& entry : audio_engines) {
+            destroy_engine_resource(entry.second);
+        }
+        audio_engines.clear();
+    }
+
+    AudioCommandResult create_engine(std::uint64_t& out_handle)
+    {
+        if (next_audio_handle == UINT64_MAX) {
+            return AudioCommandResult::backend_error;
+        }
+
+        EngineResource resource{};
+        HRESULT result = XAudio2Create(resource.engine.GetAddressOf(), 0, XAUDIO2_DEFAULT_PROCESSOR);
+        if (FAILED(result)) {
+            return AudioCommandResult::backend_error;
+        }
+
+        result = resource.engine->CreateMasteringVoice(&resource.mastering_voice);
+        if (FAILED(result)) {
+            return AudioCommandResult::backend_error;
+        }
+
+        const std::uint64_t handle = next_audio_handle++;
+        audio_engines.emplace(handle, std::move(resource));
+        out_handle = handle;
+        return AudioCommandResult::ok;
+    }
+
+    bool destroy_engine(std::uint64_t handle)
+    {
+        const auto found = audio_engines.find(handle);
+        if (found == audio_engines.end()) {
+            return false;
+        }
+
+        destroy_engine_resource(found->second);
+        audio_engines.erase(found);
+        return true;
+    }
+
+    AudioCommandResult create_sound(
+        std::uint64_t audio,
+        const std::uint8_t* wav_bytes,
+        std::uint64_t wav_byte_count,
+        std::uint64_t& out_handle)
+    {
+        const auto found = audio_engines.find(audio);
+        if (found == audio_engines.end()) {
+            return AudioCommandResult::missing_resource;
+        }
+
+        if (found->second.next_sound_handle == UINT64_MAX) {
+            return AudioCommandResult::backend_error;
+        }
+
+        ParsedWav wav{};
+        if (!parse_pcm_wav(wav_bytes, wav_byte_count, wav)) {
+            return AudioCommandResult::invalid_argument;
+        }
+
+        SoundResource sound{};
+        sound.format = wav.format;
+        sound.data = std::move(wav.data);
+        const HRESULT result = found->second.engine->CreateSourceVoice(&sound.voice, &sound.format);
+        if (FAILED(result) || sound.voice == nullptr) {
+            return AudioCommandResult::backend_error;
+        }
+
+        const std::uint64_t handle = found->second.next_sound_handle++;
+        found->second.sounds.emplace(handle, std::move(sound));
+        out_handle = handle;
+        return AudioCommandResult::ok;
+    }
+
+    bool destroy_sound(std::uint64_t audio, std::uint64_t sound)
+    {
+        const auto found_audio = audio_engines.find(audio);
+        if (found_audio == audio_engines.end()) {
+            return false;
+        }
+
+        const auto found_sound = found_audio->second.sounds.find(sound);
+        if (found_sound == found_audio->second.sounds.end()) {
+            return false;
+        }
+
+        destroy_sound_resource(found_sound->second);
+        found_audio->second.sounds.erase(found_sound);
+        return true;
+    }
+
+    AudioCommandResult play_sound(std::uint64_t audio, std::uint64_t sound)
+    {
+        SoundResource* resource = find_sound(audio, sound);
+        if (resource == nullptr) {
+            return AudioCommandResult::missing_resource;
+        }
+
+        resource->voice->Stop(0);
+        resource->voice->FlushSourceBuffers();
+        XAUDIO2_BUFFER buffer{};
+        buffer.AudioBytes = static_cast<UINT32>(resource->data.size());
+        buffer.pAudioData = resource->data.data();
+        buffer.Flags = XAUDIO2_END_OF_STREAM;
+        HRESULT result = resource->voice->SubmitSourceBuffer(&buffer);
+        if (FAILED(result)) {
+            return AudioCommandResult::backend_error;
+        }
+
+        result = resource->voice->Start(0);
+        return SUCCEEDED(result) ? AudioCommandResult::ok : AudioCommandResult::backend_error;
+    }
+
+    AudioCommandResult stop_sound(std::uint64_t audio, std::uint64_t sound)
+    {
+        SoundResource* resource = find_sound(audio, sound);
+        if (resource == nullptr) {
+            return AudioCommandResult::missing_resource;
+        }
+
+        resource->voice->Stop(0);
+        resource->voice->FlushSourceBuffers();
+        return AudioCommandResult::ok;
+    }
+
+    AudioCommandResult set_sound_volume(std::uint64_t audio, std::uint64_t sound, float volume)
+    {
+        if (!std::isfinite(volume) || volume < 0.0f || volume > 1.0f) {
+            return AudioCommandResult::invalid_argument;
+        }
+
+        SoundResource* resource = find_sound(audio, sound);
+        if (resource == nullptr) {
+            return AudioCommandResult::missing_resource;
+        }
+
+        const HRESULT result = resource->voice->SetVolume(volume);
+        if (FAILED(result)) {
+            return AudioCommandResult::backend_error;
+        }
+
+        resource->volume = volume;
+        return AudioCommandResult::ok;
+    }
+
+private:
+    static void destroy_sound_resource(SoundResource& sound)
+    {
+        if (sound.voice != nullptr) {
+            sound.voice->Stop(0);
+            sound.voice->FlushSourceBuffers();
+            sound.voice->DestroyVoice();
+            sound.voice = nullptr;
+        }
+    }
+
+    static void destroy_engine_resource(EngineResource& engine)
+    {
+        for (auto& entry : engine.sounds) {
+            destroy_sound_resource(entry.second);
+        }
+        engine.sounds.clear();
+        if (engine.mastering_voice != nullptr) {
+            engine.mastering_voice->DestroyVoice();
+            engine.mastering_voice = nullptr;
+        }
+        engine.engine.Reset();
+    }
+
+    SoundResource* find_sound(std::uint64_t audio, std::uint64_t sound)
+    {
+        const auto found_audio = audio_engines.find(audio);
+        if (found_audio == audio_engines.end()) {
+            return nullptr;
+        }
+
+        const auto found_sound = found_audio->second.sounds.find(sound);
+        if (found_sound == found_audio->second.sounds.end()) {
+            return nullptr;
+        }
+
+        return &found_sound->second;
+    }
+
+    std::unordered_map<std::uint64_t, EngineResource> audio_engines;
+    std::uint64_t next_audio_handle = 1;
+};
 
 class DirectX11Renderer final {
 public:
@@ -1803,6 +2110,10 @@ void NativeBackend::shutdown()
         return;
     }
 
+    if (audio_system_ != nullptr) {
+        audio_system_->shutdown();
+        audio_system_.reset();
+    }
     destroy_renderer();
     destroy_window();
     initialized_ = false;
@@ -2167,6 +2478,69 @@ RenderCommandResult NativeBackend::draw_mesh_with_material(
     }
 
     return renderer_->draw_mesh_with_material(mesh, material, model_matrix);
+}
+
+AudioCommandResult NativeBackend::create_audio_engine(std::uint64_t& out_handle)
+{
+    if (!initialized_) {
+        return AudioCommandResult::wrong_state;
+    }
+
+    if (audio_system_ == nullptr) {
+        audio_system_ = std::make_unique<AudioSystem>();
+    }
+
+    return audio_system_->create_engine(out_handle);
+}
+
+bool NativeBackend::destroy_audio_engine(std::uint64_t handle)
+{
+    return audio_system_ != nullptr && audio_system_->destroy_engine(handle);
+}
+
+AudioCommandResult NativeBackend::create_sound_from_wav_memory(
+    std::uint64_t audio,
+    const std::uint8_t* wav_bytes,
+    std::uint64_t wav_byte_count,
+    std::uint64_t& out_handle)
+{
+    if (audio_system_ == nullptr) {
+        return AudioCommandResult::wrong_state;
+    }
+
+    return audio_system_->create_sound(audio, wav_bytes, wav_byte_count, out_handle);
+}
+
+bool NativeBackend::destroy_sound(std::uint64_t audio, std::uint64_t sound)
+{
+    return audio_system_ != nullptr && audio_system_->destroy_sound(audio, sound);
+}
+
+AudioCommandResult NativeBackend::play_sound(std::uint64_t audio, std::uint64_t sound)
+{
+    if (audio_system_ == nullptr) {
+        return AudioCommandResult::wrong_state;
+    }
+
+    return audio_system_->play_sound(audio, sound);
+}
+
+AudioCommandResult NativeBackend::stop_sound(std::uint64_t audio, std::uint64_t sound)
+{
+    if (audio_system_ == nullptr) {
+        return AudioCommandResult::wrong_state;
+    }
+
+    return audio_system_->stop_sound(audio, sound);
+}
+
+AudioCommandResult NativeBackend::set_sound_volume(std::uint64_t audio, std::uint64_t sound, float volume)
+{
+    if (audio_system_ == nullptr) {
+        return AudioCommandResult::wrong_state;
+    }
+
+    return audio_system_->set_sound_volume(audio, sound, volume);
 }
 
 RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)

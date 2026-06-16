@@ -25,6 +25,8 @@ constexpr std::uint32_t kMeshDescApiVersion = 1;
 constexpr std::uint32_t kMeshDescSize = sizeof(ZenMeshDesc);
 constexpr std::uint32_t kMaterialDescApiVersion = 1;
 constexpr std::uint32_t kMaterialDescSize = sizeof(ZenMaterialDesc);
+constexpr std::uint32_t kAudioDescApiVersion = 1;
+constexpr std::uint32_t kAudioDescSize = sizeof(ZenAudioDesc);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
@@ -136,6 +138,14 @@ bool is_valid_material_desc(const ZenMaterialDesc& desc)
     return desc.texture.value == 0;
 }
 
+bool is_valid_audio_desc(const ZenAudioDesc& desc)
+{
+    return desc.size == kAudioDescSize
+        && desc.api_version == kAudioDescApiVersion
+        && desc.reserved[0] == 0
+        && desc.reserved[1] == 0;
+}
+
 bool allocate_handle(std::uint64_t& out_handle)
 {
     if (g_next_backend_handle == UINT64_MAX) {
@@ -154,6 +164,23 @@ ZenResultCode map_render_command_result(zeno::native::RenderCommandResult result
     case zeno::native::RenderCommandResult::wrong_state:
         return ZEN_RESULT_BACKEND_ERROR;
     case zeno::native::RenderCommandResult::missing_resource:
+        return ZEN_RESULT_NOT_INITIALIZED;
+    }
+
+    return ZEN_RESULT_INTERNAL_ERROR;
+}
+
+ZenResultCode map_audio_command_result(zeno::native::AudioCommandResult result)
+{
+    switch (result) {
+    case zeno::native::AudioCommandResult::ok:
+        return ZEN_RESULT_OK;
+    case zeno::native::AudioCommandResult::invalid_argument:
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    case zeno::native::AudioCommandResult::wrong_state:
+    case zeno::native::AudioCommandResult::backend_error:
+        return ZEN_RESULT_BACKEND_ERROR;
+    case zeno::native::AudioCommandResult::missing_resource:
         return ZEN_RESULT_NOT_INITIALIZED;
     }
 
@@ -965,6 +992,157 @@ extern "C" ZenResultCode zen_native_backend_draw_mesh_with_material(
                 mesh.value,
                 material.value,
                 to_native_matrix(*model_matrix)));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_create_audio_engine(
+    ZenNativeBackendHandle backend,
+    const ZenAudioDesc* desc,
+    ZenAudioEngineHandle* out_audio)
+{
+    if (backend.value == kInvalidHandle || desc == nullptr || out_audio == nullptr || !is_valid_audio_desc(*desc)) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [out_audio](zeno::native::NativeBackend& native_backend) {
+        std::uint64_t handle = 0;
+        const ZenResultCode result = map_audio_command_result(native_backend.create_audio_engine(handle));
+        if (result != ZEN_RESULT_OK) {
+            return result;
+        }
+
+        out_audio->value = handle;
+        return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_audio_engine(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio)
+{
+    if (backend.value == kInvalidHandle || audio.value == kInvalidHandle) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [audio](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_audio_engine(audio.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_create_sound_from_wav_memory(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    const uint8_t* wav_bytes,
+    uint64_t wav_byte_count,
+    ZenSoundHandle* out_sound)
+{
+    if (backend.value == kInvalidHandle
+        || audio.value == kInvalidHandle
+        || wav_bytes == nullptr
+        || wav_byte_count == 0
+        || out_sound == nullptr) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [audio, wav_bytes, wav_byte_count, out_sound](zeno::native::NativeBackend& native_backend) {
+        std::uint64_t handle = 0;
+        const ZenResultCode result = map_audio_command_result(
+            native_backend.create_sound_from_wav_memory(audio.value, wav_bytes, wav_byte_count, handle));
+        if (result != ZEN_RESULT_OK) {
+            return result;
+        }
+
+        out_sound->value = handle;
+        return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_sound(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound)
+{
+    if (backend.value == kInvalidHandle || audio.value == kInvalidHandle || sound.value == kInvalidHandle) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [audio, sound](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_sound(audio.value, sound.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_play_sound(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound)
+{
+    if (backend.value == kInvalidHandle || audio.value == kInvalidHandle || sound.value == kInvalidHandle) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [audio, sound](zeno::native::NativeBackend& native_backend) {
+            return map_audio_command_result(native_backend.play_sound(audio.value, sound.value));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_stop_sound(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound)
+{
+    if (backend.value == kInvalidHandle || audio.value == kInvalidHandle || sound.value == kInvalidHandle) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [audio, sound](zeno::native::NativeBackend& native_backend) {
+            return map_audio_command_result(native_backend.stop_sound(audio.value, sound.value));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_set_sound_volume(
+    ZenNativeBackendHandle backend,
+    ZenAudioEngineHandle audio,
+    ZenSoundHandle sound,
+    float volume)
+{
+    if (backend.value == kInvalidHandle || audio.value == kInvalidHandle || sound.value == kInvalidHandle) {
+        return ZEN_RESULT_INVALID_ARGUMENT;
+    }
+
+    try {
+        return with_backend(backend, [audio, sound, volume](zeno::native::NativeBackend& native_backend) {
+            return map_audio_command_result(native_backend.set_sound_volume(audio.value, sound.value, volume));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

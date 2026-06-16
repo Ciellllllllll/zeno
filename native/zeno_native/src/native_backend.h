@@ -8,6 +8,7 @@ struct HWND__;
 namespace zeno::native {
 
 class DirectX11Renderer;
+struct AudioSystem;
 
 constexpr std::uint32_t kInputKeyCount = 11;
 constexpr std::uint32_t kInputMouseButtonCount = 3;
@@ -37,6 +38,14 @@ enum class RenderCommandResult {
     ok,
     wrong_state,
     missing_resource,
+};
+
+enum class AudioCommandResult {
+    ok,
+    invalid_argument,
+    wrong_state,
+    missing_resource,
+    backend_error,
 };
 
 struct Matrix4x4 final {
@@ -144,6 +153,17 @@ public:
     bool destroy_material(std::uint64_t handle);
     RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc);
     RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix);
+    AudioCommandResult create_audio_engine(std::uint64_t& out_handle);
+    bool destroy_audio_engine(std::uint64_t handle);
+    AudioCommandResult create_sound_from_wav_memory(
+        std::uint64_t audio,
+        const std::uint8_t* wav_bytes,
+        std::uint64_t wav_byte_count,
+        std::uint64_t& out_handle);
+    bool destroy_sound(std::uint64_t audio, std::uint64_t sound);
+    AudioCommandResult play_sound(std::uint64_t audio, std::uint64_t sound);
+    AudioCommandResult stop_sound(std::uint64_t audio, std::uint64_t sound);
+    AudioCommandResult set_sound_volume(std::uint64_t audio, std::uint64_t sound, float volume);
     RenderCommandResult draw_triangle(std::uint64_t handle);
     bool set_camera_matrix(const Matrix4x4& matrix);
     RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix);
@@ -160,6 +180,7 @@ private:
     NativeBackendConfig config_{};
     HWND__* window_handle_ = nullptr;
     std::unique_ptr<DirectX11Renderer> renderer_;
+    std::unique_ptr<AudioSystem> audio_system_;
     bool current_keys_[kInputKeyCount]{};
     bool previous_keys_[kInputKeyCount]{};
     bool current_mouse_buttons_[kInputMouseButtonCount]{};
