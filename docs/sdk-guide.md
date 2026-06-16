@@ -8,6 +8,7 @@
 - A C++ SDK layer that is ergonomic for game code without leaking through the ABI.
 - A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and static-linked module lifecycle into one host API.
 - A small sample game module that proves init/update/render/shutdown flow.
+- A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
 - A minimal handle-owned DirectX 11 triangle draw path.
 - Backend-owned DirectX 11 vertex/pixel shader handles with bounded compile diagnostics.
 - Backend-owned texture handles and a small sprite draw path using WIC-loaded image bytes.
@@ -29,6 +30,7 @@
 - Static game-module linking is used for the first module phase; dynamic loading should use C ABI entry points later.
 - `GameApp` is SDK-owned orchestration over existing Rust/runtime and native/backend handles, not a new cross-language ABI.
 - Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
+- Runtime packaging is intentionally a local script over the canonical build/install graph, not a custom installer or separate project generator.
 - SDK matrices are row-major, row-vector, left-handed, and DirectX clip-space oriented so the first renderer and sample can stay easy to inspect.
 
 ## Tradeoffs
@@ -37,7 +39,7 @@
 - Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. `GameApp` removes boilerplate from game hosts while still exposing the low-level wrappers for focused tests and future engine work.
-- Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
+- Build and package scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation or an installer.
 
 ## Difficult Parts
 
@@ -55,6 +57,7 @@
 - No asset pipeline.
 - No dynamic game-module loading yet.
 - No application plugin loading or hot reload; `GameApp` currently runs static-linked modules only.
+- No project generator or installer; the template game and packaging script are deliberately minimal.
 - No editor.
 - No CI yet.
 - No multi-platform support.

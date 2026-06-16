@@ -17,7 +17,9 @@ Rust build ownership stays with the Cargo workspace rooted at `Cargo.toml`.
 
 C++ build ownership stays with the top-level `CMakeLists.txt` and `CMakePresets.json`. The canonical preset names are `windows-msvc-debug` and `windows-msvc-release`. Visual Studio 2022 Open Folder, VS Code CMake Tools, and CLI builds all consume the same native backend, SDK, and sample game CMake targets.
 
-The PowerShell scripts in `scripts/` are wrappers over Cargo and CMake presets; they are not separate build definitions.
+The template game under `templates/game-cpp/` is another CMake target in the same graph. It links the C++ SDK and uses `zeno::GameApp` like the sample, but keeps its module intentionally minimal so it can act as a starting point for a new static-linked game.
+
+The PowerShell scripts in `scripts/` are wrappers over Cargo and CMake presets; they are not separate build definitions. `scripts/package-runtime.ps1` builds the canonical preset and installs a local runtime package containing the sample executable/assets, template executable/assets, and required Rust ABI DLL.
 
 ## Rust Engine Core
 
@@ -129,6 +131,8 @@ Project and scene loading are also SDK-owned. The current format is a strict ver
 The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, moves a player sprite with keyboard input, checks sample-owned AABB overlap against a triangle goal and cube obstacle, tracks a short console score, supports Space restart, draws collision debug rectangles, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
+
+`templates/game-cpp` follows the same static-linked module shape as the sample. It is not a generator, installer, or plugin loader; it is a small buildable target that proves another game executable can reuse the SDK/runtime/package path without copying engine internals.
 
 ## ABI Model
 

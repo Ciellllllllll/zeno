@@ -21,6 +21,8 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - High-level `zeno::GameApp` SDK runtime that owns engine, backend, asset, audio, scene, input, and module lifecycle setup for static-linked games.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
 - Runnable sample game whose C++ host loads project/scene data, drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, uses simple AABB collision, score/goal/restart gameplay, short WAV effects, and renders a scene-managed triangle goal, material-driven texture-backed player sprite, material-driven obstacle mesh, and debug collision rectangles before shutting down cleanly.
+- Minimal C++ template game under `templates/game-cpp/` that builds through the same SDK, `GameApp`, and CMake preset graph as the sample.
+- Runtime packaging script that installs the sample, template game, copied assets, startup config, and `zeno_abi.dll` into a local package layout.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for local build, run, and cleanup.
 
@@ -82,6 +84,20 @@ Run the sample:
 .\scripts\run-sample.ps1
 ```
 
+Build the template game:
+
+```powershell
+cmake --build --preset windows-msvc-debug --target zeno_template_game_cpp
+```
+
+Package the sample and template runtime layout:
+
+```powershell
+.\scripts\package-runtime.ps1
+```
+
+The package is written under `build/package/windows-msvc-debug/bin/`. The sample runtime is installed at `bin/`, and the template runtime is installed at `bin/template-game/` with its own executable, copied `zeno_abi.dll`, and `assets/project.zproj`.
+
 Minimal static-linked game host:
 
 ```cpp
@@ -123,6 +139,8 @@ zeno/
   samples/
     sample_game_cpp/    Sample C++ game using the SDK/module path
       assets/           Source sample assets copied to the runtime output
+  templates/
+    game-cpp/           Minimal C++ game template using GameApp and SDK targets
   scripts/              Local Windows build/run helpers
   tools/                Reserved for future local tools
   CMakePresets.json     Canonical C++ configure/build/test presets
@@ -133,6 +151,7 @@ zeno/
 - [ARCHITECTURE.md](ARCHITECTURE.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
 - [PORTFOLIO_NOTES.md](PORTFOLIO_NOTES.md) summarizes tradeoffs, limitations, roadmap, and interview talking points.
 - [samples/sample_game_cpp/README.md](samples/sample_game_cpp/README.md) gives sample-specific build and run notes.
+- [templates/game-cpp/README.md](templates/game-cpp/README.md) explains the minimal template game and package layout.
 
 The local `docs/` directory contains phase specs and phase reports in this working copy, but it is intentionally ignored and not part of the public repository.
 
