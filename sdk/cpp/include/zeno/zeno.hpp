@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <zeno/zeno_abi.h>
+#include <zeno/math.hpp>
 #include <zeno/zeno_native_backend.h>
 
 namespace zeno {
@@ -135,7 +136,10 @@ public:
     Result begin_frame();
     Result clear(const Color& color);
     Result create_triangle(RenderTriangle& out_triangle);
+    Result set_camera_matrix(const Mat4& camera_matrix);
     Result draw_triangle(const RenderTriangle& triangle);
+    Result draw_triangle(const RenderTriangle& triangle, const Mat4& model_matrix);
+    Result draw_triangle(const RenderTriangle& triangle, const Transform& transform);
     Result present();
     void reset();
 

@@ -39,6 +39,10 @@ enum class RenderCommandResult {
     missing_resource,
 };
 
+struct Matrix4x4 final {
+    float elements[16]{};
+};
+
 class NativeBackend final {
 public:
     NativeBackend();
@@ -67,6 +71,8 @@ public:
     bool create_triangle(std::uint64_t& out_handle);
     bool destroy_triangle(std::uint64_t handle);
     RenderCommandResult draw_triangle(std::uint64_t handle);
+    bool set_camera_matrix(const Matrix4x4& matrix);
+    RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix);
     bool present();
     bool is_initialized() const;
     bool has_window() const;

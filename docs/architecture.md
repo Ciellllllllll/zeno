@@ -75,6 +75,23 @@ present
 
 `present` closes the active frame. Calls such as nested `begin_frame`, `clear` before `begin_frame`, `draw_triangle` outside an active frame, or `present` outside an active frame return a stable `ZenResultCode` instead of relying on undefined DirectX state.
 
+## Math And Coordinate Convention
+
+The SDK math layer is intentionally small and DirectX-first. It defines `Vec2`, `Vec3`, `Vec4`, `Mat4`, `Transform`, and `Camera` for sample/game-facing code.
+
+ZENO uses a left-handed coordinate system for this milestone:
+
+- `+X` points right.
+- `+Y` points up.
+- `+Z` points forward.
+- Distances are engine units.
+- Rotations are radians.
+- DirectX clip-space depth is `0..1`.
+
+`Mat4` stores 16 `float` values in row-major order and uses row-vector multiplication. Translation lives in elements `12`, `13`, and `14`, equivalent to row 3, columns 0 through 2. Transform composition is `scale * rotation * translation`, and camera composition is `view * projection`. The DirectX 11 triangle shader declares matrices as `row_major` and transforms vertices with `mul(position, matrix)`.
+
+Only POD matrix data crosses the native backend ABI as `ZenMatrix4x4`. SDK math types and C++ helper classes remain SDK-only and do not cross the ABI boundary.
+
 ## C++ Game SDK
 
 `sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, and game-module callback helpers.

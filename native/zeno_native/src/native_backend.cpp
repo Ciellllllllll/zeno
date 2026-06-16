@@ -22,6 +22,11 @@ constexpr wchar_t kWindowClassName[] = L"ZenoNativeWindowClass";
 constexpr wchar_t kDefaultWindowTitle[] = L"ZENO Engine";
 
 constexpr char kTriangleShaderSource[] = R"(
+cbuffer TriangleTransformConstants : register(b0) {
+    row_major float4x4 u_world;
+    row_major float4x4 u_view_projection;
+};
+
 struct VSInput {
     float3 position : POSITION;
     float4 color : COLOR;
@@ -34,7 +39,7 @@ struct PSInput {
 
 PSInput vs_main(VSInput input) {
     PSInput output;
-    output.position = float4(input.position, 1.0);
+    output.position = mul(mul(float4(input.position, 1.0), u_world), u_view_projection);
     output.color = input.color;
     return output;
 }
@@ -55,6 +60,23 @@ struct TriangleResource final {
     Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel_shader;
     Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
 };
+
+struct TriangleTransformConstants final {
+    float world[16];
+    float view_projection[16];
+};
+
+static_assert(sizeof(TriangleTransformConstants) == 128);
+
+Matrix4x4 identity_matrix()
+{
+    Matrix4x4 matrix{};
+    matrix.elements[0] = 1.0f;
+    matrix.elements[5] = 1.0f;
+    matrix.elements[10] = 1.0f;
+    matrix.elements[15] = 1.0f;
+    return matrix;
+}
 
 std::uint32_t map_virtual_key_to_input_key(WPARAM key)
 {
@@ -242,6 +264,16 @@ public:
             return false;
         }
 
+        D3D11_BUFFER_DESC transform_buffer_desc{};
+        transform_buffer_desc.ByteWidth = sizeof(TriangleTransformConstants);
+        transform_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+        transform_buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        result = device_->CreateBuffer(&transform_buffer_desc, nullptr, triangle_transform_buffer_.GetAddressOf());
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
         std::cerr << "[ZENO][native] DirectX 11 renderer initialized\n";
         return true;
     }
@@ -253,6 +285,7 @@ public:
         }
 
         frame_active_ = false;
+        triangle_transform_buffer_.Reset();
         render_target_view_.Reset();
         triangle_resources_.clear();
         swap_chain_.Reset();
@@ -448,6 +481,21 @@ public:
 
     RenderCommandResult draw_triangle(std::uint64_t handle)
     {
+        return draw_triangle_transformed(handle, identity_matrix());
+    }
+
+    bool set_camera_matrix(const Matrix4x4& matrix)
+    {
+        if (context_ == nullptr || triangle_transform_buffer_ == nullptr) {
+            return false;
+        }
+
+        view_projection_matrix_ = matrix;
+        return true;
+    }
+
+    RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& world_matrix)
+    {
         const auto found = triangle_resources_.find(handle);
         if (found == triangle_resources_.end()) {
             return RenderCommandResult::missing_resource;
@@ -458,13 +506,22 @@ public:
         }
 
         const TriangleResource& resource = found->second;
+        TriangleTransformConstants constants{};
+        for (int i = 0; i < 16; ++i) {
+            constants.world[i] = world_matrix.elements[i];
+            constants.view_projection[i] = view_projection_matrix_.elements[i];
+        }
+        context_->UpdateSubresource(triangle_transform_buffer_.Get(), 0, nullptr, &constants, 0, 0);
+
         constexpr UINT stride = sizeof(TriangleVertex);
         constexpr UINT offset = 0;
         ID3D11Buffer* vertex_buffers[] = { resource.vertex_buffer.Get() };
+        ID3D11Buffer* constant_buffers[] = { triangle_transform_buffer_.Get() };
         context_->IASetInputLayout(resource.input_layout.Get());
         context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
         context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         context_->VSSetShader(resource.vertex_shader.Get(), nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, constant_buffers);
         context_->PSSetShader(resource.pixel_shader.Get(), nullptr, 0);
         context_->Draw(3, 0);
         return RenderCommandResult::ok;
@@ -486,8 +543,10 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> triangle_transform_buffer_;
     D3D11_VIEWPORT viewport_{};
     bool frame_active_ = false;
+    Matrix4x4 view_projection_matrix_ = identity_matrix();
     std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
     std::unordered_map<std::uint64_t, TriangleResource> triangle_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
@@ -754,6 +813,20 @@ RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)
     }
 
     return renderer_->draw_triangle(handle);
+}
+
+bool NativeBackend::set_camera_matrix(const Matrix4x4& matrix)
+{
+    return renderer_ != nullptr && renderer_->set_camera_matrix(matrix);
+}
+
+RenderCommandResult NativeBackend::draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_triangle_transformed(handle, model_matrix);
 }
 
 bool NativeBackend::present()

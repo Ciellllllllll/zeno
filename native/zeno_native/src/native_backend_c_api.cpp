@@ -17,6 +17,8 @@ constexpr std::uint32_t kInputSnapshotApiVersion = 1;
 constexpr std::uint32_t kInputSnapshotSize = sizeof(ZenInputSnapshot);
 constexpr std::uint64_t kInvalidHandle = 0;
 
+static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
+
 std::mutex g_backend_mutex;
 std::unordered_map<std::uint64_t, std::shared_ptr<zeno::native::NativeBackend>> g_backends;
 std::uint64_t g_next_backend_handle = 1;
@@ -65,6 +67,16 @@ ZenResultCode map_render_command_result(zeno::native::RenderCommandResult result
     }
 
     return ZEN_RESULT_INTERNAL_ERROR;
+}
+
+zeno::native::Matrix4x4 to_native_matrix(const ZenMatrix4x4& matrix)
+{
+    zeno::native::Matrix4x4 native_matrix{};
+    for (std::uint32_t i = 0; i < 16; ++i) {
+        native_matrix.elements[i] = matrix.elements[i];
+    }
+
+    return native_matrix;
 }
 
 ZenResultCode with_backend(
@@ -410,6 +422,44 @@ extern "C" ZenResultCode zen_native_backend_draw_triangle(
 
         return with_backend(backend, [triangle](zeno::native::NativeBackend& native_backend) {
             return map_render_command_result(native_backend.draw_triangle(triangle.value));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_set_camera_matrix(
+    ZenNativeBackendHandle backend,
+    const ZenMatrix4x4* camera_matrix)
+{
+    try {
+        if (camera_matrix == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [camera_matrix](zeno::native::NativeBackend& native_backend) {
+            return native_backend.set_camera_matrix(to_native_matrix(*camera_matrix))
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_BACKEND_ERROR;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_triangle_transformed(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle triangle,
+    const ZenMatrix4x4* model_matrix)
+{
+    try {
+        if (triangle.value == 0 || model_matrix == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [triangle, model_matrix](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(
+                native_backend.draw_triangle_transformed(triangle.value, to_native_matrix(*model_matrix)));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

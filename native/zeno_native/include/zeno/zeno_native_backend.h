@@ -94,6 +94,14 @@ typedef struct ZenInputSnapshot {
     uint8_t mouse_released[ZEN_INPUT_MOUSE_BUTTON_COUNT];
 } ZenInputSnapshot;
 
+typedef struct ZenMatrix4x4 {
+    /*
+     * Row-major 4x4 matrix using row-vector convention.
+     * Translation lives in elements[12], elements[13], elements[14].
+     */
+    float elements[16];
+} ZenMatrix4x4;
+
 /*
  * Creates the native backend shell.
  *
@@ -284,6 +292,31 @@ ZenResultCode zen_native_backend_destroy_triangle(
 ZenResultCode zen_native_backend_draw_triangle(
     ZenNativeBackendHandle backend,
     ZenRenderTriangleHandle triangle);
+
+/*
+ * Sets the camera/view-projection matrix used by transformed draw calls.
+ *
+ * backend: must have an initialized renderer.
+ * camera_matrix: borrowed pointer to a row-major left-handed matrix. The data
+ * is copied during the call and may be released by the caller afterwards.
+ */
+ZenResultCode zen_native_backend_set_camera_matrix(
+    ZenNativeBackendHandle backend,
+    const ZenMatrix4x4* camera_matrix);
+
+/*
+ * Draws a backend-owned triangle using the supplied model matrix and the
+ * current camera matrix.
+ *
+ * backend: must have an initialized renderer and an active frame.
+ * triangle: must be a valid non-zero triangle handle for this backend.
+ * model_matrix: borrowed pointer to a row-major left-handed matrix. The data
+ * is copied during the call.
+ */
+ZenResultCode zen_native_backend_draw_triangle_transformed(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle triangle,
+    const ZenMatrix4x4* model_matrix);
 
 /*
  * Presents the current swap chain frame and closes the active frame.

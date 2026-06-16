@@ -11,6 +11,8 @@ constexpr float kMouseColorScale = 1.0f / 640.0f;
 double g_elapsed_seconds = 0.0;
 float g_keyboard_tint = 0.0f;
 zeno::RenderTriangle g_triangle;
+zeno::Transform g_triangle_transform;
+zeno::Camera g_camera;
 
 zeno::Result on_init(zeno::GameContext& context)
 {
@@ -20,7 +22,15 @@ zeno::Result on_init(zeno::GameContext& context)
 
     g_elapsed_seconds = 0.0;
     g_keyboard_tint = 0.0f;
+    g_triangle_transform = zeno::Transform{};
+    g_triangle_transform.scale = zeno::Vec3{ 0.75f, 0.75f, 1.0f };
+    g_camera = zeno::Camera::orthographic(2.0f, 2.0f, 0.0f, 1.0f);
     std::cerr << "[ZENO][sample] game init\n";
+    zeno::Result result = context.backend->set_camera_matrix(g_camera.view_projection());
+    if (!result.ok()) {
+        return result;
+    }
+
     return context.backend->create_triangle(g_triangle);
 }
 
@@ -46,6 +56,9 @@ zeno::Result on_update(zeno::GameContext& context)
     if (g_keyboard_tint > 0.25f) {
         g_keyboard_tint = 0.25f;
     }
+
+    g_triangle_transform.rotation_z_radians = static_cast<float>(g_elapsed_seconds);
+    g_triangle_transform.position.x = 0.25f * g_keyboard_tint;
 
     context.should_close = g_elapsed_seconds >= kDemoDurationSeconds;
     return zeno::Result();
@@ -77,7 +90,12 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
-    result = context.backend->draw_triangle(g_triangle);
+    result = context.backend->set_camera_matrix(g_camera.view_projection());
+    if (!result.ok()) {
+        return result;
+    }
+
+    result = context.backend->draw_triangle(g_triangle, g_triangle_transform);
     if (!result.ok()) {
         return result;
     }

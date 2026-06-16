@@ -11,6 +11,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - C++ native backend with Win32 window creation and DirectX 11 device/swap-chain/render-target bootstrap.
 - Handle-based native backend resources for clear colors and a minimal DirectX 11 triangle draw path.
 - Keyboard and mouse input snapshot support for a small engine-owned key/button set.
+- Minimal C++ SDK math foundations: vectors, row-major matrices, transforms, and orthographic/perspective cameras.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
 - Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, draws a visible triangle, and shuts down cleanly.
@@ -75,7 +76,7 @@ Run the sample:
 .\scripts\run-sample.ps1
 ```
 
-The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds and a visible colored triangle. Mouse position influences the background tint, A/Left and D/Right adjust the tint, and Escape requests shutdown. Console output shows native backend initialization/shutdown and sample module init/shutdown.
+The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds and a visible rotating colored triangle. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, and Escape requests shutdown. Console output shows native backend initialization/shutdown and sample module init/shutdown.
 
 Visual Studio 2022 should open this repository as a folder and consume `CMakePresets.json`. VS Code should use rust-analyzer for the Cargo workspace and CMake Tools for the same presets. Both IDEs are auxiliary entry points over the same targets used by the CLI.
 
@@ -117,7 +118,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 
 ## Current Limitations
 
-- Rendering is currently limited to a clear-color DirectX 11 path plus a fixed minimal triangle resource.
+- Rendering is currently limited to a clear-color DirectX 11 path plus a fixed minimal triangle resource with transform and camera matrices.
 - Input is limited to a small keyboard/mouse snapshot. There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - There is no mesh renderer, sprite renderer, texture loading, asset pipeline, editor, physics, audio, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
@@ -128,7 +129,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 
 Near-term realistic next steps:
 
-- Add sprite rendering with handle-based shader/buffer/texture resources.
+- Add sprite or mesh rendering with handle-based shader/buffer/texture resources.
 - Add a small asset-loading convention for sample resources.
 - Introduce dynamic game module loading through C ABI entry points.
 - Add conservative Windows CI once the local workflow remains stable.

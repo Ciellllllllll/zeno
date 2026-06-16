@@ -22,6 +22,16 @@ bool valid_mouse_button_index(std::uint32_t index)
     return index < ZEN_INPUT_MOUSE_BUTTON_COUNT;
 }
 
+ZenMatrix4x4 to_native_matrix(const Mat4& matrix)
+{
+    ZenMatrix4x4 native_matrix{};
+    for (std::uint32_t i = 0; i < 16; ++i) {
+        native_matrix.elements[i] = matrix.m[i];
+    }
+
+    return native_matrix;
+}
+
 } // namespace
 
 bool InputSnapshot::down(Key key) const
@@ -241,9 +251,26 @@ Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
     return Result();
 }
 
+Result NativeBackend::set_camera_matrix(const Mat4& camera_matrix)
+{
+    const ZenMatrix4x4 native_camera_matrix = to_native_matrix(camera_matrix);
+    return Result(zen_native_backend_set_camera_matrix(handle_, &native_camera_matrix));
+}
+
 Result NativeBackend::draw_triangle(const RenderTriangle& triangle)
 {
     return Result(zen_native_backend_draw_triangle(handle_, triangle.handle_));
+}
+
+Result NativeBackend::draw_triangle(const RenderTriangle& triangle, const Mat4& model_matrix)
+{
+    const ZenMatrix4x4 native_model_matrix = to_native_matrix(model_matrix);
+    return Result(zen_native_backend_draw_triangle_transformed(handle_, triangle.handle_, &native_model_matrix));
+}
+
+Result NativeBackend::draw_triangle(const RenderTriangle& triangle, const Transform& transform)
+{
+    return draw_triangle(triangle, transform.matrix());
 }
 
 Result NativeBackend::present()

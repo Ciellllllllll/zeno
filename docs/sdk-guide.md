@@ -9,6 +9,7 @@
 - A small sample game module that proves init/update/render/shutdown flow.
 - A minimal handle-owned DirectX 11 triangle draw path.
 - A keyboard/mouse input snapshot connected to the Win32 message loop.
+- A small math, transform, and camera foundation with documented DirectX-first conventions.
 - Practical Windows build workflow using Cargo, CMakePresets, and Visual Studio 2022/MSVC.
 
 ## Design Decisions
@@ -19,11 +20,12 @@
 - DirectX 11 is the first renderer to keep the milestone narrow and demonstrable.
 - Static game-module linking is used for the first module phase; dynamic loading should use C ABI entry points later.
 - Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
+- SDK matrices are row-major, row-vector, left-handed, and DirectX clip-space oriented so the first renderer and sample can stay easy to inspect.
 
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
-- Rendering is intentionally small. The current milestone proves backend initialization, frame presentation, and a fixed triangle draw path, not a full renderer.
+- Rendering is intentionally small. The current milestone proves backend initialization, frame presentation, transform/camera constant buffer binding, and a fixed triangle draw path, not a full renderer.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. It is enough to demonstrate ownership and lifecycle without introducing a framework too early.
 - Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
@@ -39,6 +41,7 @@
 
 - No gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - No mesh, sprite, texture, material, or external shader asset system beyond the fixed DirectX 11 triangle path.
+- Math is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, collision primitives, or SIMD optimizations yet.
 - No asset pipeline.
 - No dynamic game-module loading yet.
 - No editor.
@@ -51,7 +54,6 @@
 
 Near-term:
 
-- Add a minimal input API.
 - Add sprite rendering.
 - Add handle-based shader, buffer, or texture resources beyond the fixed triangle path.
 - Introduce dynamic C ABI game-module entry points.
