@@ -62,14 +62,35 @@ ZenResultCode zen_engine_destroy(ZenEngineHandle engine);
  * Advances the engine by one frame.
  *
  * engine: must be a live non-zero handle. The handle remains owned by caller.
+ * This compatibility helper performs begin-frame timing and end-frame pacing
+ * in one call.
  */
 ZenResultCode zen_engine_step(ZenEngineHandle engine);
+
+/*
+ * Begins an engine frame and optionally writes frame information.
+ *
+ * engine: must be a live non-zero handle. out_frame_info may be null. When
+ * non-null, it is borrowed for the duration of the call. Delta time is
+ * computed here before game update/render work.
+ */
+ZenResultCode zen_engine_begin_frame(ZenEngineHandle engine, ZenEngineFrameInfo* out_frame_info);
+
+/*
+ * Ends the active engine frame.
+ *
+ * engine: must be a live non-zero handle with a frame begun by
+ * zen_engine_begin_frame. Frame pacing and max-test-frame state are applied
+ * here after update/render/present work.
+ */
+ZenResultCode zen_engine_end_frame(ZenEngineHandle engine);
 
 /*
  * Advances the engine by one frame and optionally writes frame information.
  *
  * engine: must be a live non-zero handle. out_frame_info may be null. When
- * non-null, it is borrowed for the duration of the call.
+ * non-null, it is borrowed for the duration of the call. This compatibility
+ * helper begins and ends a frame in one call.
  */
 ZenResultCode zen_engine_step_frame(ZenEngineHandle engine, ZenEngineFrameInfo* out_frame_info);
 

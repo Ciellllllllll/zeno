@@ -117,7 +117,24 @@ The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderab
 
 Project and scene loading are also SDK-owned. The current format is a strict versioned UTF-8 line format used for sample startup data. Parsed scene data becomes SDK objects and existing resource creation calls; filenames and scene structures do not cross the C ABI.
 
-`GameApp` is a high-level SDK runtime, not a new ABI layer. It centralizes the current static-linked app setup sequence: create Rust engine runtime, create native backend, resolve executable-relative assets, load project/scene text data, create the Win32 window, initialize the DirectX 11 renderer, create the minimal audio engine, poll input, step the Rust runtime, invoke module update/render callbacks, and clean up in reverse ownership order.
+`GameApp` is a high-level SDK runtime, not a new ABI layer. It centralizes the current static-linked app setup sequence: create Rust engine runtime, create native backend, resolve executable-relative assets, load project/scene text data, create the Win32 window, initialize the DirectX 11 renderer, create the minimal audio engine, run the frame loop, and clean up in reverse ownership order.
+
+The `GameApp` frame loop keeps the engine frame clock separate from renderer frame commands:
+
+```text
+engine begin_frame
+  poll window/input
+  module on_update(context)
+  module on_render(context)
+    renderer begin_frame
+    clear/draw
+    present
+engine end_frame
+  frame pacing
+  max-test-frame check
+```
+
+`engine begin_frame` computes `frame_index` and `delta_time_seconds` before game update/render work. `engine end_frame` applies target-FPS pacing after module update/render/present and then updates max-test-frame shutdown state. Renderer `begin_frame` remains the native DirectX 11 render-target binding step; it does not compute game delta time.
 
 ## Game Module And Sample
 

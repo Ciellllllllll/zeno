@@ -149,6 +149,12 @@ pub struct EngineFrameInfo {
     pub delta_time_seconds: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ActiveFrame {
+    started_at: Instant,
+    info: EngineFrameInfo,
+}
+
 /// Current runtime lifecycle state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EngineRuntimeState {
@@ -167,6 +173,7 @@ pub struct EngineRuntime {
     state: EngineRuntimeState,
     frame_count: u64,
     last_frame_time: Instant,
+    active_frame: Option<ActiveFrame>,
 }
 
 impl EngineRuntime {
@@ -184,6 +191,7 @@ impl EngineRuntime {
             state: EngineRuntimeState::Running,
             frame_count: 0,
             last_frame_time: Instant::now(),
+            active_frame: None,
         })
     }
 
@@ -232,7 +240,8 @@ impl EngineRuntime {
                 break;
             }
 
-            self.step_frame()?;
+            let _frame_info = self.begin_frame()?;
+            self.end_frame()?;
         }
 
         self.state = EngineRuntimeState::Stopped;
@@ -242,12 +251,26 @@ impl EngineRuntime {
 
     /// Advances the runtime by one frame if it is running.
     pub fn step_frame(&mut self) -> EngineResult<EngineFrameInfo> {
+        let frame_info = self.begin_frame()?;
+        self.end_frame()?;
+
+        Ok(frame_info)
+    }
+
+    /// Starts a frame and returns frame timing information for update/render work.
+    pub fn begin_frame(&mut self) -> EngineResult<EngineFrameInfo> {
         if !self.is_running() {
             log_engine_event(
                 EngineLogLevel::Error,
-                "cannot step engine runtime because it is not running",
+                "cannot begin engine frame because runtime is not running",
             );
             return Err(EngineError::RuntimeNotRunning);
+        }
+
+        if self.active_frame.is_some() {
+            return Err(EngineError::Internal(
+                "cannot begin a new engine frame before ending the active frame".to_string(),
+            ));
         }
 
         let frame_start = Instant::now();
@@ -255,18 +278,32 @@ impl EngineRuntime {
             .saturating_duration_since(self.last_frame_time)
             .as_secs_f64();
         self.last_frame_time = frame_start;
-
         let frame_info = EngineFrameInfo {
             frame_index: self.frame_count,
             delta_time_seconds,
         };
-
-        self.frame_count += 1;
-        self.run_frame_step(frame_info);
-        self.pace_frame(frame_start);
-        self.stop_if_test_limit_reached();
+        self.active_frame = Some(ActiveFrame {
+            started_at: frame_start,
+            info: frame_info,
+        });
 
         Ok(frame_info)
+    }
+
+    /// Ends the active frame, applies frame pacing, and updates frame-limit state.
+    pub fn end_frame(&mut self) -> EngineResult<()> {
+        let Some(active_frame) = self.active_frame.take() else {
+            return Err(EngineError::Internal(
+                "cannot end engine frame because no frame is active".to_string(),
+            ));
+        };
+
+        self.frame_count += 1;
+        self.run_frame_step(active_frame.info);
+        self.pace_frame(active_frame.started_at);
+        self.stop_if_test_limit_reached();
+
+        Ok(())
     }
 
     fn run_frame_step(&mut self, _frame_info: EngineFrameInfo) {
@@ -421,6 +458,45 @@ mod tests {
 
         assert_eq!(error, EngineError::RuntimeNotRunning);
         assert_eq!(error.category(), EngineErrorCategory::NotInitialized);
+    }
+
+    #[test]
+    fn begin_frame_computes_delta_without_incrementing_frame_count() {
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
+
+        let frame = runtime.begin_frame().expect("frame should begin");
+
+        assert_eq!(frame.frame_index, 0);
+        assert!(frame.delta_time_seconds >= 0.0);
+        assert_eq!(runtime.frame_count(), 0);
+
+        runtime.end_frame().expect("frame should end");
+        assert_eq!(runtime.frame_count(), 1);
+    }
+
+    #[test]
+    fn end_frame_without_active_frame_returns_error() {
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
+
+        let error = runtime
+            .end_frame()
+            .expect_err("end frame without begin should fail");
+
+        assert_eq!(error.category(), EngineErrorCategory::Internal);
+    }
+
+    #[test]
+    fn nested_begin_frame_returns_error() {
+        let mut runtime =
+            EngineRuntime::new(fast_test_config(None)).expect("runtime should be valid");
+
+        runtime.begin_frame().expect("first begin should succeed");
+        let error = runtime.begin_frame().expect_err("second begin should fail");
+
+        assert_eq!(error.category(), EngineErrorCategory::Internal);
+        runtime.end_frame().expect("active frame should still end");
     }
 
     fn fast_test_config(max_test_frames: Option<usize>) -> EngineConfig {

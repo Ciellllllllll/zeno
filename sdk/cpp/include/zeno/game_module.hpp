@@ -59,7 +59,8 @@ public:
 
 private:
     Result initialize(const GameAppConfig& config);
-    Result poll_frame();
+    Result begin_frame();
+    Result end_frame();
     Result shutdown(GameModule& module);
 
     Engine engine_{};

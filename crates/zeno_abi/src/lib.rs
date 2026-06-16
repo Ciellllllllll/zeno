@@ -158,6 +158,38 @@ pub extern "C" fn zen_engine_step(engine: ZenEngineHandle) -> ZenResultCode {
     ffi_guard(|| with_runtime(engine, |runtime| runtime.step_frame().map(|_| ())))
 }
 
+/// Begins an engine frame and optionally writes frame timing data.
+#[no_mangle]
+pub extern "C" fn zen_engine_begin_frame(
+    engine: ZenEngineHandle,
+    out_frame_info: *mut ZenEngineFrameInfo,
+) -> ZenResultCode {
+    ffi_guard(|| zen_engine_begin_frame_impl(engine, out_frame_info))
+}
+
+fn zen_engine_begin_frame_impl(
+    engine: ZenEngineHandle,
+    out_frame_info: *mut ZenEngineFrameInfo,
+) -> ZenResultCode {
+    with_runtime(engine, |runtime| {
+        let frame_info = runtime.begin_frame()?;
+        if !out_frame_info.is_null() {
+            // SAFETY: null was checked above, and the caller owns this out pointer for the call.
+            unsafe {
+                ptr::write(out_frame_info, frame_info.into());
+            }
+        }
+
+        Ok(())
+    })
+}
+
+/// Ends the active engine frame and applies frame pacing.
+#[no_mangle]
+pub extern "C" fn zen_engine_end_frame(engine: ZenEngineHandle) -> ZenResultCode {
+    ffi_guard(|| with_runtime(engine, |runtime| runtime.end_frame()))
+}
+
 /// Advances the engine runtime by one frame and optionally writes frame data.
 #[no_mangle]
 pub extern "C" fn zen_engine_step_frame(
@@ -480,6 +512,88 @@ mod tests {
         assert_eq!(
             zen_engine_step_frame(handle, ptr::null_mut()),
             ZenResultCode::Ok
+        );
+        assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
+    }
+
+    #[test]
+    fn begin_and_end_frame_split_timing_and_pacing() {
+        let config = ZenEngineConfig {
+            target_fps: 1_000_000.0,
+            max_test_frames: 2,
+            ..ZenEngineConfig::default()
+        };
+        let mut handle = ZenEngineHandle { value: 0 };
+
+        assert_eq!(zen_engine_create(&config, &mut handle), ZenResultCode::Ok);
+        let mut frame_info = ZenEngineFrameInfo {
+            frame_index: u64::MAX,
+            delta_time_seconds: -1.0,
+        };
+        assert_eq!(
+            zen_engine_begin_frame(handle, &mut frame_info),
+            ZenResultCode::Ok
+        );
+        assert_eq!(frame_info.frame_index, 0);
+        assert!(frame_info.delta_time_seconds >= 0.0);
+        assert_eq!(zen_engine_end_frame(handle), ZenResultCode::Ok);
+        assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
+    }
+
+    #[test]
+    fn begin_frame_rejects_nested_frame() {
+        let config = ZenEngineConfig {
+            target_fps: 1_000_000.0,
+            max_test_frames: 2,
+            ..ZenEngineConfig::default()
+        };
+        let mut handle = ZenEngineHandle { value: 0 };
+
+        assert_eq!(zen_engine_create(&config, &mut handle), ZenResultCode::Ok);
+        assert_eq!(
+            zen_engine_begin_frame(handle, ptr::null_mut()),
+            ZenResultCode::Ok
+        );
+        assert_eq!(
+            zen_engine_begin_frame(handle, ptr::null_mut()),
+            ZenResultCode::InternalError
+        );
+        assert_eq!(zen_engine_end_frame(handle), ZenResultCode::Ok);
+        assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
+    }
+
+    #[test]
+    fn end_frame_rejects_missing_active_frame() {
+        let config = ZenEngineConfig {
+            target_fps: 1_000_000.0,
+            max_test_frames: 2,
+            ..ZenEngineConfig::default()
+        };
+        let mut handle = ZenEngineHandle { value: 0 };
+
+        assert_eq!(zen_engine_create(&config, &mut handle), ZenResultCode::Ok);
+        assert_eq!(zen_engine_end_frame(handle), ZenResultCode::InternalError);
+        assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
+    }
+
+    #[test]
+    fn begin_end_frame_respects_max_test_frame_limit() {
+        let config = ZenEngineConfig {
+            target_fps: 1_000_000.0,
+            max_test_frames: 1,
+            ..ZenEngineConfig::default()
+        };
+        let mut handle = ZenEngineHandle { value: 0 };
+
+        assert_eq!(zen_engine_create(&config, &mut handle), ZenResultCode::Ok);
+        assert_eq!(
+            zen_engine_begin_frame(handle, ptr::null_mut()),
+            ZenResultCode::Ok
+        );
+        assert_eq!(zen_engine_end_frame(handle), ZenResultCode::Ok);
+        assert_eq!(
+            zen_engine_begin_frame(handle, ptr::null_mut()),
+            ZenResultCode::NotInitialized
         );
         assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
     }

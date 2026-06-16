@@ -236,6 +236,24 @@ Result Engine::step()
     return Result(zen_engine_step(handle_));
 }
 
+Result Engine::begin_frame(EngineFrameInfo& out_frame_info)
+{
+    ZenEngineFrameInfo native_frame_info{};
+    const Result result(zen_engine_begin_frame(handle_, &native_frame_info));
+    if (!result.ok()) {
+        return result;
+    }
+
+    out_frame_info.frame_index = native_frame_info.frame_index;
+    out_frame_info.delta_time_seconds = native_frame_info.delta_time_seconds;
+    return result;
+}
+
+Result Engine::end_frame()
+{
+    return Result(zen_engine_end_frame(handle_));
+}
+
 Result Engine::step_frame(EngineFrameInfo& out_frame_info)
 {
     ZenEngineFrameInfo native_frame_info{};
@@ -1172,10 +1190,10 @@ Result GameApp::initialize(const GameAppConfig& config)
     return Result();
 }
 
-Result GameApp::poll_frame()
+Result GameApp::begin_frame()
 {
     EngineFrameInfo frame_info{};
-    Result result = engine_.step_frame(frame_info);
+    Result result = engine_.begin_frame(frame_info);
     if (!result.ok()) {
         return result;
     }
@@ -1195,6 +1213,11 @@ Result GameApp::poll_frame()
     }
 
     return backend_.input_snapshot(context_.input);
+}
+
+Result GameApp::end_frame()
+{
+    return engine_.end_frame();
 }
 
 Result GameApp::shutdown(GameModule& module)
@@ -1224,12 +1247,18 @@ Result GameApp::run(GameModule module, const GameAppConfig& config)
     module_initialized_ = true;
 
     while (!context_.should_close) {
-        result = poll_frame();
-        if (!result.ok() || context_.should_close) {
+        result = begin_frame();
+        if (!result.ok()) {
             break;
         }
 
-        result = run_game_module_frame(module, context_);
+        if (!context_.should_close) {
+            result = run_game_module_frame(module, context_);
+        }
+        const Result end_result = end_frame();
+        if (!end_result.ok() && result.ok()) {
+            result = end_result;
+        }
         if (!result.ok()) {
             break;
         }

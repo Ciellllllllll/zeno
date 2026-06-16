@@ -96,6 +96,8 @@ public:
     static Result create(const EngineConfig& config, Engine& out_engine);
 
     Result step();
+    Result begin_frame(EngineFrameInfo& out_frame_info);
+    Result end_frame();
     Result step_frame(EngineFrameInfo& out_frame_info);
     Result request_shutdown();
     void reset();
