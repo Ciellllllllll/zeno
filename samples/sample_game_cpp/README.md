@@ -4,6 +4,8 @@ This sample is a small C++ game-module demo that runs through the ZENO C++ SDK `
 
 `GameApp` loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the Rust runtime, DirectX 11 renderer, and minimal audio path, calls the sample module lifecycle, and reads a keyboard/mouse input snapshot. The module compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through the runtime scene, checks sample-owned AABB collision, clears the screen with a changing color, draws a playable player/goal/obstacle slice with debug collision rectangles through a perspective camera, and shuts down cleanly.
 
+`on_shutdown` must be safe even if `on_init` failed after creating only some resources. `GameApp` calls shutdown after partial init failure before resetting backend/audio ownership, so module cleanup should check each sample-owned wrapper before resetting it.
+
 ## Build
 
 From the repository root:

@@ -7,6 +7,7 @@
 - C++ native backend ownership for Win32 and DirectX 11 resources.
 - A C++ SDK layer that is ergonomic for game code without leaking through the ABI.
 - A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and module lifecycle into one host API.
+- Explicit `GameApp` failure cleanup semantics: partial `on_init` failure is followed by `on_shutdown` before SDK-owned backend/audio resources are reset.
 - A first Windows dynamic module loader that uses a C-compatible descriptor entry point without exposing SDK classes, STL, Win32, DirectX, or Rust internals across the DLL boundary.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
@@ -33,6 +34,7 @@
 - DirectX 11 is the first renderer to keep the milestone narrow and demonstrable.
 - Static game-module linking remains the default sample/template path; dynamic loading uses a small C ABI descriptor and explicit API version validation.
 - `GameApp` is SDK-owned orchestration over existing Rust/runtime and native/backend handles, not a new cross-language ABI.
+- Module shutdown is part of the cleanup contract. Module authors must tolerate partially initialized state and clean up only resources they actually created.
 - Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
 - Runtime packaging is intentionally a local script over the canonical build/install graph, not a custom installer or separate project generator.
 - SDK packaging exposes imported CMake targets for external projects while keeping private specs, generated build trees, and Codex files out of the package.

@@ -113,14 +113,15 @@ cmake --build build\external-game
 | Configure/build/smoke subset | `.\scripts\build-all.ps1` | Passes | Uses Cargo plus `windows-msvc-debug`; runs non-window smoke executables. |
 | CTest listing | `ctest --preset windows-msvc-debug -N` | Lists current smoke tests | Does not execute tests. |
 | Headless CTest | `ctest --preset windows-msvc-debug -E "window|sample|manual"` | Passes | Excludes window-capable and manual run tests by name; tests are also labeled for local selection. |
-| Full CTest smoke | `ctest --preset windows-msvc-debug` | Passes | May open windows. |
+| Full CTest smoke | `ctest --preset windows-msvc-debug` | Manual window validation | May open windows. |
 | Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly | Window run. |
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
 | SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout | Includes headers, static libs, ABI import lib/DLL, and CMake config files. |
 | External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZENO::zeno_sdk_cpp`, not in-tree includes. |
 | Dynamic module sample | `.\scripts\run-dynamic-module-sample.ps1` | Builds/runs the headless DLL module sample | Uses `LoadLibraryW`, descriptor version validation, lifecycle callbacks, and unload. |
+| GameApp failed-init cleanup | `build/windows-msvc-debug/bin/Debug/zeno_sdk_failed_init_smoke.exe` | Verifies `on_shutdown` after failed `on_init` | Window-capable smoke; run only when opening local windows is acceptable. |
 | Package layout | `Test-Path build/package/windows-msvc-debug/bin/zeno_abi.dll` and related sample/template asset paths | Passes | Also check the package does not contain `AGENTS.md`, `docs`, or `goal`. |
 | CI-style baseline | `.\scripts\verify-all.ps1` | Passes | Runs format, ABI, headless test, and package scripts. |
-| Local full validation | `.\scripts\test-all-local.ps1` | Passes | Includes window-capable checks; run manually. |
+| Local full validation | `.\scripts\test-all-local.ps1` | Manual window validation | Includes window-capable checks; run manually. |
 | Final status | `git status --short --ignored` | Review tracked and ignored output | `AGENTS.md`, `goal/`, `build/`, `target/`, and private `docs/*` inputs remain ignored locally. |

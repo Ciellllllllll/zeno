@@ -1080,6 +1080,17 @@ Result run_dynamic_lifecycle(ZenGameModuleLifecycleFn function, GameContext& con
     }
 }
 
+template <typename Module>
+Result cleanup_after_failed_module_init(Module& module, GameContext& context, Result init_result)
+{
+    const Result shutdown_result = shutdown_game_module(module, context);
+    if (!shutdown_result.ok()) {
+        return shutdown_result;
+    }
+
+    return init_result;
+}
+
 } // namespace
 
 DynamicGameModule::~DynamicGameModule()
@@ -1388,6 +1399,7 @@ Result GameApp::run(GameModule module, const GameAppConfig& config)
 
     result = initialize_game_module(module, context_);
     if (!result.ok()) {
+        result = cleanup_after_failed_module_init(module, context_, result);
         reset();
         return result;
     }
@@ -1439,6 +1451,7 @@ Result GameApp::run(DynamicGameModule& module, const GameAppConfig& config)
 
     result = initialize_game_module(module, context_);
     if (!result.ok()) {
+        result = cleanup_after_failed_module_init(module, context_, result);
         reset();
         return result;
     }

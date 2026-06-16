@@ -45,6 +45,8 @@ The current sample executable is an integration smoke for the C++ SDK, static-li
 
 `GameApp` frames run in this order: engine frame begin computes `frame_index` and `delta_time_seconds`, window/input polling updates the context, module `on_update` runs, module `on_render` performs renderer `begin_frame` / draw / `present`, and engine frame end applies target-FPS pacing plus max-test-frame checks.
 
+If module `on_init` fails after `GameApp` has created the runtime context, `GameApp` calls module `on_shutdown` before resetting engine/backend/audio resources. Module authors must make `on_shutdown` safe after partial initialization and must not assume `on_update` or `on_render` ran.
+
 ## Build And Test
 
 Supported local environment:

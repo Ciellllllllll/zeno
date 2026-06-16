@@ -119,6 +119,8 @@ Project and scene loading are also SDK-owned. The current format is a strict ver
 
 `GameApp` is a high-level SDK runtime, not a new Rust ABI layer. It centralizes the app setup sequence: create Rust engine runtime, create native backend, resolve executable-relative assets, load project/scene text data, create the Win32 window, initialize the DirectX 11 renderer, create the minimal audio engine, run the frame loop, and clean up in reverse ownership order. It accepts the existing static `zeno::GameModule` path and a Windows-loaded `zeno::DynamicGameModule` wrapper.
 
+If `on_init` fails after `GameApp` has created the runtime context, `GameApp` treats the module as partially initialized and calls `on_shutdown` once before resetting SDK-owned resources. This gives the module a chance to release SDK wrappers it created during `on_init` while backend/audio handles are still valid. If both `on_init` and cleanup fail, the cleanup failure is returned because it may indicate leaked or invalid cleanup work. Module `on_shutdown` implementations must therefore be idempotent over their own partial state and must not assume `on_update` or `on_render` ran.
+
 The `GameApp` frame loop keeps the engine frame clock separate from renderer frame commands:
 
 ```text

@@ -2,6 +2,8 @@
 
 This is the smallest standalone C++ game target that uses the ZENO SDK `GameApp` runtime.
 
+`on_shutdown` must be safe even if `on_init` fails after only part of the module state was created. `GameApp` calls shutdown after partial init failure before resetting backend/audio ownership, so template-derived modules should check each wrapper before resetting it.
+
 It is intentionally plain CMake: the target is part of the repository-level `windows-msvc-debug` and `windows-msvc-release` presets, so CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools all build the same code.
 
 ## Build
