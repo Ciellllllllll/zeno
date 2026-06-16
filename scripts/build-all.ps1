@@ -25,6 +25,7 @@ try {
     & (Join-Path $runtimeDir "zeno_material_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_asset_smoke.exe")
     & (Join-Path $runtimeDir "zeno_sdk_scene_smoke.exe")
+    & (Join-Path $runtimeDir "zeno_sdk_serialization_smoke.exe")
 }
 finally {
     Pop-Location

@@ -1,0 +1,12 @@
+zeno_scene
+version=1
+
+[object]
+name=missing_sprite
+renderable=sprite
+reference=textures/does_not_exist.bmp
+position=0 0 1
+rotation_z=0
+scale=1 1 1
+color=1 1 1 1
+[/object]

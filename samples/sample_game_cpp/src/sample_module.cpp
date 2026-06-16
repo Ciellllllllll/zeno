@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -23,6 +24,20 @@ zeno::ObjectId g_cube_object;
 zeno::ObjectId g_triangle_object;
 zeno::ObjectId g_sprite_object;
 zeno::Camera g_camera;
+
+const zeno::SceneObjectDesc* find_scene_object(
+    const zeno::SceneDescription& scene,
+    std::string_view name,
+    zeno::RenderableKind kind)
+{
+    for (const zeno::SceneObjectDesc& object : scene.objects) {
+        if (object.name == name && object.renderable_kind == kind) {
+            return &object;
+        }
+    }
+
+    return nullptr;
+}
 
 void log_shader_failure(
     const char* stage,
@@ -49,6 +64,9 @@ zeno::Result on_init(zeno::GameContext& context)
     if (context.assets == nullptr) {
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
+    if (context.scene == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
 
     g_elapsed_seconds = 0.0;
     g_keyboard_tint = 0.0f;
@@ -56,7 +74,20 @@ zeno::Result on_init(zeno::GameContext& context)
     g_cube_object = {};
     g_triangle_object = {};
     g_sprite_object = {};
-    g_camera = zeno::Camera::perspective(1.0471976f, 640.0f / 360.0f, 0.1f, 10.0f);
+    const zeno::SceneObjectDesc* cube_object = find_scene_object(*context.scene, "cube", zeno::RenderableKind::mesh);
+    const zeno::SceneObjectDesc* triangle_object = find_scene_object(*context.scene, "triangle", zeno::RenderableKind::triangle);
+    const zeno::SceneObjectDesc* sprite_object = find_scene_object(*context.scene, "sprite", zeno::RenderableKind::sprite);
+    if (cube_object == nullptr || triangle_object == nullptr || sprite_object == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+    if (cube_object->reference != "builtin:cube" || triangle_object->reference != "builtin:triangle") {
+        return zeno::Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
+    const float aspect_ratio = context.project != nullptr && context.project->window_height != 0
+        ? static_cast<float>(context.project->window_width) / static_cast<float>(context.project->window_height)
+        : 640.0f / 360.0f;
+    g_camera = zeno::Camera::perspective(1.0471976f, aspect_ratio, 0.1f, 10.0f);
     std::string manifest;
     zeno::Result result = context.assets->read_text("sample_manifest.txt", manifest);
     if (!result.ok()) {
@@ -85,7 +116,7 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
-    result = context.backend->create_texture(*context.assets, "textures/sample_sprite_2x2.bmp", g_sprite_texture);
+    result = context.backend->create_texture(*context.assets, sprite_object->reference, g_sprite_texture);
     if (!result.ok()) {
         return result;
     }
@@ -139,11 +170,8 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
-    zeno::Transform cube_transform{};
-    cube_transform.position = zeno::Vec3{ 0.0f, 0.0f, 3.0f };
-    cube_transform.scale = zeno::Vec3{ 0.7f, 0.7f, 0.7f };
     g_cube_object = g_scene.create_object();
-    result = g_scene.set_transform(g_cube_object, cube_transform);
+    result = g_scene.set_transform(g_cube_object, cube_object->transform);
     if (!result.ok()) {
         return result;
     }
@@ -152,11 +180,8 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
-    zeno::Transform triangle_transform{};
-    triangle_transform.position = zeno::Vec3{ 0.0f, 0.0f, 2.0f };
-    triangle_transform.scale = zeno::Vec3{ 0.75f, 0.75f, 1.0f };
     g_triangle_object = g_scene.create_object();
-    result = g_scene.set_transform(g_triangle_object, triangle_transform);
+    result = g_scene.set_transform(g_triangle_object, triangle_object->transform);
     if (!result.ok()) {
         return result;
     }
@@ -165,17 +190,14 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
-    zeno::Transform sprite_transform{};
-    sprite_transform.position = zeno::Vec3{ -0.45f, -0.35f, 1.7f };
-    sprite_transform.scale = zeno::Vec3{ 0.42f, 0.42f, 1.0f };
     g_sprite_object = g_scene.create_object();
-    result = g_scene.set_transform(g_sprite_object, sprite_transform);
+    result = g_scene.set_transform(g_sprite_object, sprite_object->transform);
     if (!result.ok()) {
         return result;
     }
     result = g_scene.set_sprite_renderer(
         g_sprite_object,
-        zeno::SpriteRenderer{ &g_sprite_material, zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f } });
+        zeno::SpriteRenderer{ &g_sprite_material, sprite_object->color });
     if (!result.ok()) {
         return result;
     }

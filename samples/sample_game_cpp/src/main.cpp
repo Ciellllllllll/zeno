@@ -1,6 +1,7 @@
 #include "sample_module.h"
 
 #include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <thread>
 
@@ -13,33 +14,65 @@ int main()
         return 1;
     }
 
-    result = backend.create_window(zeno::WindowConfig{ 640, 360 });
+    zeno::AssetRoot asset_root;
+    result = zeno::AssetRoot::from_executable(asset_root);
+    if (!result.ok()) {
+        std::cerr << "asset root resolve failed: " << result.message() << "\n";
+        return 2;
+    }
+
+    zeno::ProjectConfig project;
+    result = zeno::load_project_config(asset_root, "project.zproj", project);
+    if (!result.ok()) {
+        std::cerr << "project load failed: " << result.message() << "\n";
+        return 3;
+    }
+
+    if (project.asset_root != ".") {
+        zeno::AssetPath project_asset_root;
+        result = asset_root.resolve(project.asset_root, project_asset_root);
+        if (!result.ok()) {
+            std::cerr << "project asset root resolve failed: " << result.message() << "\n";
+            return 4;
+        }
+
+        result = zeno::AssetRoot::from_path(project_asset_root.path(), asset_root);
+        if (!result.ok()) {
+            std::cerr << "project asset root load failed: " << result.message() << "\n";
+            return 5;
+        }
+    }
+
+    zeno::SceneDescription scene;
+    result = zeno::load_scene_description(asset_root, project.initial_scene, scene);
+    if (!result.ok()) {
+        std::cerr << "scene load failed: " << result.message() << "\n";
+        return 6;
+    }
+
+    result = backend.create_window(zeno::WindowConfig{ project.window_width, project.window_height });
     if (!result.ok()) {
         std::cerr << "window create failed: " << result.message() << "\n";
-        return 2;
+        return 7;
     }
 
     result = backend.initialize_renderer();
     if (!result.ok()) {
         std::cerr << "renderer init failed: " << result.message() << "\n";
-        return 3;
+        return 8;
     }
 
     zeno::GameModule module = create_sample_game_module();
-    zeno::AssetRoot asset_root;
-    result = zeno::AssetRoot::from_executable(asset_root);
-    if (!result.ok()) {
-        std::cerr << "asset root resolve failed: " << result.message() << "\n";
-        return 4;
-    }
 
     zeno::GameContext context{};
     context.backend = &backend;
     context.assets = &asset_root;
+    context.project = &project;
+    context.scene = &scene;
 
     result = zeno::initialize_game_module(module, context);
     if (!result.ok()) {
-        return 5;
+        return 9;
     }
 
     int exit_code = 0;
@@ -52,7 +85,7 @@ int main()
         bool window_should_close = false;
         result = backend.poll_events(window_should_close);
         if (!result.ok()) {
-            exit_code = 6;
+            exit_code = 8;
             break;
         }
         context.should_close = window_should_close;
@@ -62,13 +95,13 @@ int main()
 
         result = backend.input_snapshot(context.input);
         if (!result.ok()) {
-            exit_code = 7;
+            exit_code = 9;
             break;
         }
 
         result = zeno::run_game_module_frame(module, context);
         if (!result.ok()) {
-            exit_code = 8;
+            exit_code = 10;
             break;
         }
 
@@ -78,7 +111,7 @@ int main()
 
     result = zeno::shutdown_game_module(module, context);
     if (!result.ok()) {
-        return 9;
+        return 11;
     }
 
     return exit_code;

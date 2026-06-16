@@ -348,6 +348,38 @@ private:
     std::vector<ObjectState> objects_{};
 };
 
+struct ProjectConfig final {
+    std::uint32_t version = 1;
+    std::uint32_t window_width = 640;
+    std::uint32_t window_height = 360;
+    std::string asset_root = ".";
+    std::string initial_scene = "scenes/sample_scene.zscene";
+};
+
+struct SceneObjectDesc final {
+    std::string name{};
+    RenderableKind renderable_kind = RenderableKind::none;
+    Transform transform{};
+    Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    std::string reference{};
+};
+
+struct SceneDescription final {
+    std::uint32_t version = 1;
+    std::vector<SceneObjectDesc> objects{};
+};
+
+Result load_project_config(
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    ProjectConfig& out_config);
+Result load_scene_description(
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    SceneDescription& out_scene);
+Result serialize_project_config(const ProjectConfig& config, std::string& out_text);
+Result serialize_scene_description(const SceneDescription& scene, std::string& out_text);
+
 class RenderTriangle final {
 public:
     RenderTriangle() = default;

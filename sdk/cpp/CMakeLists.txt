@@ -24,6 +24,7 @@ add_library(zeno_sdk_cpp STATIC
     src/asset.cpp
     src/math.cpp
     src/scene.cpp
+    src/serialization.cpp
 )
 target_compile_features(zeno_sdk_cpp PUBLIC cxx_std_20)
 target_include_directories(zeno_sdk_cpp PUBLIC
@@ -53,6 +54,11 @@ target_compile_features(zeno_sdk_scene_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_scene_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_scene_smoke COMMAND zeno_sdk_scene_smoke)
 
+add_executable(zeno_sdk_serialization_smoke src/serialization_smoke.cpp)
+target_compile_features(zeno_sdk_serialization_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_sdk_serialization_smoke PRIVATE zeno_sdk_cpp)
+add_test(NAME zeno_sdk_serialization_smoke COMMAND zeno_sdk_serialization_smoke)
+
 add_custom_command(TARGET zeno_sdk_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:zeno_abi_rust>"
@@ -75,4 +81,13 @@ add_custom_command(TARGET zeno_sdk_scene_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:zeno_abi_rust>"
         "$<TARGET_FILE_DIR:zeno_sdk_scene_smoke>"
+)
+
+add_custom_command(TARGET zeno_sdk_serialization_smoke POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:zeno_abi_rust>"
+        "$<TARGET_FILE_DIR:zeno_sdk_serialization_smoke>"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/testdata/scene_serialization"
+        "$<TARGET_FILE_DIR:zeno_sdk_serialization_smoke>/scene_serialization"
 )

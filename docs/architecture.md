@@ -107,6 +107,8 @@ SDK classes are allowed for game code ergonomics, but they do not cross the Rust
 
 The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderable record per object, then emits existing SDK draw calls in creation order. Scene objects are not exposed to Rust, the C ABI, or the native backend.
 
+Project and scene loading are also SDK-owned. The current format is a strict versioned UTF-8 line format used for sample startup data. Parsed scene data becomes SDK objects and existing resource creation calls; filenames and scene structures do not cross the C ABI.
+
 ## Game Module And Sample
 
 `samples/sample_game_cpp` statically links a small game module into the sample executable. The module implements:
@@ -116,7 +118,7 @@ The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderab
 - `on_render`,
 - `on_shutdown`.
 
-The current sample changes the DirectX 11 clear color over time, updates SDK scene objects, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
+The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

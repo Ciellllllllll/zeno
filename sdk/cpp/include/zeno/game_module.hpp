@@ -9,6 +9,8 @@ namespace zeno {
 struct GameContext final {
     NativeBackend* backend = nullptr;
     AssetRoot* assets = nullptr;
+    const ProjectConfig* project = nullptr;
+    const SceneDescription* scene = nullptr;
     InputSnapshot input{};
     std::uint64_t frame_index = 0;
     double delta_time_seconds = 0.0;
