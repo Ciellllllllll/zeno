@@ -126,7 +126,7 @@ Project and scene loading are also SDK-owned. The current format is a strict ver
 - `on_render`,
 - `on_shutdown`.
 
-The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, moves a sprite with keyboard input, checks sample-owned AABB overlap against the triangle, draws collision debug rectangles, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
+The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, moves a player sprite with keyboard input, checks sample-owned AABB overlap against a triangle goal and cube obstacle, tracks a short console score, supports Space restart, draws collision debug rectangles, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

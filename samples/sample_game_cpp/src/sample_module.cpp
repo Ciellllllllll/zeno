@@ -1,5 +1,6 @@
 #include "sample_module.h"
 
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -7,15 +8,26 @@
 
 namespace {
 
-constexpr double kDemoDurationSeconds = 4.0;
+constexpr double kDemoDurationSeconds = 18.0;
 constexpr double kColorCycleSeconds = 2.0;
 constexpr float kMouseColorScale = 1.0f / 640.0f;
 constexpr float kPlayerMoveSpeed = 0.55f;
+constexpr int kWinningScore = 3;
+constexpr zeno::Vec3 kPlayerStart{ -0.75f, -0.35f, 1.7f };
+constexpr std::array<zeno::Vec3, kWinningScore> kGoalPositions{
+    zeno::Vec3{ 0.55f, 0.35f, 2.0f },
+    zeno::Vec3{ -0.55f, 0.35f, 2.0f },
+    zeno::Vec3{ 0.65f, -0.30f, 2.0f },
+};
 
 double g_elapsed_seconds = 0.0;
 float g_keyboard_tint = 0.0f;
 bool g_debug_draw_enabled = true;
-bool g_player_touching_item = false;
+bool g_player_touching_goal = false;
+bool g_player_touching_hazard = false;
+bool g_game_won = false;
+int g_score = 0;
+int g_goal_index = 0;
 zeno::RenderTriangle g_triangle;
 zeno::VertexShader g_vertex_shader;
 zeno::PixelShader g_pixel_shader;
@@ -51,6 +63,36 @@ zeno::Aabb2 bounds_for_object(const zeno::Scene& scene, zeno::ObjectId object)
     }
 
     return zeno::aabb_from_transform_2d(*transform);
+}
+
+zeno::Result reset_play_state(zeno::Scene& scene)
+{
+    zeno::Transform* player_transform = scene.transform(g_sprite_object);
+    zeno::Transform* goal_transform = scene.transform(g_triangle_object);
+    zeno::Transform* hazard_transform = scene.transform(g_cube_object);
+    if (player_transform == nullptr || goal_transform == nullptr || hazard_transform == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
+    g_elapsed_seconds = 0.0;
+    g_keyboard_tint = 0.0f;
+    g_debug_draw_enabled = true;
+    g_player_touching_goal = false;
+    g_player_touching_hazard = false;
+    g_game_won = false;
+    g_score = 0;
+    g_goal_index = 0;
+
+    player_transform->position = kPlayerStart;
+    player_transform->rotation_z_radians = 0.0f;
+    goal_transform->position = kGoalPositions[0];
+    goal_transform->rotation_z_radians = 0.0f;
+    goal_transform->scale = zeno::Vec3{ 0.35f, 0.35f, 1.0f };
+    hazard_transform->scale = zeno::Vec3{ 0.48f, 0.48f, 0.48f };
+
+    return scene.set_sprite_renderer(
+        g_sprite_object,
+        zeno::SpriteRenderer{ &g_sprite_material, zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f } });
 }
 
 void log_shader_failure(
@@ -91,7 +133,11 @@ zeno::Result on_init(zeno::GameContext& context)
     g_elapsed_seconds = 0.0;
     g_keyboard_tint = 0.0f;
     g_debug_draw_enabled = true;
-    g_player_touching_item = false;
+    g_player_touching_goal = false;
+    g_player_touching_hazard = false;
+    g_game_won = false;
+    g_score = 0;
+    g_goal_index = 0;
     context.runtime_scene->clear();
     g_cube_object = {};
     g_triangle_object = {};
@@ -233,6 +279,13 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
+    result = reset_play_state(*context.runtime_scene);
+    if (!result.ok()) {
+        return result;
+    }
+
+    std::cerr << "[ZENO][sample] controls: WASD/arrows move, Space restarts, Escape exits\n";
+    std::cerr << "[ZENO][sample] goal score: 0/" << kWinningScore << "\n";
     return zeno::Result();
 }
 
@@ -244,7 +297,17 @@ zeno::Result on_update(zeno::GameContext& context)
         return zeno::Result();
     }
     if (context.input.pressed(zeno::Key::space)) {
-        g_debug_draw_enabled = !g_debug_draw_enabled;
+        if (context.runtime_scene == nullptr) {
+            return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+        }
+
+        zeno::Result result = reset_play_state(*context.runtime_scene);
+        if (!result.ok()) {
+            return result;
+        }
+
+        std::cerr << "[ZENO][sample] restart\n";
+        return zeno::Result();
     }
 
     if (context.input.down(zeno::Key::a) || context.input.down(zeno::Key::left)) {
@@ -302,23 +365,56 @@ zeno::Result on_update(zeno::GameContext& context)
         sprite_transform->position.y = 0.55f;
     }
 
-    triangle_transform->rotation_z_radians = static_cast<float>(g_elapsed_seconds);
-    triangle_transform->position.x = 0.15f * std::sin(static_cast<float>(g_elapsed_seconds));
+    triangle_transform->rotation_z_radians = static_cast<float>(g_elapsed_seconds) * 1.5f;
     sprite_transform->rotation_z_radians = -0.5f * static_cast<float>(g_elapsed_seconds);
     cube_transform->rotation_z_radians = 0.7f * static_cast<float>(g_elapsed_seconds);
+    const float hazard_scale = 0.48f + 0.06f * static_cast<float>(g_score);
+    cube_transform->scale = zeno::Vec3{ hazard_scale, hazard_scale, hazard_scale };
 
-    const bool touching_item = zeno::intersects(
+    const bool touching_goal = zeno::intersects(
         bounds_for_object(*context.runtime_scene, g_sprite_object),
         bounds_for_object(*context.runtime_scene, g_triangle_object));
-    if (touching_item && !g_player_touching_item && g_event_sound.valid()) {
-        zeno::Result result = g_event_sound.play();
-        if (!result.ok()) {
-            return result;
+    if (touching_goal && !g_player_touching_goal && !g_game_won) {
+        ++g_score;
+        std::cerr << "[ZENO][sample] goal score: " << g_score << "/" << kWinningScore << "\n";
+        if (g_event_sound.valid()) {
+            zeno::Result result = g_event_sound.play();
+            if (!result.ok()) {
+                return result;
+            }
+        }
+
+        if (g_score >= kWinningScore) {
+            g_game_won = true;
+            std::cerr << "[ZENO][sample] goal complete, press Space to restart\n";
+        } else {
+            g_goal_index = g_score % kWinningScore;
+            triangle_transform->position = kGoalPositions[static_cast<std::size_t>(g_goal_index)];
         }
     }
-    g_player_touching_item = touching_item;
+    g_player_touching_goal = touching_goal;
 
-    const zeno::Color player_color = touching_item
+    const bool touching_hazard = zeno::intersects(
+        bounds_for_object(*context.runtime_scene, g_sprite_object),
+        bounds_for_object(*context.runtime_scene, g_cube_object));
+    if (touching_hazard && !g_player_touching_hazard && !g_game_won) {
+        sprite_transform->position = kPlayerStart;
+        g_keyboard_tint = -0.20f;
+        std::cerr << "[ZENO][sample] obstacle hit, player reset\n";
+        if (g_event_sound.valid()) {
+            zeno::Result result = g_event_sound.play();
+            if (!result.ok()) {
+                return result;
+            }
+        }
+    }
+    g_player_touching_hazard = touching_hazard;
+
+    const zeno::Color player_color = g_game_won
+        ? zeno::Color{ 0.35f, 1.0f, 0.45f, 0.95f }
+        : touching_hazard
+        ? zeno::Color{ 1.0f, 0.30f, 0.25f, 0.90f }
+        : touching_goal
         ? zeno::Color{ 1.0f, 0.85f, 0.20f, 0.90f }
         : zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f };
     zeno::Result result = context.runtime_scene->set_sprite_renderer(
@@ -326,6 +422,10 @@ zeno::Result on_update(zeno::GameContext& context)
         zeno::SpriteRenderer{ &g_sprite_material, player_color });
     if (!result.ok()) {
         return result;
+    }
+
+    if (g_game_won) {
+        triangle_transform->scale = zeno::Vec3{ 0.55f, 0.55f, 1.0f };
     }
 
     context.should_close = g_elapsed_seconds >= kDemoDurationSeconds;
@@ -349,10 +449,11 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
+    const float score_t = static_cast<float>(g_score) / static_cast<float>(kWinningScore);
     const zeno::Color color{
-        0.05f + 0.25f * t + g_keyboard_tint,
-        0.12f,
-        0.20f + 0.20f * (1.0f - t) + 0.20f * mouse_t,
+        0.05f + 0.20f * t + 0.12f * score_t + g_keyboard_tint,
+        g_game_won ? 0.20f : 0.10f + 0.10f * score_t,
+        0.18f + 0.18f * (1.0f - t) + 0.18f * mouse_t,
         1.0f,
     };
 
@@ -372,7 +473,11 @@ zeno::Result on_render(zeno::GameContext& context)
     }
 
     if (g_debug_draw_enabled) {
-        const zeno::Color player_bounds_color = g_player_touching_item
+        const zeno::Color player_bounds_color = g_game_won
+            ? zeno::Color{ 0.35f, 1.0f, 0.45f, 1.0f }
+            : g_player_touching_hazard
+            ? zeno::Color{ 1.0f, 0.25f, 0.20f, 1.0f }
+            : g_player_touching_goal
             ? zeno::Color{ 1.0f, 0.9f, 0.2f, 1.0f }
             : zeno::Color{ 0.2f, 0.95f, 1.0f, 1.0f };
         result = context.backend->draw_debug_rect_2d(

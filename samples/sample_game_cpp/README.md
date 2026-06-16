@@ -2,7 +2,7 @@
 
 This sample is a small C++ game-module demo that runs through the ZENO C++ SDK `GameApp` runtime.
 
-`GameApp` loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the Rust runtime, DirectX 11 renderer, and minimal audio path, calls the sample module lifecycle, and reads a keyboard/mouse input snapshot. The module compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through the runtime scene, checks sample-owned AABB collision, clears the screen with a changing color, draws a visible transformed triangle, materialized texture-backed sprite, materialized basic cube mesh, and debug collision rectangles through a perspective camera for a few seconds, and shuts down cleanly.
+`GameApp` loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the Rust runtime, DirectX 11 renderer, and minimal audio path, calls the sample module lifecycle, and reads a keyboard/mouse input snapshot. The module compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through the runtime scene, checks sample-owned AABB collision, clears the screen with a changing color, draws a playable player/goal/obstacle slice with debug collision rectangles through a perspective camera, and shuts down cleanly.
 
 ## Build
 
@@ -32,7 +32,7 @@ The current sample reads `sample_manifest.txt` during `on_init` to prove the cop
 
 ## Expected Result
 
-A 640x360 window opens using the size from `project.zproj`. The background clear color changes over time, a scene-managed colored triangle rendered through asset shader handles rotates through the SDK transform/camera path, a small scene-referenced texture-backed sprite is drawn with an alpha material, a cube mesh rotates with an opaque depth-tested material, then the sample closes after about four seconds. Mouse position influences the background tint, WASD/arrows move the sprite, sprite/triangle AABB overlap changes the sprite color and plays `audio/sample_click.wav`, Space toggles debug collision rectangles, and Escape requests shutdown. The console logs the native backend lifecycle and sample module init/shutdown calls.
+A 640x360 window opens using the size from `project.zproj`. The background clear color changes over time, a scene-managed colored triangle goal rendered through asset shader handles rotates through the SDK transform/camera path, a small scene-referenced texture-backed player sprite is drawn with an alpha material, a cube mesh acts as a rotating obstacle with an opaque depth-tested material, and debug rectangles show the collision bounds. Mouse position influences the background tint, WASD/arrows move the sprite, sprite/triangle AABB overlap increments the console score and plays `audio/sample_click.wav`, cube overlap resets the player, Space restarts the round, Escape requests shutdown, and the sample closes automatically after about 18 seconds. The console logs controls, score, native backend lifecycle, and sample module init/shutdown calls.
 
 ## Limitations
 

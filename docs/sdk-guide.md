@@ -80,5 +80,5 @@ Later:
 - The project uses Rust for high-level runtime safety while keeping Windows and DirectX work in C++.
 - The C ABI boundary avoids unstable Rust/C++ layout and calling convention issues.
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
-- The sample is deliberately modest: the C++ host now delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, SDK-side AABB checks with debug visualization, short WAV effect playback, SDK use, static-linked game-module lifecycle, and clean shutdown.
+- The sample is deliberately modest but playable: the C++ host delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, keyboard movement, goal score/restart flow, SDK-side AABB checks with debug visualization, short WAV effect playback, static-linked game-module lifecycle, and clean shutdown.
 - The next most valuable technical step is dynamic module loading and packaging, not adding an editor or multi-platform abstraction.
