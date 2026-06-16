@@ -10,6 +10,59 @@ bool expect(ZenResultCode actual, ZenResultCode expected)
     return actual == expected;
 }
 
+constexpr const char kShaderSource[] = R"(
+cbuffer TriangleTransformConstants : register(b0) {
+    row_major float4x4 u_world;
+    row_major float4x4 u_view_projection;
+};
+
+struct VSInput {
+    float3 position : POSITION;
+    float4 color : COLOR;
+};
+
+struct PSInput {
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+PSInput vs_main(VSInput input) {
+    PSInput output;
+    output.position = mul(mul(float4(input.position, 1.0), u_world), u_view_projection);
+    output.color = input.color;
+    return output;
+}
+
+float4 ps_main(PSInput input) : SV_TARGET {
+    return input.color;
+}
+)";
+
+constexpr const char kInvalidShaderSource[] = "float4 broken_shader(";
+
+ZenShaderCompileLog make_log()
+{
+    ZenShaderCompileLog log{};
+    log.size = ZEN_SHADER_COMPILE_LOG_SIZE;
+    log.api_version = ZEN_SHADER_COMPILE_LOG_API_VERSION;
+    return log;
+}
+
+ZenVertexInputLayoutDesc make_triangle_input_layout()
+{
+    ZenVertexInputLayoutDesc layout{};
+    layout.size = ZEN_VERTEX_INPUT_LAYOUT_DESC_SIZE;
+    layout.api_version = ZEN_VERTEX_INPUT_LAYOUT_DESC_API_VERSION;
+    layout.element_count = 2;
+    layout.elements[0].semantic = ZEN_VERTEX_INPUT_SEMANTIC_POSITION;
+    layout.elements[0].format = ZEN_VERTEX_INPUT_FORMAT_FLOAT3;
+    layout.elements[0].aligned_byte_offset = 0;
+    layout.elements[1].semantic = ZEN_VERTEX_INPUT_SEMANTIC_COLOR;
+    layout.elements[1].format = ZEN_VERTEX_INPUT_FORMAT_FLOAT4;
+    layout.elements[1].aligned_byte_offset = sizeof(float) * 3;
+    return layout;
+}
+
 ZenMatrix4x4 identity_matrix()
 {
     ZenMatrix4x4 matrix{};
@@ -185,6 +238,70 @@ int main()
         return 25;
     }
 
+    ZenShaderCompileLog shader_log = make_log();
+    ZenVertexShaderHandle vertex_shader{};
+    result = zen_native_backend_create_vertex_shader_from_source(
+        backend,
+        kShaderSource,
+        sizeof(kShaderSource) - 1,
+        "vs_main",
+        7,
+        "vs_4_0",
+        6,
+        &shader_log,
+        &vertex_shader);
+    if (result != ZEN_RESULT_OK || vertex_shader.value == 0 || shader_log.message_length != 0) {
+        zen_native_backend_destroy(backend);
+        return 101;
+    }
+
+    shader_log = make_log();
+    ZenPixelShaderHandle pixel_shader{};
+    result = zen_native_backend_create_pixel_shader_from_source(
+        backend,
+        kShaderSource,
+        sizeof(kShaderSource) - 1,
+        "ps_main",
+        7,
+        "ps_4_0",
+        6,
+        &shader_log,
+        &pixel_shader);
+    if (result != ZEN_RESULT_OK || pixel_shader.value == 0 || shader_log.message_length != 0) {
+        zen_native_backend_destroy(backend);
+        return 102;
+    }
+
+    shader_log = make_log();
+    ZenVertexShaderHandle invalid_shader{};
+    result = zen_native_backend_create_vertex_shader_from_source(
+        backend,
+        kInvalidShaderSource,
+        sizeof(kInvalidShaderSource) - 1,
+        "vs_main",
+        7,
+        "vs_4_0",
+        6,
+        &shader_log,
+        &invalid_shader);
+    if (result != ZEN_RESULT_BACKEND_ERROR || invalid_shader.value != 0 || shader_log.message_length == 0) {
+        zen_native_backend_destroy(backend);
+        return 103;
+    }
+
+    ZenRenderTriangleHandle shader_triangle{};
+    ZenVertexInputLayoutDesc shader_layout = make_triangle_input_layout();
+    result = zen_native_backend_create_triangle_with_shaders(
+        backend,
+        vertex_shader,
+        pixel_shader,
+        &shader_layout,
+        &shader_triangle);
+    if (result != ZEN_RESULT_OK || shader_triangle.value == 0) {
+        zen_native_backend_destroy(backend);
+        return 104;
+    }
+
     ZenRenderClearColorHandle clear_color{};
     result = zen_native_backend_create_clear_color(backend, 0.05f, 0.20f, 0.35f, 1.0f, &clear_color);
     if (result != ZEN_RESULT_OK) {
@@ -337,9 +454,19 @@ int main()
     result = zen_native_backend_draw_triangle_transformed(backend, triangle, &identity);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
         zen_native_backend_destroy_clear_color(backend, clear_color);
         zen_native_backend_destroy(backend);
         return 38;
+    }
+
+    result = zen_native_backend_draw_triangle_transformed(backend, shader_triangle, &identity);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 105;
     }
 
     result = zen_native_backend_present(backend);
@@ -440,8 +567,23 @@ int main()
     result = zen_native_backend_destroy_clear_color(backend, clear_color);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
         zen_native_backend_destroy(backend);
         return 49;
+    }
+
+    result = zen_native_backend_destroy_triangle(backend, shader_triangle);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy(backend);
+        return 106;
+    }
+
+    result = zen_native_backend_destroy_triangle(backend, shader_triangle);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy(backend);
+        return 107;
     }
 
     result = zen_native_backend_destroy_triangle(backend, triangle);
@@ -460,6 +602,30 @@ int main()
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
         return 52;
+    }
+
+    result = zen_native_backend_destroy_vertex_shader(backend, vertex_shader);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 108;
+    }
+
+    result = zen_native_backend_destroy_vertex_shader(backend, vertex_shader);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 109;
+    }
+
+    result = zen_native_backend_destroy_pixel_shader(backend, pixel_shader);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 110;
+    }
+
+    result = zen_native_backend_destroy_pixel_shader(backend, pixel_shader);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 111;
     }
 
     ZenRenderTriangleHandle backend_owned_triangle{};

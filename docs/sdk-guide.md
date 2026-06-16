@@ -8,6 +8,7 @@
 - A C++ SDK layer that is ergonomic for game code without leaking through the ABI.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A minimal handle-owned DirectX 11 triangle draw path.
+- Backend-owned DirectX 11 vertex/pixel shader handles with bounded compile diagnostics.
 - A keyboard/mouse input snapshot connected to the Win32 message loop.
 - A small math, transform, and camera foundation with documented DirectX-first conventions.
 - Practical Windows build workflow using Cargo, CMakePresets, and Visual Studio 2022/MSVC.
@@ -25,7 +26,7 @@
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
-- Rendering is intentionally small. The current milestone proves backend initialization, frame presentation, transform/camera constant buffer binding, and a fixed triangle draw path, not a full renderer.
+- Rendering is intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, transform/camera constant buffer binding, and a fixed triangle draw path, not a full renderer.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. It is enough to demonstrate ownership and lifecycle without introducing a framework too early.
 - Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
@@ -40,7 +41,7 @@
 ## Known Limitations
 
 - No gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
-- No mesh, sprite, texture, material, or external shader asset system beyond the fixed DirectX 11 triangle path.
+- No shader reflection, material graph, hot reload, mesh, sprite, texture, or generalized render pipeline beyond the fixed DirectX 11 triangle path.
 - Math is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, collision primitives, or SIMD optimizations yet.
 - No asset pipeline.
 - No dynamic game-module loading yet.
@@ -55,7 +56,7 @@
 Near-term:
 
 - Add sprite rendering.
-- Add handle-based shader, buffer, or texture resources beyond the fixed triangle path.
+- Add handle-based buffer or texture resources beyond the fixed triangle path.
 - Introduce dynamic C ABI game-module entry points.
 - Add conservative Windows CI.
 

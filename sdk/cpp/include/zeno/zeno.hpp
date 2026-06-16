@@ -112,6 +112,10 @@ struct Color final {
     float a = 1.0f;
 };
 
+struct ShaderCompileLog final {
+    std::string message{};
+};
+
 enum class Key : std::uint32_t {
     unknown = ZEN_INPUT_KEY_UNKNOWN,
     escape = ZEN_INPUT_KEY_ESCAPE,
@@ -152,6 +156,8 @@ struct InputSnapshot final {
 };
 
 class RenderTriangle;
+class VertexShader;
+class PixelShader;
 
 class NativeBackend final {
 public:
@@ -172,7 +178,20 @@ public:
     Result initialize_renderer();
     Result begin_frame();
     Result clear(const Color& color);
+    Result create_vertex_shader(
+        const AssetRoot& assets,
+        std::string_view relative_path_utf8,
+        std::string_view entry,
+        VertexShader& out_shader,
+        ShaderCompileLog& out_log);
+    Result create_pixel_shader(
+        const AssetRoot& assets,
+        std::string_view relative_path_utf8,
+        std::string_view entry,
+        PixelShader& out_shader,
+        ShaderCompileLog& out_log);
     Result create_triangle(RenderTriangle& out_triangle);
+    Result create_triangle(const VertexShader& vertex_shader, const PixelShader& pixel_shader, RenderTriangle& out_triangle);
     Result set_camera_matrix(const Mat4& camera_matrix);
     Result draw_triangle(const RenderTriangle& triangle);
     Result draw_triangle(const RenderTriangle& triangle, const Mat4& model_matrix);
@@ -210,6 +229,54 @@ private:
 
     ZenNativeBackendHandle backend_{};
     ZenRenderTriangleHandle handle_{};
+};
+
+class VertexShader final {
+public:
+    VertexShader() = default;
+    ~VertexShader();
+
+    VertexShader(const VertexShader&) = delete;
+    VertexShader& operator=(const VertexShader&) = delete;
+
+    VertexShader(VertexShader&& other) noexcept;
+    VertexShader& operator=(VertexShader&& other) noexcept;
+
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+
+    VertexShader(ZenNativeBackendHandle backend, ZenVertexShaderHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenVertexShaderHandle handle_{};
+};
+
+class PixelShader final {
+public:
+    PixelShader() = default;
+    ~PixelShader();
+
+    PixelShader(const PixelShader&) = delete;
+    PixelShader& operator=(const PixelShader&) = delete;
+
+    PixelShader(PixelShader&& other) noexcept;
+    PixelShader& operator=(PixelShader&& other) noexcept;
+
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+
+    PixelShader(ZenNativeBackendHandle backend, ZenPixelShaderHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenPixelShaderHandle handle_{};
 };
 
 } // namespace zeno

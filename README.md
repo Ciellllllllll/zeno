@@ -9,7 +9,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Rust engine core with runtime lifecycle, frame stepping, frame timing, shutdown state, and error model.
 - Rust C ABI crate that exposes engine creation, stepping, shutdown request, destruction, result codes, and POD frame/config structs.
 - C++ native backend with Win32 window creation and DirectX 11 device/swap-chain/render-target bootstrap.
-- Handle-based native backend resources for clear colors and a minimal DirectX 11 triangle draw path.
+- Handle-based native backend resources for clear colors, shader resources, and a minimal DirectX 11 triangle draw path.
 - Keyboard and mouse input snapshot support for a small engine-owned key/button set.
 - Minimal C++ SDK math foundations: vectors, row-major matrices, transforms, and orthographic/perspective cameras.
 - Executable-relative sample asset root support with copied `assets/` content.
@@ -77,7 +77,7 @@ Run the sample:
 .\scripts\run-sample.ps1
 ```
 
-The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds and a visible rotating colored triangle. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, and Escape requests shutdown. Console output shows native backend initialization/shutdown and sample module init/shutdown.
+The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds and a visible rotating colored triangle drawn with shader assets. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, and Escape requests shutdown. Console output shows native backend initialization/shutdown, sample module init/shutdown, and asset shader compile failures if they occur.
 
 Sample assets live under `samples/sample_game_cpp/assets/` in source and are copied beside the sample executable as `assets/` during the CMake build. The sample resolves assets from the executable directory, not the process working directory, so CLI, Visual Studio 2022, and VS Code launches use the same runtime layout.
 
@@ -122,9 +122,9 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 
 ## Current Limitations
 
-- Rendering is currently limited to a clear-color DirectX 11 path plus a fixed minimal triangle resource with transform and camera matrices.
+- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle resources with transform, camera, and explicit vertex/pixel shader handles.
 - Input is limited to a small keyboard/mouse snapshot. There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
-- There is no mesh renderer, sprite renderer, texture loading, asset pipeline, editor, physics, audio, or scripting.
+- There is no shader reflection, material graph, hot reload, mesh renderer, sprite renderer, texture loading, asset pipeline, editor, physics, audio, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
 - The sample loop currently drives the native backend directly through the C++ SDK; integrating the Rust runtime as the sample's outer frame scheduler is future work.
 - The first milestone is Windows-only.

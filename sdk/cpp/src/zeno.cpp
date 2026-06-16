@@ -32,6 +32,38 @@ ZenMatrix4x4 to_native_matrix(const Mat4& matrix)
     return native_matrix;
 }
 
+ZenShaderCompileLog make_native_compile_log()
+{
+    ZenShaderCompileLog log{};
+    log.size = ZEN_SHADER_COMPILE_LOG_SIZE;
+    log.api_version = ZEN_SHADER_COMPILE_LOG_API_VERSION;
+    return log;
+}
+
+void copy_compile_log(const ZenShaderCompileLog& native_log, ShaderCompileLog& out_log)
+{
+    out_log.message.assign(native_log.message, native_log.message + native_log.message_length);
+}
+
+ZenVertexInputLayoutDesc make_triangle_input_layout()
+{
+    ZenVertexInputLayoutDesc desc{};
+    desc.size = ZEN_VERTEX_INPUT_LAYOUT_DESC_SIZE;
+    desc.api_version = ZEN_VERTEX_INPUT_LAYOUT_DESC_API_VERSION;
+    desc.element_count = 2;
+    desc.elements[0].semantic = ZEN_VERTEX_INPUT_SEMANTIC_POSITION;
+    desc.elements[0].semantic_index = 0;
+    desc.elements[0].format = ZEN_VERTEX_INPUT_FORMAT_FLOAT3;
+    desc.elements[0].input_slot = 0;
+    desc.elements[0].aligned_byte_offset = 0;
+    desc.elements[1].semantic = ZEN_VERTEX_INPUT_SEMANTIC_COLOR;
+    desc.elements[1].semantic_index = 0;
+    desc.elements[1].format = ZEN_VERTEX_INPUT_FORMAT_FLOAT4;
+    desc.elements[1].input_slot = 0;
+    desc.elements[1].aligned_byte_offset = sizeof(float) * 3;
+    return desc;
+}
+
 } // namespace
 
 bool InputSnapshot::down(Key key) const
@@ -239,10 +271,103 @@ Result NativeBackend::clear(const Color& color)
     return Result(zen_native_backend_clear(handle_, color.r, color.g, color.b, color.a));
 }
 
+Result NativeBackend::create_vertex_shader(
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    std::string_view entry,
+    VertexShader& out_shader,
+    ShaderCompileLog& out_log)
+{
+    std::string source;
+    Result result = assets.read_text(relative_path_utf8, source);
+    if (!result.ok()) {
+        out_log.message.clear();
+        return result;
+    }
+
+    ZenShaderCompileLog native_log = make_native_compile_log();
+    ZenVertexShaderHandle handle{};
+    constexpr std::string_view profile = "vs_4_0";
+    const ZenResultCode native_result = zen_native_backend_create_vertex_shader_from_source(
+        handle_,
+        source.data(),
+        source.size(),
+        entry.data(),
+        entry.size(),
+        profile.data(),
+        profile.size(),
+        &native_log,
+        &handle);
+    copy_compile_log(native_log, out_log);
+    if (native_result != ZEN_RESULT_OK) {
+        return Result(native_result);
+    }
+
+    out_shader = VertexShader(handle_, handle);
+    return Result();
+}
+
+Result NativeBackend::create_pixel_shader(
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    std::string_view entry,
+    PixelShader& out_shader,
+    ShaderCompileLog& out_log)
+{
+    std::string source;
+    Result result = assets.read_text(relative_path_utf8, source);
+    if (!result.ok()) {
+        out_log.message.clear();
+        return result;
+    }
+
+    ZenShaderCompileLog native_log = make_native_compile_log();
+    ZenPixelShaderHandle handle{};
+    constexpr std::string_view profile = "ps_4_0";
+    const ZenResultCode native_result = zen_native_backend_create_pixel_shader_from_source(
+        handle_,
+        source.data(),
+        source.size(),
+        entry.data(),
+        entry.size(),
+        profile.data(),
+        profile.size(),
+        &native_log,
+        &handle);
+    copy_compile_log(native_log, out_log);
+    if (native_result != ZEN_RESULT_OK) {
+        return Result(native_result);
+    }
+
+    out_shader = PixelShader(handle_, handle);
+    return Result();
+}
+
 Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
 {
     ZenRenderTriangleHandle handle{};
     const ZenResultCode result = zen_native_backend_create_triangle(handle_, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_triangle = RenderTriangle(handle_, handle);
+    return Result();
+}
+
+Result NativeBackend::create_triangle(
+    const VertexShader& vertex_shader,
+    const PixelShader& pixel_shader,
+    RenderTriangle& out_triangle)
+{
+    ZenRenderTriangleHandle handle{};
+    ZenVertexInputLayoutDesc input_layout = make_triangle_input_layout();
+    const ZenResultCode result = zen_native_backend_create_triangle_with_shaders(
+        handle_,
+        vertex_shader.handle_,
+        pixel_shader.handle_,
+        &input_layout,
+        &handle);
     if (result != ZEN_RESULT_OK) {
         return Result(result);
     }
@@ -323,6 +448,84 @@ void RenderTriangle::reset()
     }
 
     zen_native_backend_destroy_triangle(backend_, handle_);
+    backend_ = {};
+    handle_ = {};
+}
+
+VertexShader::VertexShader(ZenNativeBackendHandle backend, ZenVertexShaderHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+VertexShader::~VertexShader()
+{
+    reset();
+}
+
+VertexShader::VertexShader(VertexShader&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenVertexShaderHandle{}))
+{
+}
+
+VertexShader& VertexShader::operator=(VertexShader&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenVertexShaderHandle{});
+    }
+
+    return *this;
+}
+
+void VertexShader::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_vertex_shader(backend_, handle_);
+    backend_ = {};
+    handle_ = {};
+}
+
+PixelShader::PixelShader(ZenNativeBackendHandle backend, ZenPixelShaderHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+PixelShader::~PixelShader()
+{
+    reset();
+}
+
+PixelShader::PixelShader(PixelShader&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenPixelShaderHandle{}))
+{
+}
+
+PixelShader& PixelShader::operator=(PixelShader&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenPixelShaderHandle{});
+    }
+
+    return *this;
+}
+
+void PixelShader::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_pixel_shader(backend_, handle_);
     backend_ = {};
     handle_ = {};
 }

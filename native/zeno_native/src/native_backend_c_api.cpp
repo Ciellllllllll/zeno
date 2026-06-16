@@ -15,6 +15,10 @@ constexpr std::uint32_t kWindowConfigApiVersion = 1;
 constexpr std::uint32_t kWindowConfigSize = sizeof(ZenNativeWindowConfig);
 constexpr std::uint32_t kInputSnapshotApiVersion = 1;
 constexpr std::uint32_t kInputSnapshotSize = sizeof(ZenInputSnapshot);
+constexpr std::uint32_t kShaderCompileLogApiVersion = 1;
+constexpr std::uint32_t kShaderCompileLogSize = sizeof(ZenShaderCompileLog);
+constexpr std::uint32_t kVertexInputLayoutDescApiVersion = 1;
+constexpr std::uint32_t kVertexInputLayoutDescSize = sizeof(ZenVertexInputLayoutDesc);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
@@ -43,6 +47,20 @@ bool is_valid_input_snapshot_header(const ZenInputSnapshot& snapshot)
 {
     return snapshot.size == kInputSnapshotSize
         && snapshot.api_version == kInputSnapshotApiVersion;
+}
+
+bool is_valid_shader_compile_log_header(const ZenShaderCompileLog& log)
+{
+    return log.size == kShaderCompileLogSize
+        && log.api_version == kShaderCompileLogApiVersion;
+}
+
+bool is_valid_vertex_input_layout_desc(const ZenVertexInputLayoutDesc& desc)
+{
+    return desc.size == kVertexInputLayoutDescSize
+        && desc.api_version == kVertexInputLayoutDescApiVersion
+        && desc.element_count > 0
+        && desc.element_count <= ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS;
 }
 
 bool allocate_handle(std::uint64_t& out_handle)
@@ -77,6 +95,34 @@ zeno::native::Matrix4x4 to_native_matrix(const ZenMatrix4x4& matrix)
     }
 
     return native_matrix;
+}
+
+zeno::native::VertexInputLayoutDesc to_native_input_layout(const ZenVertexInputLayoutDesc& desc)
+{
+    zeno::native::VertexInputLayoutDesc native_desc{};
+    native_desc.element_count = desc.element_count;
+    for (std::uint32_t i = 0; i < desc.element_count; ++i) {
+        native_desc.elements[i].semantic = desc.elements[i].semantic;
+        native_desc.elements[i].semantic_index = desc.elements[i].semantic_index;
+        native_desc.elements[i].format = desc.elements[i].format;
+        native_desc.elements[i].input_slot = desc.elements[i].input_slot;
+        native_desc.elements[i].aligned_byte_offset = desc.elements[i].aligned_byte_offset;
+    }
+
+    return native_desc;
+}
+
+void copy_compile_log(const zeno::native::ShaderCompileLog& native_log, ZenShaderCompileLog& out_log)
+{
+    out_log.message_length = native_log.message_length;
+    for (std::uint32_t i = 0; i < ZEN_SHADER_COMPILE_LOG_MESSAGE_CAPACITY; ++i) {
+        out_log.message[i] = native_log.message[i];
+    }
+}
+
+bool is_valid_borrowed_bytes(const char* data, std::uint64_t length)
+{
+    return data != nullptr && length > 0;
 }
 
 ZenResultCode with_backend(
@@ -392,6 +438,41 @@ extern "C" ZenResultCode zen_native_backend_create_triangle(
     }
 }
 
+extern "C" ZenResultCode zen_native_backend_create_triangle_with_shaders(
+    ZenNativeBackendHandle backend,
+    ZenVertexShaderHandle vertex_shader,
+    ZenPixelShaderHandle pixel_shader,
+    const ZenVertexInputLayoutDesc* input_layout,
+    ZenRenderTriangleHandle* out_triangle)
+{
+    try {
+        if (vertex_shader.value == 0 || pixel_shader.value == 0 || input_layout == nullptr || out_triangle == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_vertex_input_layout_desc(*input_layout)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [vertex_shader, pixel_shader, input_layout, out_triangle](
+            zeno::native::NativeBackend& native_backend) {
+            std::uint64_t handle = 0;
+            if (!native_backend.create_triangle_with_shaders(
+                    vertex_shader.value,
+                    pixel_shader.value,
+                    to_native_input_layout(*input_layout),
+                    handle)) {
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            out_triangle->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
 extern "C" ZenResultCode zen_native_backend_destroy_triangle(
     ZenNativeBackendHandle backend,
     ZenRenderTriangleHandle triangle)
@@ -403,6 +484,146 @@ extern "C" ZenResultCode zen_native_backend_destroy_triangle(
 
         return with_backend(backend, [triangle](zeno::native::NativeBackend& native_backend) {
             return native_backend.destroy_triangle(triangle.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_create_vertex_shader_from_source(
+    ZenNativeBackendHandle backend,
+    const char* source_utf8,
+    std::uint64_t source_byte_count,
+    const char* entry_utf8,
+    std::uint64_t entry_byte_count,
+    const char* profile_utf8,
+    std::uint64_t profile_byte_count,
+    ZenShaderCompileLog* compile_log,
+    ZenVertexShaderHandle* out_shader)
+{
+    try {
+        if (!is_valid_borrowed_bytes(source_utf8, source_byte_count)
+            || !is_valid_borrowed_bytes(entry_utf8, entry_byte_count)
+            || !is_valid_borrowed_bytes(profile_utf8, profile_byte_count)
+            || compile_log == nullptr
+            || out_shader == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_shader_compile_log_header(*compile_log)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        compile_log->message_length = 0;
+        compile_log->message[0] = '\0';
+        return with_backend(backend, [=](zeno::native::NativeBackend& native_backend) {
+            zeno::native::ShaderCompileLog native_log{};
+            std::uint64_t handle = 0;
+            if (!native_backend.create_vertex_shader_from_source(
+                    source_utf8,
+                    source_byte_count,
+                    entry_utf8,
+                    entry_byte_count,
+                    profile_utf8,
+                    profile_byte_count,
+                    native_log,
+                    handle)) {
+                copy_compile_log(native_log, *compile_log);
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            copy_compile_log(native_log, *compile_log);
+            out_shader->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_create_pixel_shader_from_source(
+    ZenNativeBackendHandle backend,
+    const char* source_utf8,
+    std::uint64_t source_byte_count,
+    const char* entry_utf8,
+    std::uint64_t entry_byte_count,
+    const char* profile_utf8,
+    std::uint64_t profile_byte_count,
+    ZenShaderCompileLog* compile_log,
+    ZenPixelShaderHandle* out_shader)
+{
+    try {
+        if (!is_valid_borrowed_bytes(source_utf8, source_byte_count)
+            || !is_valid_borrowed_bytes(entry_utf8, entry_byte_count)
+            || !is_valid_borrowed_bytes(profile_utf8, profile_byte_count)
+            || compile_log == nullptr
+            || out_shader == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_shader_compile_log_header(*compile_log)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        compile_log->message_length = 0;
+        compile_log->message[0] = '\0';
+        return with_backend(backend, [=](zeno::native::NativeBackend& native_backend) {
+            zeno::native::ShaderCompileLog native_log{};
+            std::uint64_t handle = 0;
+            if (!native_backend.create_pixel_shader_from_source(
+                    source_utf8,
+                    source_byte_count,
+                    entry_utf8,
+                    entry_byte_count,
+                    profile_utf8,
+                    profile_byte_count,
+                    native_log,
+                    handle)) {
+                copy_compile_log(native_log, *compile_log);
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            copy_compile_log(native_log, *compile_log);
+            out_shader->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_vertex_shader(
+    ZenNativeBackendHandle backend,
+    ZenVertexShaderHandle shader)
+{
+    try {
+        if (shader.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [shader](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_vertex_shader(shader.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_pixel_shader(
+    ZenNativeBackendHandle backend,
+    ZenPixelShaderHandle shader)
+{
+    try {
+        if (shader.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [shader](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_pixel_shader(shader.value)
                 ? ZEN_RESULT_OK
                 : ZEN_RESULT_NOT_INITIALIZED;
         });

@@ -43,6 +43,24 @@ struct Matrix4x4 final {
     float elements[16]{};
 };
 
+struct ShaderCompileLog final {
+    char message[1024]{};
+    std::uint32_t message_length = 0;
+};
+
+struct VertexInputElement final {
+    std::uint32_t semantic = 0;
+    std::uint32_t semantic_index = 0;
+    std::uint32_t format = 0;
+    std::uint32_t input_slot = 0;
+    std::uint32_t aligned_byte_offset = 0;
+};
+
+struct VertexInputLayoutDesc final {
+    VertexInputElement elements[8]{};
+    std::uint32_t element_count = 0;
+};
+
 class NativeBackend final {
 public:
     NativeBackend();
@@ -69,7 +87,32 @@ public:
     bool destroy_clear_color(std::uint64_t handle);
     RenderCommandResult clear_with_resource(std::uint64_t handle);
     bool create_triangle(std::uint64_t& out_handle);
+    bool create_triangle_with_shaders(
+        std::uint64_t vertex_shader,
+        std::uint64_t pixel_shader,
+        const VertexInputLayoutDesc& input_layout,
+        std::uint64_t& out_handle);
     bool destroy_triangle(std::uint64_t handle);
+    bool create_vertex_shader_from_source(
+        const char* source,
+        std::uint64_t source_length,
+        const char* entry,
+        std::uint64_t entry_length,
+        const char* profile,
+        std::uint64_t profile_length,
+        ShaderCompileLog& compile_log,
+        std::uint64_t& out_handle);
+    bool create_pixel_shader_from_source(
+        const char* source,
+        std::uint64_t source_length,
+        const char* entry,
+        std::uint64_t entry_length,
+        const char* profile,
+        std::uint64_t profile_length,
+        ShaderCompileLog& compile_log,
+        std::uint64_t& out_handle);
+    bool destroy_vertex_shader(std::uint64_t handle);
+    bool destroy_pixel_shader(std::uint64_t handle);
     RenderCommandResult draw_triangle(std::uint64_t handle);
     bool set_camera_matrix(const Matrix4x4& matrix);
     RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix);

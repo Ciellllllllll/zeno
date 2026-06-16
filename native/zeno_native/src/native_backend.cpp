@@ -1,6 +1,7 @@
 #include "native_backend.h"
 
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 
 #include <d3d11.h>
@@ -10,9 +11,11 @@
 
 #include <array>
 #include <algorithm>
+#include <cstring>
 #include <cstddef>
 #include <iostream>
 #include <iterator>
+#include <string>
 #include <unordered_map>
 
 namespace zeno::native {
@@ -61,6 +64,15 @@ struct TriangleResource final {
     Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
 };
 
+struct VertexShaderResource final {
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> shader;
+    Microsoft::WRL::ComPtr<ID3DBlob> bytecode;
+};
+
+struct PixelShaderResource final {
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> shader;
+};
+
 struct TriangleTransformConstants final {
     float world[16];
     float view_projection[16];
@@ -76,6 +88,94 @@ Matrix4x4 identity_matrix()
     matrix.elements[10] = 1.0f;
     matrix.elements[15] = 1.0f;
     return matrix;
+}
+
+void set_compile_log(ShaderCompileLog& compile_log, const char* message, std::size_t length)
+{
+    constexpr std::size_t capacity = sizeof(compile_log.message);
+    const std::size_t copy_length = std::min(length, capacity - 1);
+    if (copy_length > 0) {
+        std::memcpy(compile_log.message, message, copy_length);
+    }
+    compile_log.message[copy_length] = '\0';
+    compile_log.message_length = static_cast<std::uint32_t>(copy_length);
+}
+
+void set_compile_log(ShaderCompileLog& compile_log, const Microsoft::WRL::ComPtr<ID3DBlob>& blob)
+{
+    if (blob == nullptr || blob->GetBufferPointer() == nullptr) {
+        set_compile_log(compile_log, "", 0);
+        return;
+    }
+
+    set_compile_log(
+        compile_log,
+        static_cast<const char*>(blob->GetBufferPointer()),
+        blob->GetBufferSize());
+}
+
+bool make_string(const char* data, std::uint64_t length, std::string& out_string)
+{
+    if (data == nullptr || length == 0 || length > static_cast<std::uint64_t>(SIZE_MAX)) {
+        return false;
+    }
+
+    out_string.assign(data, static_cast<std::size_t>(length));
+    return true;
+}
+
+DXGI_FORMAT map_vertex_format(std::uint32_t format)
+{
+    switch (format) {
+    case 1:
+        return DXGI_FORMAT_R32G32B32_FLOAT;
+    case 2:
+        return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    default:
+        return DXGI_FORMAT_UNKNOWN;
+    }
+}
+
+const char* map_vertex_semantic(std::uint32_t semantic)
+{
+    switch (semantic) {
+    case 1:
+        return "POSITION";
+    case 2:
+        return "COLOR";
+    default:
+        return nullptr;
+    }
+}
+
+bool make_input_elements(
+    const VertexInputLayoutDesc& input_layout,
+    std::array<D3D11_INPUT_ELEMENT_DESC, 8>& out_elements)
+{
+    if (input_layout.element_count == 0 || input_layout.element_count > out_elements.size()) {
+        return false;
+    }
+
+    for (std::uint32_t i = 0; i < input_layout.element_count; ++i) {
+        const VertexInputElement& input = input_layout.elements[i];
+        const char* semantic = map_vertex_semantic(input.semantic);
+        const DXGI_FORMAT format = map_vertex_format(input.format);
+        if (semantic == nullptr || format == DXGI_FORMAT_UNKNOWN) {
+            return false;
+        }
+
+        out_elements[i] = D3D11_INPUT_ELEMENT_DESC{
+            semantic,
+            input.semantic_index,
+            format,
+            input.input_slot,
+            input.aligned_byte_offset,
+            D3D11_INPUT_PER_VERTEX_DATA,
+            0,
+        };
+    }
+
+    return true;
 }
 
 std::uint32_t map_virtual_key_to_input_key(WPARAM key)
@@ -288,6 +388,8 @@ public:
         triangle_transform_buffer_.Reset();
         render_target_view_.Reset();
         triangle_resources_.clear();
+        pixel_shader_resources_.clear();
+        vertex_shader_resources_.clear();
         swap_chain_.Reset();
         context_.Reset();
         device_.Reset();
@@ -479,6 +581,222 @@ public:
         return destroyed;
     }
 
+    bool create_vertex_shader_from_source(
+        const char* source,
+        std::uint64_t source_length,
+        const char* entry,
+        std::uint64_t entry_length,
+        const char* profile,
+        std::uint64_t profile_length,
+        ShaderCompileLog& compile_log,
+        std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || next_vertex_shader_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        std::string entry_string;
+        std::string profile_string;
+        if (!make_string(entry, entry_length, entry_string) || !make_string(profile, profile_length, profile_string)) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+        HRESULT result = D3DCompile(
+            source,
+            static_cast<SIZE_T>(source_length),
+            nullptr,
+            nullptr,
+            nullptr,
+            entry_string.c_str(),
+            profile_string.c_str(),
+            0,
+            0,
+            shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            set_compile_log(compile_log, error_blob);
+            return false;
+        }
+
+        VertexShaderResource resource{};
+        result = device_->CreateVertexShader(
+            shader_blob->GetBufferPointer(),
+            shader_blob->GetBufferSize(),
+            nullptr,
+            resource.shader.GetAddressOf());
+        if (FAILED(result)) {
+            set_compile_log(compile_log, "CreateVertexShader failed", 25);
+            return false;
+        }
+
+        const std::uint64_t handle = next_vertex_shader_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        resource.bytecode = std::move(shader_blob);
+        vertex_shader_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        set_compile_log(compile_log, "", 0);
+        std::cerr << "[ZENO][native] vertex shader resource created\n";
+        return true;
+    }
+
+    bool create_pixel_shader_from_source(
+        const char* source,
+        std::uint64_t source_length,
+        const char* entry,
+        std::uint64_t entry_length,
+        const char* profile,
+        std::uint64_t profile_length,
+        ShaderCompileLog& compile_log,
+        std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || next_pixel_shader_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        std::string entry_string;
+        std::string profile_string;
+        if (!make_string(entry, entry_length, entry_string) || !make_string(profile, profile_length, profile_string)) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+        HRESULT result = D3DCompile(
+            source,
+            static_cast<SIZE_T>(source_length),
+            nullptr,
+            nullptr,
+            nullptr,
+            entry_string.c_str(),
+            profile_string.c_str(),
+            0,
+            0,
+            shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            set_compile_log(compile_log, error_blob);
+            return false;
+        }
+
+        PixelShaderResource resource{};
+        result = device_->CreatePixelShader(
+            shader_blob->GetBufferPointer(),
+            shader_blob->GetBufferSize(),
+            nullptr,
+            resource.shader.GetAddressOf());
+        if (FAILED(result)) {
+            set_compile_log(compile_log, "CreatePixelShader failed", 24);
+            return false;
+        }
+
+        const std::uint64_t handle = next_pixel_shader_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        pixel_shader_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        set_compile_log(compile_log, "", 0);
+        std::cerr << "[ZENO][native] pixel shader resource created\n";
+        return true;
+    }
+
+    bool destroy_vertex_shader(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = vertex_shader_resources_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] vertex shader resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
+    bool destroy_pixel_shader(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = pixel_shader_resources_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] pixel shader resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
+    bool create_triangle_with_shaders(
+        std::uint64_t vertex_shader,
+        std::uint64_t pixel_shader,
+        const VertexInputLayoutDesc& input_layout,
+        std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || next_triangle_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        const auto found_vertex_shader = vertex_shader_resources_.find(vertex_shader);
+        const auto found_pixel_shader = pixel_shader_resources_.find(pixel_shader);
+        if (found_vertex_shader == vertex_shader_resources_.end() || found_pixel_shader == pixel_shader_resources_.end()) {
+            return false;
+        }
+
+        std::array<D3D11_INPUT_ELEMENT_DESC, 8> input_elements{};
+        if (!make_input_elements(input_layout, input_elements)) {
+            return false;
+        }
+
+        TriangleResource resource{};
+        resource.vertex_shader = found_vertex_shader->second.shader;
+        resource.pixel_shader = found_pixel_shader->second.shader;
+        HRESULT result = device_->CreateInputLayout(
+            input_elements.data(),
+            input_layout.element_count,
+            found_vertex_shader->second.bytecode->GetBufferPointer(),
+            found_vertex_shader->second.bytecode->GetBufferSize(),
+            resource.input_layout.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr TriangleVertex vertices[] = {
+            { { 0.0f, 0.65f, 0.0f }, { 0.95f, 0.25f, 0.20f, 1.0f } },
+            { { 0.65f, -0.55f, 0.0f }, { 0.20f, 0.85f, 0.45f, 1.0f } },
+            { { -0.65f, -0.55f, 0.0f }, { 0.20f, 0.45f, 0.95f, 1.0f } },
+        };
+
+        D3D11_BUFFER_DESC buffer_desc{};
+        buffer_desc.ByteWidth = sizeof(vertices);
+        buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+        buffer_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA initial_data{};
+        initial_data.pSysMem = vertices;
+        result = device_->CreateBuffer(&buffer_desc, &initial_data, resource.vertex_buffer.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        const std::uint64_t handle = next_triangle_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        triangle_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        std::cerr << "[ZENO][native] shader-backed triangle resource created\n";
+        return true;
+    }
+
     RenderCommandResult draw_triangle(std::uint64_t handle)
     {
         return draw_triangle_transformed(handle, identity_matrix());
@@ -549,8 +867,12 @@ private:
     Matrix4x4 view_projection_matrix_ = identity_matrix();
     std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
     std::unordered_map<std::uint64_t, TriangleResource> triangle_resources_;
+    std::unordered_map<std::uint64_t, VertexShaderResource> vertex_shader_resources_;
+    std::unordered_map<std::uint64_t, PixelShaderResource> pixel_shader_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
     std::uint64_t next_triangle_handle_ = 1;
+    std::uint64_t next_vertex_shader_handle_ = 1;
+    std::uint64_t next_pixel_shader_handle_ = 1;
 };
 
 bool NativeBackend::initialize(const NativeBackendConfig& config)
@@ -801,9 +1123,71 @@ bool NativeBackend::create_triangle(std::uint64_t& out_handle)
     return renderer_ != nullptr && renderer_->create_triangle(out_handle);
 }
 
+bool NativeBackend::create_triangle_with_shaders(
+    std::uint64_t vertex_shader,
+    std::uint64_t pixel_shader,
+    const VertexInputLayoutDesc& input_layout,
+    std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr
+        && renderer_->create_triangle_with_shaders(vertex_shader, pixel_shader, input_layout, out_handle);
+}
+
 bool NativeBackend::destroy_triangle(std::uint64_t handle)
 {
     return renderer_ != nullptr && renderer_->destroy_triangle(handle);
+}
+
+bool NativeBackend::create_vertex_shader_from_source(
+    const char* source,
+    std::uint64_t source_length,
+    const char* entry,
+    std::uint64_t entry_length,
+    const char* profile,
+    std::uint64_t profile_length,
+    ShaderCompileLog& compile_log,
+    std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr && renderer_->create_vertex_shader_from_source(
+        source,
+        source_length,
+        entry,
+        entry_length,
+        profile,
+        profile_length,
+        compile_log,
+        out_handle);
+}
+
+bool NativeBackend::create_pixel_shader_from_source(
+    const char* source,
+    std::uint64_t source_length,
+    const char* entry,
+    std::uint64_t entry_length,
+    const char* profile,
+    std::uint64_t profile_length,
+    ShaderCompileLog& compile_log,
+    std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr && renderer_->create_pixel_shader_from_source(
+        source,
+        source_length,
+        entry,
+        entry_length,
+        profile,
+        profile_length,
+        compile_log,
+        out_handle);
+}
+
+bool NativeBackend::destroy_vertex_shader(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_vertex_shader(handle);
+}
+
+bool NativeBackend::destroy_pixel_shader(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_pixel_shader(handle);
 }
 
 RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)

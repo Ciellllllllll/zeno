@@ -14,6 +14,12 @@ extern "C" {
 #define ZEN_NATIVE_WINDOW_CONFIG_SIZE ((uint32_t)sizeof(ZenNativeWindowConfig))
 #define ZEN_INPUT_SNAPSHOT_API_VERSION 1u
 #define ZEN_INPUT_SNAPSHOT_SIZE ((uint32_t)sizeof(ZenInputSnapshot))
+#define ZEN_SHADER_COMPILE_LOG_API_VERSION 1u
+#define ZEN_SHADER_COMPILE_LOG_SIZE ((uint32_t)sizeof(ZenShaderCompileLog))
+#define ZEN_SHADER_COMPILE_LOG_MESSAGE_CAPACITY 1024u
+#define ZEN_VERTEX_INPUT_LAYOUT_DESC_API_VERSION 1u
+#define ZEN_VERTEX_INPUT_LAYOUT_DESC_SIZE ((uint32_t)sizeof(ZenVertexInputLayoutDesc))
+#define ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS 8u
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -51,6 +57,26 @@ typedef struct ZenRenderTriangleHandle {
     /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
     uint64_t value;
 } ZenRenderTriangleHandle;
+
+typedef struct ZenVertexShaderHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenVertexShaderHandle;
+
+typedef struct ZenPixelShaderHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenPixelShaderHandle;
+
+typedef enum ZenVertexInputSemantic {
+    ZEN_VERTEX_INPUT_SEMANTIC_POSITION = 1,
+    ZEN_VERTEX_INPUT_SEMANTIC_COLOR = 2
+} ZenVertexInputSemantic;
+
+typedef enum ZenVertexInputFormat {
+    ZEN_VERTEX_INPUT_FORMAT_FLOAT3 = 1,
+    ZEN_VERTEX_INPUT_FORMAT_FLOAT4 = 2
+} ZenVertexInputFormat;
 
 typedef struct ZenNativeBackendConfig {
     /* Must be set to ZEN_NATIVE_BACKEND_CONFIG_SIZE by the caller. */
@@ -94,6 +120,17 @@ typedef struct ZenInputSnapshot {
     uint8_t mouse_released[ZEN_INPUT_MOUSE_BUTTON_COUNT];
 } ZenInputSnapshot;
 
+typedef struct ZenShaderCompileLog {
+    /* Must be set to ZEN_SHADER_COMPILE_LOG_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_SHADER_COMPILE_LOG_API_VERSION by the caller. */
+    uint32_t api_version;
+    /* Number of bytes written to message, excluding the trailing null byte. */
+    uint32_t message_length;
+    uint32_t reserved;
+    char message[ZEN_SHADER_COMPILE_LOG_MESSAGE_CAPACITY];
+} ZenShaderCompileLog;
+
 typedef struct ZenMatrix4x4 {
     /*
      * Row-major 4x4 matrix using row-vector convention.
@@ -101,6 +138,28 @@ typedef struct ZenMatrix4x4 {
      */
     float elements[16];
 } ZenMatrix4x4;
+
+typedef struct ZenVertexInputElement {
+    /* One of ZenVertexInputSemantic. */
+    uint32_t semantic;
+    uint32_t semantic_index;
+    /* One of ZenVertexInputFormat. */
+    uint32_t format;
+    uint32_t input_slot;
+    uint32_t aligned_byte_offset;
+    uint32_t reserved[3];
+} ZenVertexInputElement;
+
+typedef struct ZenVertexInputLayoutDesc {
+    /* Must be set to ZEN_VERTEX_INPUT_LAYOUT_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_VERTEX_INPUT_LAYOUT_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    /* Number of valid entries in elements. Must be 1..ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS. */
+    uint32_t element_count;
+    uint32_t reserved;
+    ZenVertexInputElement elements[ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS];
+} ZenVertexInputLayoutDesc;
 
 /*
  * Creates the native backend shell.
@@ -266,6 +325,23 @@ ZenResultCode zen_native_backend_create_triangle(
     ZenRenderTriangleHandle* out_triangle);
 
 /*
+ * Creates a backend-owned triangle resource using caller-provided shader
+ * handles and a POD vertex input layout descriptor.
+ *
+ * backend: must have an initialized renderer.
+ * vertex_shader and pixel_shader: must be live non-zero handles created for
+ * the same backend.
+ * input_layout: borrowed, must not be null, copied during the call.
+ * out_triangle: borrowed output pointer, must not be null.
+ */
+ZenResultCode zen_native_backend_create_triangle_with_shaders(
+    ZenNativeBackendHandle backend,
+    ZenVertexShaderHandle vertex_shader,
+    ZenPixelShaderHandle pixel_shader,
+    const ZenVertexInputLayoutDesc* input_layout,
+    ZenRenderTriangleHandle* out_triangle);
+
+/*
  * Destroys a backend-owned triangle render resource.
  *
  * backend: must have an initialized renderer. triangle must be a non-zero
@@ -278,6 +354,58 @@ ZenResultCode zen_native_backend_create_triangle(
 ZenResultCode zen_native_backend_destroy_triangle(
     ZenNativeBackendHandle backend,
     ZenRenderTriangleHandle triangle);
+
+/*
+ * Compiles and creates a backend-owned DirectX 11 vertex shader.
+ *
+ * Source, entry, and profile are borrowed UTF-8 byte ranges with explicit
+ * lengths. They are only needed during the call and are not required to be
+ * null-terminated.
+ * compile_log: borrowed, must not be null. The caller must set size and
+ * api_version before calling. The message buffer is always null-terminated on
+ * return.
+ * out_shader: borrowed output pointer, must not be null.
+ */
+ZenResultCode zen_native_backend_create_vertex_shader_from_source(
+    ZenNativeBackendHandle backend,
+    const char* source_utf8,
+    uint64_t source_byte_count,
+    const char* entry_utf8,
+    uint64_t entry_byte_count,
+    const char* profile_utf8,
+    uint64_t profile_byte_count,
+    ZenShaderCompileLog* compile_log,
+    ZenVertexShaderHandle* out_shader);
+
+/*
+ * Compiles and creates a backend-owned DirectX 11 pixel shader.
+ *
+ * String and log ownership follows zen_native_backend_create_vertex_shader_from_source.
+ */
+ZenResultCode zen_native_backend_create_pixel_shader_from_source(
+    ZenNativeBackendHandle backend,
+    const char* source_utf8,
+    uint64_t source_byte_count,
+    const char* entry_utf8,
+    uint64_t entry_byte_count,
+    const char* profile_utf8,
+    uint64_t profile_byte_count,
+    ZenShaderCompileLog* compile_log,
+    ZenPixelShaderHandle* out_shader);
+
+/*
+ * Destroys a backend-owned vertex shader handle.
+ */
+ZenResultCode zen_native_backend_destroy_vertex_shader(
+    ZenNativeBackendHandle backend,
+    ZenVertexShaderHandle shader);
+
+/*
+ * Destroys a backend-owned pixel shader handle.
+ */
+ZenResultCode zen_native_backend_destroy_pixel_shader(
+    ZenNativeBackendHandle backend,
+    ZenPixelShaderHandle shader);
 
 /*
  * Draws a backend-owned minimal triangle render resource.

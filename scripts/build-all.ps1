@@ -17,6 +17,10 @@ try {
 
     cmake --preset $preset
     cmake --build --preset $preset
+
+    $runtimeDir = Join-Path $repoRoot "build/$preset/bin/$Configuration"
+    & (Join-Path $runtimeDir "zeno_shader_smoke.exe")
+    & (Join-Path $runtimeDir "zeno_sdk_asset_smoke.exe")
 }
 finally {
     Pop-Location

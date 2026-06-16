@@ -47,3 +47,8 @@ add_executable(zeno_input_smoke src/input_smoke.cpp)
 target_compile_features(zeno_input_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_input_smoke PRIVATE zeno_native)
 add_test(NAME zeno_input_smoke COMMAND zeno_input_smoke)
+
+add_executable(zeno_shader_smoke src/shader_smoke.cpp)
+target_compile_features(zeno_shader_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_shader_smoke PRIVATE zeno_native)
+add_test(NAME zeno_shader_smoke COMMAND zeno_shader_smoke)
