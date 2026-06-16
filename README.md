@@ -20,6 +20,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - High-level `zeno::GameApp` SDK runtime that owns engine, backend, asset, audio, scene, input, and module lifecycle setup for static-linked games.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
+- Windows dynamic game module loading through `LoadLibraryW` and a C-compatible descriptor entry point, while preserving the static-linked module path.
 - Runnable sample game whose C++ host loads project/scene data, drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, uses simple AABB collision, score/goal/restart gameplay, short WAV effects, and renders a scene-managed triangle goal, material-driven texture-backed player sprite, material-driven obstacle mesh, and debug collision rectangles before shutting down cleanly.
 - Minimal C++ template game under `templates/game-cpp/` that builds through the same SDK, `GameApp`, and CMake preset graph as the sample.
 - Runtime packaging script that installs the sample, template game, copied assets, startup config, and `zeno_abi.dll` into a local package layout.
@@ -104,6 +105,12 @@ Run the sample:
 .\scripts\run-sample.ps1
 ```
 
+Run the headless dynamic module loading sample:
+
+```powershell
+.\scripts\run-dynamic-module-sample.ps1
+```
+
 Run the template game:
 
 ```powershell
@@ -174,6 +181,7 @@ zeno/
   samples/
     sample_game_cpp/    Sample C++ game using the SDK/module path
       assets/           Source sample assets copied to the runtime output
+    dynamic_module_cpp/  Headless DLL-based game module loading sample
   templates/
     game-cpp/           Minimal C++ game template using GameApp and SDK targets
   examples/
@@ -205,8 +213,8 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 - Input is limited to a small keyboard/mouse snapshot. There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - Collision is limited to SDK-side AABB helpers and sample-owned checks. There is no physics engine, rigid body solver, broadphase, swept collision system, or collision component model.
 - There is no shader reflection, material graph, hot reload, mesh importer, atlas system, font rendering, asset pipeline, editor, or scripting.
-- The sample game module is statically linked; dynamic module loading is left for a later phase.
-- `GameApp` supports the current static-linked module path only. Dynamic plugin loading, hot reload, and scripting are not implemented.
+- Dynamic module loading is a first Windows DLL path with descriptor version validation. It is not hot reload, scripting, an editor plugin ecosystem, or a generalized cross-platform loader.
+- `GameApp` still preserves the static-linked module path used by the sample and template.
 - The template game is a buildable starting point, not a project generator or installer.
 - Packaging is a local runtime layout script, not a signed installer or release pipeline.
 - The first milestone is Windows-only.
@@ -216,7 +224,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 Near-term realistic next steps:
 
 - Add a small asset pipeline convention for sample resources.
-- Introduce dynamic game module loading through C ABI entry points.
+- Add ABI-safe host services for dynamic modules when a real DLL module needs engine context access.
 - Expand the Windows CI baseline after the local workflow remains stable.
 
 Longer-term ideas:

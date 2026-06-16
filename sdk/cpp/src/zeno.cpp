@@ -1,6 +1,11 @@
 #include <zeno/zeno.hpp>
 #include <zeno/game_module.hpp>
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+
 #include <utility>
 
 namespace zeno {
@@ -1057,6 +1062,136 @@ Result shutdown_game_module(GameModule& module, GameContext& context)
     return module.on_shutdown(context);
 }
 
+namespace {
+
+Result run_dynamic_lifecycle(ZenGameModuleLifecycleFn function, GameContext& context)
+{
+    if (function == nullptr) {
+        return Result();
+    }
+
+    ZenGameModuleHostContext host_context{};
+    (void)context;
+    try {
+        return Result(function(&host_context));
+    }
+    catch (...) {
+        return Result(ZEN_RESULT_INTERNAL_ERROR);
+    }
+}
+
+} // namespace
+
+DynamicGameModule::~DynamicGameModule()
+{
+    reset();
+}
+
+DynamicGameModule::DynamicGameModule(DynamicGameModule&& other) noexcept
+    : library_handle_(std::exchange(other.library_handle_, nullptr))
+    , descriptor_(other.descriptor_)
+{
+    other.descriptor_ = {};
+}
+
+DynamicGameModule& DynamicGameModule::operator=(DynamicGameModule&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        library_handle_ = std::exchange(other.library_handle_, nullptr);
+        descriptor_ = other.descriptor_;
+        other.descriptor_ = {};
+    }
+
+    return *this;
+}
+
+Result DynamicGameModule::load(const std::filesystem::path& module_path, DynamicGameModule& out_module)
+{
+    if (module_path.empty()) {
+        return Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
+    HMODULE library = LoadLibraryW(module_path.wstring().c_str());
+    if (library == nullptr) {
+        return Result(ZEN_RESULT_BACKEND_ERROR);
+    }
+
+    FARPROC entry = GetProcAddress(library, ZEN_GAME_MODULE_ENTRY_POINT);
+    if (entry == nullptr) {
+        FreeLibrary(library);
+        return Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
+    auto get_game_module = reinterpret_cast<ZenGetGameModuleFn>(entry);
+    ZenGameModuleDescriptor descriptor{};
+    Result entry_result;
+    try {
+        entry_result = Result(get_game_module(&descriptor));
+    }
+    catch (...) {
+        entry_result = Result(ZEN_RESULT_INTERNAL_ERROR);
+    }
+    if (!entry_result.ok()) {
+        FreeLibrary(library);
+        return entry_result;
+    }
+
+    if (descriptor.size != ZEN_GAME_MODULE_DESCRIPTOR_SIZE || descriptor.api_version != ZEN_GAME_MODULE_API_VERSION) {
+        FreeLibrary(library);
+        return Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
+    out_module.reset();
+    out_module.library_handle_ = library;
+    out_module.descriptor_ = descriptor;
+    return Result();
+}
+
+void DynamicGameModule::reset()
+{
+    if (library_handle_ == nullptr) {
+        descriptor_ = {};
+        return;
+    }
+
+    FreeLibrary(static_cast<HMODULE>(library_handle_));
+    library_handle_ = nullptr;
+    descriptor_ = {};
+}
+
+Result initialize_game_module(DynamicGameModule& module, GameContext& context)
+{
+    if (!module.valid()) {
+        return Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
+    return run_dynamic_lifecycle(module.descriptor_.on_init, context);
+}
+
+Result run_game_module_frame(DynamicGameModule& module, GameContext& context)
+{
+    if (!module.valid()) {
+        return Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
+    Result result = run_dynamic_lifecycle(module.descriptor_.on_update, context);
+    if (!result.ok() || context.should_close) {
+        return result;
+    }
+
+    return run_dynamic_lifecycle(module.descriptor_.on_render, context);
+}
+
+Result shutdown_game_module(DynamicGameModule& module, GameContext& context)
+{
+    if (!module.valid()) {
+        return Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
+    return run_dynamic_lifecycle(module.descriptor_.on_shutdown, context);
+}
+
 GameApp::~GameApp()
 {
     reset();
@@ -1232,8 +1367,71 @@ Result GameApp::shutdown(GameModule& module)
     return result;
 }
 
+Result GameApp::shutdown(DynamicGameModule& module)
+{
+    Result result;
+    if (module_initialized_) {
+        result = shutdown_game_module(module, context_);
+        module_initialized_ = false;
+    }
+
+    reset();
+    return result;
+}
+
 Result GameApp::run(GameModule module, const GameAppConfig& config)
 {
+    Result result = initialize(config);
+    if (!result.ok()) {
+        return result;
+    }
+
+    result = initialize_game_module(module, context_);
+    if (!result.ok()) {
+        reset();
+        return result;
+    }
+    module_initialized_ = true;
+
+    while (!context_.should_close) {
+        result = begin_frame();
+        if (!result.ok()) {
+            break;
+        }
+
+        if (!context_.should_close) {
+            result = run_game_module_frame(module, context_);
+        }
+        const Result end_result = end_frame();
+        if (!end_result.ok() && result.ok()) {
+            result = end_result;
+        }
+        if (!result.ok()) {
+            break;
+        }
+    }
+
+    if (context_.should_close && engine_.valid()) {
+        const Result shutdown_request = engine_.request_shutdown();
+        if (!shutdown_request.ok() && result.ok()) {
+            result = shutdown_request;
+        }
+    }
+
+    const Result shutdown_result = shutdown(module);
+    if (!shutdown_result.ok()) {
+        return shutdown_result;
+    }
+
+    return result;
+}
+
+Result GameApp::run(DynamicGameModule& module, const GameAppConfig& config)
+{
+    if (!module.valid()) {
+        return Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
     Result result = initialize(config);
     if (!result.ok()) {
         return result;

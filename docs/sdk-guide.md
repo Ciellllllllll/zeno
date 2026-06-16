@@ -6,7 +6,8 @@
 - A C ABI boundary designed around handles, POD structs, and stable result codes.
 - C++ native backend ownership for Win32 and DirectX 11 resources.
 - A C++ SDK layer that is ergonomic for game code without leaking through the ABI.
-- A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and static-linked module lifecycle into one host API.
+- A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and module lifecycle into one host API.
+- A first Windows dynamic module loader that uses a C-compatible descriptor entry point without exposing SDK classes, STL, Win32, DirectX, or Rust internals across the DLL boundary.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
 - A packaged SDK layout and external CMake example that prove SDK consumption outside the repository sample/template graph.
@@ -30,7 +31,7 @@
 - C++ is used where platform and DirectX 11 integration are most natural.
 - C ABI is used instead of Rust/C++ native ABI to keep the boundary compiler-stable and easy to audit.
 - DirectX 11 is the first renderer to keep the milestone narrow and demonstrable.
-- Static game-module linking is used for the first module phase; dynamic loading should use C ABI entry points later.
+- Static game-module linking remains the default sample/template path; dynamic loading uses a small C ABI descriptor and explicit API version validation.
 - `GameApp` is SDK-owned orchestration over existing Rust/runtime and native/backend handles, not a new cross-language ABI.
 - Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
 - Runtime packaging is intentionally a local script over the canonical build/install graph, not a custom installer or separate project generator.
@@ -59,8 +60,8 @@
 - No streaming BGM, 3D spatial audio, mixer graph, or compressed audio decode.
 - Math/collision is limited to the SDK primitives currently needed by the sample; there are no quaternions, decomposition helpers, 3D collision volumes, physics solver, swept collision, broadphase, or SIMD optimizations yet.
 - No asset pipeline.
-- No dynamic game-module loading yet.
-- No application plugin loading or hot reload; `GameApp` currently runs static-linked modules only.
+- No hot reload, scripting, editor plugins, or generalized plugin ecosystem.
+- Dynamic modules currently receive only an opaque reserved host context; ABI-safe host services are future work.
 - No project generator or installer; the template game and packaging script are deliberately minimal.
 - No editor.
 - CI covers the headless baseline only; visual sample/template execution remains local/manual.
@@ -72,7 +73,7 @@
 
 Near-term:
 
-- Introduce dynamic C ABI game-module entry points.
+- Add ABI-safe host service tables for dynamic modules.
 - Harden Rust C ABI panic containment.
 
 Later:
@@ -89,4 +90,4 @@ Later:
 - Handles prevent external callers from depending on internal Rust, C++, Win32, or DirectX object layouts.
 - The sample is deliberately modest but playable: the C++ host delegates boilerplate to `GameApp`, while the module proves project/scene startup loading, engine boot, window creation, DirectX 11 presentation, SDK-owned scene objects, handle-owned triangle, materialized sprite and mesh draw paths, keyboard movement, goal score/restart flow, SDK-side AABB checks with debug visualization, short WAV effect playback, static-linked game-module lifecycle, and clean shutdown.
 - The current v0 baseline is intentionally modest but reproducible: clone, build, run the sample/template, package the runtime layout, and explain the boundaries.
-- The next most valuable technical step is Rust ABI panic containment and dynamic module loading, not adding an editor or multi-platform abstraction.
+- The next most valuable technical step is ABI-safe host services and renderer robustness, not adding an editor or multi-platform abstraction.

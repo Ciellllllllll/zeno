@@ -16,7 +16,7 @@ ZENO is at a v0 usable milestone: it can build, run, and package a small Windows
 ## Near-Term
 
 - Add a small public media capture after the sample window has approved screenshots or GIFs.
-- Add dynamic game-module loading through C ABI entry points.
+- Add ABI-safe host services for the first dynamic game-module loader.
 - Harden Rust C ABI panic containment.
 
 ## Later

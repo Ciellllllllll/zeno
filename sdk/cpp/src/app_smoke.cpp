@@ -1,5 +1,6 @@
 #include <zeno/game_module.hpp>
 
+#include <filesystem>
 #include <utility>
 
 namespace {
@@ -41,39 +42,50 @@ int main()
         return 4;
     }
 
+    zeno::DynamicGameModule dynamic_module;
+    result = assigned_app.run(dynamic_module, config);
+    if (result.ok()) {
+        return 5;
+    }
+
+    result = zeno::DynamicGameModule::load(std::filesystem::path("missing-dynamic-module.dll"), dynamic_module);
+    if (result.ok() || dynamic_module.valid()) {
+        return 6;
+    }
+
     zeno::Engine engine;
     zeno::EngineConfig engine_config{};
     engine_config.target_fps = 1000000.0;
     engine_config.max_test_frames = 3;
     result = zeno::Engine::create(engine_config, engine);
     if (!result.ok()) {
-        return 5;
+        return 7;
     }
 
     zeno::EngineFrameInfo frame_info{};
     result = engine.step_frame(frame_info);
     if (!result.ok() || frame_info.frame_index != 0 || frame_info.delta_time_seconds < 0.0) {
-        return 6;
+        return 8;
     }
 
     result = engine.begin_frame(frame_info);
     if (!result.ok() || frame_info.frame_index != 1 || frame_info.delta_time_seconds < 0.0) {
-        return 7;
+        return 9;
     }
 
     result = engine.begin_frame(frame_info);
     if (result.ok()) {
-        return 8;
+        return 10;
     }
 
     result = engine.end_frame();
     if (!result.ok()) {
-        return 9;
+        return 11;
     }
 
     result = engine.end_frame();
     if (result.ok()) {
-        return 10;
+        return 12;
     }
 
     engine.reset();

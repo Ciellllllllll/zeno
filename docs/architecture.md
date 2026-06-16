@@ -9,7 +9,7 @@ Sample Game Host
     `-- C++ Game SDK -> C++ Native Backend -> Windows / DirectX 11
 ```
 
-The current sample host delegates the outer loop to `zeno::GameApp`. `GameApp` owns the Rust engine runtime wrapper, native backend wrapper, asset root, audio engine, runtime scene, project/scene startup data, input snapshot, and static-linked module lifecycle. The game module still renders through SDK calls and does not access native backend internals directly.
+The current sample host delegates the outer loop to `zeno::GameApp`. `GameApp` owns the Rust engine runtime wrapper, native backend wrapper, asset root, audio engine, runtime scene, project/scene startup data, input snapshot, and module lifecycle. The sample and template use the static-linked module path. A separate headless sample proves the Windows DLL module loading path. Game modules still render through SDK calls and do not access native backend internals directly.
 
 ## Canonical Build Graph
 
@@ -117,7 +117,7 @@ The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderab
 
 Project and scene loading are also SDK-owned. The current format is a strict versioned UTF-8 line format used for sample startup data. Parsed scene data becomes SDK objects and existing resource creation calls; filenames and scene structures do not cross the C ABI.
 
-`GameApp` is a high-level SDK runtime, not a new ABI layer. It centralizes the current static-linked app setup sequence: create Rust engine runtime, create native backend, resolve executable-relative assets, load project/scene text data, create the Win32 window, initialize the DirectX 11 renderer, create the minimal audio engine, run the frame loop, and clean up in reverse ownership order.
+`GameApp` is a high-level SDK runtime, not a new Rust ABI layer. It centralizes the app setup sequence: create Rust engine runtime, create native backend, resolve executable-relative assets, load project/scene text data, create the Win32 window, initialize the DirectX 11 renderer, create the minimal audio engine, run the frame loop, and clean up in reverse ownership order. It accepts the existing static `zeno::GameModule` path and a Windows-loaded `zeno::DynamicGameModule` wrapper.
 
 The `GameApp` frame loop keeps the engine frame clock separate from renderer frame commands:
 
@@ -147,7 +147,9 @@ engine end_frame
 
 The current sample loads project and scene startup data, changes the DirectX 11 clear color over time, updates SDK scene objects, moves a player sprite with keyboard input, checks sample-owned AABB overlap against a triangle goal and cube obstacle, tracks a short console score, supports Space restart, draws collision debug rectangles, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
-The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
+The game module is statically linked into the sample executable. `samples/dynamic_module_cpp` separately builds a DLL module and a headless host executable that loads it with `LoadLibraryW`, resolves `zeno_get_game_module`, validates descriptor size and API version, calls lifecycle callbacks, and unloads the DLL.
+
+The dynamic module ABI is intentionally narrow. `sdk/cpp/include/zeno/game_module_abi.h` exposes only macros, fixed-width fields, `ZenResultCode`, function pointers, and an opaque reserved host context. It does not expose `zeno::GameContext`, SDK classes, Win32 handles, DirectX types, STL containers, references, templates, exceptions, or Rust internals. Hot reload and scripting are not implemented.
 
 `templates/game-cpp` follows the same static-linked module shape as the sample. It is not a generator, installer, or plugin loader; it is a small buildable target that proves another game executable can reuse the SDK/runtime/package path without copying engine internals.
 

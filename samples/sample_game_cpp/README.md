@@ -42,7 +42,7 @@ A 640x360 window opens using the size from `project.zproj`. The background clear
 - Debug draw is temporary development visualization for collision bounds.
 - Project/scene loading is a strict minimal text format for startup data. It is not an editor save format, binary scene format, prefab system, or asset database.
 - Audio is limited to short PCM WAV effects. There is no streaming BGM, spatial audio, mixer graph, or compressed audio decode.
-- `GameApp` currently runs static-linked modules only. It is not dynamic plugin loading, hot reload, or scripting.
+- This sample uses the static-linked `GameApp` module path. Dynamic DLL loading is covered by `samples/dynamic_module_cpp`; neither path is hot reload, editor plugin loading, or scripting.
 - Input is limited to a small keyboard/mouse snapshot.
 - There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture yet.
 - There is no mesh loader, atlas system, font renderer, or asset pipeline yet.
