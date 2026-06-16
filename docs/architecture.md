@@ -101,9 +101,11 @@ Only POD matrix data crosses the native backend ABI as `ZenMatrix4x4`. SDK math 
 
 ## C++ Game SDK
 
-`sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, and game-module callback helpers.
+`sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, a minimal component-lite `zeno::Scene`, and game-module callback helpers.
 
 SDK classes are allowed for game code ergonomics, but they do not cross the Rust/C++ ABI boundary.
+
+The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderable record per object, then emits existing SDK draw calls in creation order. Scene objects are not exposed to Rust, the C ABI, or the native backend.
 
 ## Game Module And Sample
 
@@ -114,7 +116,7 @@ SDK classes are allowed for game code ergonomics, but they do not cross the Rust
 - `on_render`,
 - `on_shutdown`.
 
-The current sample changes the DirectX 11 clear color over time, draws a fixed colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
+The current sample changes the DirectX 11 clear color over time, updates SDK scene objects, draws a colored triangle, a materialized texture-backed sprite, and a materialized indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

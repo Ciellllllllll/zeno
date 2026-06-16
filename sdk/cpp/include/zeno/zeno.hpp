@@ -270,6 +270,84 @@ private:
     ZenNativeBackendHandle handle_{};
 };
 
+struct ObjectId final {
+    std::uint64_t value = 0;
+
+    constexpr bool valid() const { return value != 0; }
+};
+
+constexpr bool operator==(ObjectId left, ObjectId right)
+{
+    return left.value == right.value;
+}
+
+constexpr bool operator!=(ObjectId left, ObjectId right)
+{
+    return !(left == right);
+}
+
+enum class RenderableKind : std::uint32_t {
+    none = 0,
+    sprite = 1,
+    mesh = 2,
+    triangle = 3,
+};
+
+struct SpriteRenderer final {
+    const Material* material = nullptr;
+    Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
+struct MeshRenderer final {
+    const Mesh* mesh = nullptr;
+    const Material* material = nullptr;
+};
+
+struct TriangleRenderer final {
+    const RenderTriangle* triangle = nullptr;
+};
+
+class Scene final {
+public:
+    Scene() = default;
+
+    ObjectId create_object();
+    Result destroy_object(ObjectId id);
+    void clear();
+
+    bool has_object(ObjectId id) const;
+    Result set_transform(ObjectId id, const Transform& transform);
+    Transform* transform(ObjectId id);
+    const Transform* transform(ObjectId id) const;
+
+    Result set_sprite_renderer(ObjectId id, const SpriteRenderer& renderer);
+    Result set_mesh_renderer(ObjectId id, const MeshRenderer& renderer);
+    Result set_triangle_renderer(ObjectId id, const TriangleRenderer& renderer);
+    Result clear_renderer(ObjectId id);
+
+    RenderableKind renderable_kind(ObjectId id) const;
+    std::vector<ObjectId> objects_in_update_order() const;
+    std::vector<ObjectId> objects_in_render_order() const;
+    Result render(NativeBackend& backend) const;
+
+private:
+    struct ObjectState final {
+        ObjectId id{};
+        bool alive = false;
+        Transform transform{};
+        RenderableKind renderable_kind = RenderableKind::none;
+        SpriteRenderer sprite_renderer{};
+        MeshRenderer mesh_renderer{};
+        TriangleRenderer triangle_renderer{};
+    };
+
+    ObjectState* find_object(ObjectId id);
+    const ObjectState* find_object(ObjectId id) const;
+
+    std::uint64_t next_object_id_ = 1;
+    std::vector<ObjectState> objects_{};
+};
+
 class RenderTriangle final {
 public:
     RenderTriangle() = default;

@@ -12,10 +12,11 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Handle-based native backend resources for clear colors, shader resources, textures, sprites, meshes, minimal material/render-state handles, and DirectX 11 draw paths.
 - Keyboard and mouse input snapshot support for a small engine-owned key/button set.
 - Minimal C++ SDK math foundations: vectors, row-major matrices, transforms, and orthographic/perspective cameras.
+- SDK-side minimal component-lite scene layer with object IDs, transforms, renderable data, and deterministic update/render collection order.
 - Executable-relative sample asset root support with copied `assets/` content.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
-- Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, draws a visible triangle, material-driven texture-backed sprite, and material-driven basic 3D mesh, and shuts down cleanly.
+- Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, and renders a scene-managed triangle, material-driven texture-backed sprite, and material-driven basic 3D mesh before shutting down cleanly.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for local build, run, and cleanup.
 
@@ -77,7 +78,7 @@ Run the sample:
 .\scripts\run-sample.ps1
 ```
 
-The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds, a visible rotating colored triangle drawn with shader assets, a small BMP-backed sprite using an alpha material, and a basic 3D cube mesh using an opaque depth-tested material. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, and Escape requests shutdown. Console output shows native backend initialization/shutdown, sample module init/shutdown, and asset shader compile failures if they occur.
+The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds, a visible rotating colored triangle drawn with shader assets, a small BMP-backed sprite using an alpha material, and a basic 3D cube mesh using an opaque depth-tested material. The sample organizes those visible objects through the SDK's minimal component-lite scene layer. Mouse position influences the background tint, A/Left and D/Right adjust the tint and triangle transform, and Escape requests shutdown. Console output shows native backend initialization/shutdown, sample module init/shutdown, and asset shader compile failures if they occur.
 
 Sample assets live under `samples/sample_game_cpp/assets/` in source and are copied beside the sample executable as `assets/` during the CMake build. The sample resolves assets from the executable directory, not the process working directory, so CLI, Visual Studio 2022, and VS Code launches use the same runtime layout.
 
@@ -122,7 +123,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 
 ## Current Limitations
 
-- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle, sprite, indexed mesh, and material/render-state resources with transform, camera, texture, depth, and explicit vertex/pixel shader handles.
+- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle, sprite, indexed mesh, material/render-state resources, and SDK-side scene objects with transform, camera, texture, depth, and explicit vertex/pixel shader handles.
 - Input is limited to a small keyboard/mouse snapshot. There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - There is no shader reflection, material graph, hot reload, mesh importer, atlas system, font rendering, asset pipeline, editor, physics, audio, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
@@ -133,7 +134,6 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 
 Near-term realistic next steps:
 
-- Add scene/object ownership over the existing handle-based render resources.
 - Add a small asset pipeline convention for sample resources.
 - Introduce dynamic game module loading through C ABI entry points.
 - Add conservative Windows CI once the local workflow remains stable.
