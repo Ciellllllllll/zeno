@@ -55,6 +55,19 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
 
+## Renderer Frame Order
+
+The native renderer is single-threaded per backend handle. Resource creation can happen after renderer initialization, but drawing must follow this order every frame:
+
+```text
+begin_frame
+  clear or clear_with_resource
+  draw_triangle zero or more times
+present
+```
+
+`present` closes the active frame. Calls such as nested `begin_frame`, `clear` before `begin_frame`, `draw_triangle` outside an active frame, or `present` outside an active frame return a stable `ZenResultCode` instead of relying on undefined DirectX state.
+
 ## C++ Game SDK
 
 `sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, and game-module callback helpers.

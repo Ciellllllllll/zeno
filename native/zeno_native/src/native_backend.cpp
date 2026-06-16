@@ -168,6 +168,7 @@ public:
             context_->ClearState();
         }
 
+        frame_active_ = false;
         render_target_view_.Reset();
         triangle_resources_.clear();
         swap_chain_.Reset();
@@ -177,19 +178,20 @@ public:
 
     bool begin_frame()
     {
-        if (context_ == nullptr || render_target_view_ == nullptr) {
+        if (context_ == nullptr || render_target_view_ == nullptr || frame_active_) {
             return false;
         }
 
         ID3D11RenderTargetView* render_targets[] = { render_target_view_.Get() };
         context_->OMSetRenderTargets(1, render_targets, nullptr);
         context_->RSSetViewports(1, &viewport_);
+        frame_active_ = true;
         return true;
     }
 
     bool clear(float r, float g, float b, float a)
     {
-        if (context_ == nullptr || render_target_view_ == nullptr) {
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
             return false;
         }
 
@@ -229,14 +231,16 @@ public:
         return destroyed;
     }
 
-    bool clear_with_resource(std::uint64_t handle)
+    RenderCommandResult clear_with_resource(std::uint64_t handle)
     {
         const auto found = clear_colors_.find(handle);
         if (found == clear_colors_.end()) {
-            return false;
+            return RenderCommandResult::missing_resource;
         }
 
-        return clear(found->second[0], found->second[1], found->second[2], found->second[3]);
+        return clear(found->second[0], found->second[1], found->second[2], found->second[3])
+            ? RenderCommandResult::ok
+            : RenderCommandResult::wrong_state;
     }
 
     bool create_triangle(std::uint64_t& out_handle)
@@ -358,15 +362,15 @@ public:
         return destroyed;
     }
 
-    bool draw_triangle(std::uint64_t handle)
+    RenderCommandResult draw_triangle(std::uint64_t handle)
     {
-        if (context_ == nullptr || render_target_view_ == nullptr) {
-            return false;
-        }
-
         const auto found = triangle_resources_.find(handle);
         if (found == triangle_resources_.end()) {
-            return false;
+            return RenderCommandResult::missing_resource;
+        }
+
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
+            return RenderCommandResult::wrong_state;
         }
 
         const TriangleResource& resource = found->second;
@@ -379,16 +383,18 @@ public:
         context_->VSSetShader(resource.vertex_shader.Get(), nullptr, 0);
         context_->PSSetShader(resource.pixel_shader.Get(), nullptr, 0);
         context_->Draw(3, 0);
-        return true;
+        return RenderCommandResult::ok;
     }
 
     bool present()
     {
-        if (swap_chain_ == nullptr) {
+        if (swap_chain_ == nullptr || !frame_active_) {
             return false;
         }
 
-        return SUCCEEDED(swap_chain_->Present(1, 0));
+        const bool presented = SUCCEEDED(swap_chain_->Present(1, 0));
+        frame_active_ = false;
+        return presented;
     }
 
 private:
@@ -397,6 +403,7 @@ private:
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
     D3D11_VIEWPORT viewport_{};
+    bool frame_active_ = false;
     std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
     std::unordered_map<std::uint64_t, TriangleResource> triangle_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
@@ -544,9 +551,13 @@ bool NativeBackend::destroy_clear_color(std::uint64_t handle)
     return renderer_ != nullptr && renderer_->destroy_clear_color(handle);
 }
 
-bool NativeBackend::clear_with_resource(std::uint64_t handle)
+RenderCommandResult NativeBackend::clear_with_resource(std::uint64_t handle)
 {
-    return renderer_ != nullptr && renderer_->clear_with_resource(handle);
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->clear_with_resource(handle);
 }
 
 bool NativeBackend::create_triangle(std::uint64_t& out_handle)
@@ -559,9 +570,13 @@ bool NativeBackend::destroy_triangle(std::uint64_t handle)
     return renderer_ != nullptr && renderer_->destroy_triangle(handle);
 }
 
-bool NativeBackend::draw_triangle(std::uint64_t handle)
+RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)
 {
-    return renderer_ != nullptr && renderer_->draw_triangle(handle);
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_triangle(handle);
 }
 
 bool NativeBackend::present()

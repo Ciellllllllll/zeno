@@ -112,16 +112,17 @@ ZenResultCode zen_native_backend_initialize_renderer(ZenNativeBackendHandle back
 /*
  * Begins one render frame by binding the current render target.
  *
- * backend: must have an initialized renderer.
+ * backend: must have an initialized renderer and no active frame.
+ * The frame remains active until zen_native_backend_present succeeds or fails.
  * Thread-safety: this function must not be called concurrently for the same
  * backend handle, including concurrent destroy.
  */
 ZenResultCode zen_native_backend_begin_frame(ZenNativeBackendHandle backend);
 
 /*
- * Clears the current render target to the supplied color.
+ * Clears the current active render frame to the supplied color.
  *
- * backend: must have an initialized renderer.
+ * backend: must have an initialized renderer and an active frame.
  * Thread-safety: this function must not be called concurrently for the same
  * backend handle, including concurrent destroy.
  */
@@ -168,10 +169,10 @@ ZenResultCode zen_native_backend_destroy_clear_color(
     ZenRenderClearColorHandle clear_color);
 
 /*
- * Clears the current render target using a backend-owned clear color resource.
+ * Clears the current active render frame using a backend-owned clear color resource.
  *
- * backend: must have an initialized renderer. clear_color must be valid for
- * that backend.
+ * backend: must have an initialized renderer and an active frame. clear_color
+ * must be valid for that backend.
  * Returns ZEN_RESULT_NOT_INITIALIZED when a non-zero resource handle is not
  * present or the renderer is no longer initialized.
  * Thread-safety: this function must not be called concurrently for the same
@@ -227,9 +228,9 @@ ZenResultCode zen_native_backend_draw_triangle(
     ZenRenderTriangleHandle triangle);
 
 /*
- * Presents the current swap chain frame.
+ * Presents the current swap chain frame and closes the active frame.
  *
- * backend: must have an initialized renderer.
+ * backend: must have an initialized renderer and an active frame.
  * Thread-safety: this function must not be called concurrently for the same
  * backend handle, including concurrent destroy.
  */

@@ -45,6 +45,20 @@ bool allocate_handle(std::uint64_t& out_handle)
     return out_handle != kInvalidHandle;
 }
 
+ZenResultCode map_render_command_result(zeno::native::RenderCommandResult result)
+{
+    switch (result) {
+    case zeno::native::RenderCommandResult::ok:
+        return ZEN_RESULT_OK;
+    case zeno::native::RenderCommandResult::wrong_state:
+        return ZEN_RESULT_BACKEND_ERROR;
+    case zeno::native::RenderCommandResult::missing_resource:
+        return ZEN_RESULT_NOT_INITIALIZED;
+    }
+
+    return ZEN_RESULT_INTERNAL_ERROR;
+}
+
 ZenResultCode with_backend(
     ZenNativeBackendHandle backend,
     const auto& action)
@@ -281,9 +295,7 @@ extern "C" ZenResultCode zen_native_backend_clear_with_resource(
         }
 
         return with_backend(backend, [clear_color](zeno::native::NativeBackend& native_backend) {
-            return native_backend.clear_with_resource(clear_color.value)
-                ? ZEN_RESULT_OK
-                : ZEN_RESULT_NOT_INITIALIZED;
+            return map_render_command_result(native_backend.clear_with_resource(clear_color.value));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;
@@ -342,9 +354,7 @@ extern "C" ZenResultCode zen_native_backend_draw_triangle(
         }
 
         return with_backend(backend, [triangle](zeno::native::NativeBackend& native_backend) {
-            return native_backend.draw_triangle(triangle.value)
-                ? ZEN_RESULT_OK
-                : ZEN_RESULT_NOT_INITIALIZED;
+            return map_render_command_result(native_backend.draw_triangle(triangle.value));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

@@ -111,7 +111,7 @@ int main()
         return 15;
     }
 
-    if (!expect(zen_native_backend_draw_triangle(backend, scratch_triangle), ZEN_RESULT_NOT_INITIALIZED)) {
+    if (!expect(zen_native_backend_draw_triangle(backend, scratch_triangle), ZEN_RESULT_BACKEND_ERROR)) {
         zen_native_backend_destroy(backend);
         return 16;
     }
@@ -222,6 +222,94 @@ int main()
         return 30;
     }
 
+    result = zen_native_backend_clear_with_resource(backend, clear_color);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 31;
+    }
+
+    result = zen_native_backend_draw_triangle(backend, triangle);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 32;
+    }
+
+    result = zen_native_backend_present(backend);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 33;
+    }
+
+    result = zen_native_backend_begin_frame(backend);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 34;
+    }
+
+    result = zen_native_backend_begin_frame(backend);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 35;
+    }
+
+    result = zen_native_backend_clear_with_resource(backend, clear_color);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 36;
+    }
+
+    result = zen_native_backend_draw_triangle(backend, triangle);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 37;
+    }
+
+    result = zen_native_backend_present(backend);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 38;
+    }
+
+    result = zen_native_backend_clear_with_resource(backend, clear_color);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 39;
+    }
+
+    result = zen_native_backend_draw_triangle(backend, triangle);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 40;
+    }
+
+    result = zen_native_backend_present(backend);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 41;
+    }
+
     for (int i = 0; i < 120; ++i) {
         uint32_t should_close = 0;
         result = zen_native_backend_poll_events(backend, &should_close);
@@ -229,7 +317,7 @@ int main()
             zen_native_backend_destroy_triangle(backend, triangle);
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
-            return 31;
+            return 42;
         }
 
         if (should_close != 0) {
@@ -241,7 +329,7 @@ int main()
             zen_native_backend_destroy_triangle(backend, triangle);
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
-            return 32;
+            return 43;
         }
 
         result = zen_native_backend_clear_with_resource(backend, clear_color);
@@ -249,7 +337,7 @@ int main()
             zen_native_backend_destroy_triangle(backend, triangle);
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
-            return 33;
+            return 44;
         }
 
         result = zen_native_backend_draw_triangle(backend, triangle);
@@ -257,7 +345,7 @@ int main()
             zen_native_backend_destroy_triangle(backend, triangle);
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
-            return 34;
+            return 45;
         }
 
         result = zen_native_backend_present(backend);
@@ -265,7 +353,7 @@ int main()
             zen_native_backend_destroy_triangle(backend, triangle);
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
-            return 35;
+            return 46;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
@@ -275,63 +363,63 @@ int main()
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
         zen_native_backend_destroy(backend);
-        return 36;
+        return 47;
     }
 
     result = zen_native_backend_clear_with_resource(backend, clear_color);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy_triangle(backend, triangle);
         zen_native_backend_destroy(backend);
-        return 37;
+        return 48;
     }
 
     result = zen_native_backend_destroy_clear_color(backend, clear_color);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy_triangle(backend, triangle);
         zen_native_backend_destroy(backend);
-        return 38;
+        return 49;
     }
 
     result = zen_native_backend_destroy_triangle(backend, triangle);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy(backend);
-        return 39;
+        return 50;
     }
 
     result = zen_native_backend_draw_triangle(backend, triangle);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
-        return 40;
+        return 51;
     }
 
     result = zen_native_backend_destroy_triangle(backend, triangle);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
-        return 41;
+        return 52;
     }
 
     ZenRenderTriangleHandle backend_owned_triangle{};
     result = zen_native_backend_create_triangle(backend, &backend_owned_triangle);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy(backend);
-        return 42;
+        return 53;
     }
 
     result = zen_native_backend_destroy(backend);
     if (result != ZEN_RESULT_OK) {
-        return 43;
+        return 54;
     }
 
     result = zen_native_backend_draw_triangle(backend, backend_owned_triangle);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
-        return 44;
+        return 55;
     }
 
     result = zen_native_backend_poll_events(backend, &should_close);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
-        return 45;
+        return 56;
     }
 
     result = zen_native_backend_destroy(backend);
-    return result == ZEN_RESULT_NOT_INITIALIZED ? 0 : 46;
+    return result == ZEN_RESULT_NOT_INITIALIZED ? 0 : 57;
 }
