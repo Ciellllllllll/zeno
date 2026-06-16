@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/zeno_core",
+    "crates/zeno_abi",
+]
+resolver = "2"

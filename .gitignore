@@ -1,4 +1,40 @@
-engine_core/target/
+# Rust
+target/
 
 # Local Codex/spec materials
 .codex/
+
+# Visual Studio / MSVC
+.vs/
+*.user
+*.suo
+*.vcxproj.user
+x64/
+x86/
+Debug/
+Release/
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.dll
+*.exe
+
+# CMake
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Editor / OS temp files
+.vscode/
+*.swp
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Local environment
+.env
+.env.*
+!.env.example

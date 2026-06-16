@@ -1,0 +1,12 @@
+zeno_scene
+version=1
+
+[object]
+name=broken
+renderable=sprite
+reference=textures/sample_sprite_2x2.bmp
+position=0 0
+rotation_z=0
+scale=1 1 1
+color=1 1 1 1
+[/object]

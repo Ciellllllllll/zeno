@@ -1,0 +1,6 @@
+zeno_project
+version=1
+asset_root=.
+initial_scene=scenes/template_scene.zscene
+window_width=640
+window_height=360

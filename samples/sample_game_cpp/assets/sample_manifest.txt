@@ -1,0 +1,4 @@
+ZENO sample asset manifest
+phase=30
+purpose=verify GameApp playable sample with input, goal score, restart, collision, audio, scene rendering, and debug draw
+audio=audio/sample_click.wav
