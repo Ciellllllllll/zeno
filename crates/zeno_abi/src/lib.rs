@@ -4,6 +4,7 @@
 //! internals behind an internal registry.
 
 use std::collections::HashMap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -88,6 +89,13 @@ pub extern "C" fn zen_engine_create(
     config: *const ZenEngineConfig,
     out_engine: *mut ZenEngineHandle,
 ) -> ZenResultCode {
+    ffi_guard(|| zen_engine_create_impl(config, out_engine))
+}
+
+fn zen_engine_create_impl(
+    config: *const ZenEngineConfig,
+    out_engine: *mut ZenEngineHandle,
+) -> ZenResultCode {
     if config.is_null() || out_engine.is_null() {
         return ZenResultCode::InvalidArgument;
     }
@@ -126,6 +134,10 @@ pub extern "C" fn zen_engine_create(
 /// Ownership: after success, the handle value is invalid and must not be used again.
 #[no_mangle]
 pub extern "C" fn zen_engine_destroy(engine: ZenEngineHandle) -> ZenResultCode {
+    ffi_guard(|| zen_engine_destroy_impl(engine))
+}
+
+fn zen_engine_destroy_impl(engine: ZenEngineHandle) -> ZenResultCode {
     if engine.value == ZEN_ENGINE_HANDLE_INVALID {
         return ZenResultCode::InvalidArgument;
     }
@@ -143,12 +155,19 @@ pub extern "C" fn zen_engine_destroy(engine: ZenEngineHandle) -> ZenResultCode {
 /// Advances the engine runtime by one frame.
 #[no_mangle]
 pub extern "C" fn zen_engine_step(engine: ZenEngineHandle) -> ZenResultCode {
-    with_runtime(engine, |runtime| runtime.step_frame().map(|_| ()))
+    ffi_guard(|| with_runtime(engine, |runtime| runtime.step_frame().map(|_| ())))
 }
 
 /// Advances the engine runtime by one frame and optionally writes frame data.
 #[no_mangle]
 pub extern "C" fn zen_engine_step_frame(
+    engine: ZenEngineHandle,
+    out_frame_info: *mut ZenEngineFrameInfo,
+) -> ZenResultCode {
+    ffi_guard(|| zen_engine_step_frame_impl(engine, out_frame_info))
+}
+
+fn zen_engine_step_frame_impl(
     engine: ZenEngineHandle,
     out_frame_info: *mut ZenEngineFrameInfo,
 ) -> ZenResultCode {
@@ -168,15 +187,19 @@ pub extern "C" fn zen_engine_step_frame(
 /// Requests runtime shutdown. The runtime remains owned by the caller until destroyed.
 #[no_mangle]
 pub extern "C" fn zen_engine_request_shutdown(engine: ZenEngineHandle) -> ZenResultCode {
-    with_runtime(engine, |runtime| {
-        runtime.request_shutdown();
-        Ok(())
+    ffi_guard(|| {
+        with_runtime(engine, |runtime| {
+            runtime.request_shutdown();
+            Ok(())
+        })
     })
 }
 
 /// Returns a static string for a result code.
 #[no_mangle]
 pub extern "C" fn zen_result_to_string(code: u32) -> *const std::ffi::c_char {
+    // Intentionally not wrapped in ffi_guard: this function only maps integer
+    // values to static nul-terminated strings and has no fallible runtime path.
     match code {
         0 => c"ok".as_ptr(),
         1 => c"invalid argument".as_ptr(),
@@ -209,6 +232,13 @@ impl From<EngineFrameInfo> for ZenEngineFrameInfo {
 
 fn registry() -> &'static Mutex<HashMap<u64, EngineRuntime>> {
     ENGINE_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn ffi_guard(action: impl FnOnce() -> ZenResultCode) -> ZenResultCode {
+    match catch_unwind(AssertUnwindSafe(action)) {
+        Ok(result) => result,
+        Err(_) => ZenResultCode::InternalError,
+    }
 }
 
 fn allocate_handle() -> Option<u64> {
@@ -347,6 +377,64 @@ mod tests {
     }
 
     #[test]
+    fn create_rejects_invalid_config_api_version() {
+        let config = ZenEngineConfig {
+            api_version: 0,
+            ..ZenEngineConfig::default()
+        };
+        let mut handle = ZenEngineHandle { value: 0 };
+
+        let result = zen_engine_create(&config, &mut handle);
+
+        assert_eq!(result, ZenResultCode::InvalidArgument);
+        assert_eq!(handle.value, 0);
+    }
+
+    #[test]
+    fn create_rejects_invalid_target_fps() {
+        for target_fps in [0.0, -60.0, f64::INFINITY, f64::NAN] {
+            let config = ZenEngineConfig {
+                target_fps,
+                ..ZenEngineConfig::default()
+            };
+            let mut handle = ZenEngineHandle { value: 0 };
+
+            let result = zen_engine_create(&config, &mut handle);
+
+            assert_eq!(result, ZenResultCode::InvalidArgument);
+            assert_eq!(handle.value, 0);
+        }
+    }
+
+    #[test]
+    fn ffi_guard_maps_panic_to_internal_error() {
+        let result = ffi_guard(|| panic!("intentional ffi guard test panic"));
+
+        assert_eq!(result, ZenResultCode::InternalError);
+    }
+
+    #[test]
+    fn ffi_guard_returns_action_result() {
+        let result = ffi_guard(|| ZenResultCode::InvalidArgument);
+
+        assert_eq!(result, ZenResultCode::InvalidArgument);
+    }
+
+    #[test]
+    fn abi_types_have_expected_layout_baseline() {
+        assert_eq!(
+            std::mem::size_of::<ZenResultCode>(),
+            std::mem::size_of::<u32>()
+        );
+        assert_eq!(std::mem::size_of::<ZenEngineHandle>(), 8);
+        assert_eq!(std::mem::align_of::<ZenEngineHandle>(), 8);
+        assert_eq!(std::mem::size_of::<ZenEngineConfig>(), 24);
+        assert_eq!(std::mem::align_of::<ZenEngineConfig>(), 8);
+        assert_eq!(std::mem::size_of::<ZenEngineFrameInfo>(), 16);
+        assert_eq!(std::mem::align_of::<ZenEngineFrameInfo>(), 8);
+    }
+
+    #[test]
     fn invalid_handle_returns_invalid_argument() {
         let result = zen_engine_step(ZenEngineHandle { value: 0 });
 
@@ -376,6 +464,23 @@ mod tests {
         assert_eq!(frame_info.frame_index, 0);
         assert!(frame_info.delta_time_seconds >= 0.0);
 
+        assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
+    }
+
+    #[test]
+    fn step_frame_accepts_null_output_pointer() {
+        let config = ZenEngineConfig {
+            target_fps: 1_000_000.0,
+            max_test_frames: 2,
+            ..ZenEngineConfig::default()
+        };
+        let mut handle = ZenEngineHandle { value: 0 };
+
+        assert_eq!(zen_engine_create(&config, &mut handle), ZenResultCode::Ok);
+        assert_eq!(
+            zen_engine_step_frame(handle, ptr::null_mut()),
+            ZenResultCode::Ok
+        );
         assert_eq!(zen_engine_destroy(handle), ZenResultCode::Ok);
     }
 
