@@ -150,6 +150,23 @@ Result NativeBackend::clear(const Color& color)
     return Result(zen_native_backend_clear(handle_, color.r, color.g, color.b, color.a));
 }
 
+Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
+{
+    ZenRenderTriangleHandle handle{};
+    const ZenResultCode result = zen_native_backend_create_triangle(handle_, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_triangle = RenderTriangle(handle_, handle);
+    return Result();
+}
+
+Result NativeBackend::draw_triangle(const RenderTriangle& triangle)
+{
+    return Result(zen_native_backend_draw_triangle(handle_, triangle.handle_));
+}
+
 Result NativeBackend::present()
 {
     return Result(zen_native_backend_present(handle_));
@@ -162,6 +179,45 @@ void NativeBackend::reset()
     }
 
     zen_native_backend_destroy(handle_);
+    handle_ = {};
+}
+
+RenderTriangle::RenderTriangle(ZenNativeBackendHandle backend, ZenRenderTriangleHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+RenderTriangle::~RenderTriangle()
+{
+    reset();
+}
+
+RenderTriangle::RenderTriangle(RenderTriangle&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenRenderTriangleHandle{}))
+{
+}
+
+RenderTriangle& RenderTriangle::operator=(RenderTriangle&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenRenderTriangleHandle{});
+    }
+
+    return *this;
+}
+
+void RenderTriangle::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_triangle(backend_, handle_);
+    backend_ = {};
     handle_ = {};
 }
 

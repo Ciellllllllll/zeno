@@ -74,6 +74,8 @@ struct Color final {
     float a = 1.0f;
 };
 
+class RenderTriangle;
+
 class NativeBackend final {
 public:
     NativeBackend() = default;
@@ -92,6 +94,8 @@ public:
     Result initialize_renderer();
     Result begin_frame();
     Result clear(const Color& color);
+    Result create_triangle(RenderTriangle& out_triangle);
+    Result draw_triangle(const RenderTriangle& triangle);
     Result present();
     void reset();
 
@@ -101,6 +105,30 @@ private:
     explicit NativeBackend(ZenNativeBackendHandle handle);
 
     ZenNativeBackendHandle handle_{};
+};
+
+class RenderTriangle final {
+public:
+    RenderTriangle() = default;
+    ~RenderTriangle();
+
+    RenderTriangle(const RenderTriangle&) = delete;
+    RenderTriangle& operator=(const RenderTriangle&) = delete;
+
+    RenderTriangle(RenderTriangle&& other) noexcept;
+    RenderTriangle& operator=(RenderTriangle&& other) noexcept;
+
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+
+    RenderTriangle(ZenNativeBackendHandle backend, ZenRenderTriangleHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenRenderTriangleHandle handle_{};
 };
 
 } // namespace zeno

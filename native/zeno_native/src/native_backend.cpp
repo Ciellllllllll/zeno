@@ -4,10 +4,12 @@
 #include <Windows.h>
 
 #include <d3d11.h>
+#include <d3dcompiler.h>
 #include <dxgi.h>
 #include <wrl/client.h>
 
 #include <array>
+#include <cstddef>
 #include <iostream>
 #include <unordered_map>
 
@@ -16,6 +18,41 @@ namespace {
 
 constexpr wchar_t kWindowClassName[] = L"ZenoNativeWindowClass";
 constexpr wchar_t kDefaultWindowTitle[] = L"ZENO Engine";
+
+constexpr char kTriangleShaderSource[] = R"(
+struct VSInput {
+    float3 position : POSITION;
+    float4 color : COLOR;
+};
+
+struct PSInput {
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+PSInput vs_main(VSInput input) {
+    PSInput output;
+    output.position = float4(input.position, 1.0);
+    output.color = input.color;
+    return output;
+}
+
+float4 ps_main(PSInput input) : SV_TARGET {
+    return input.color;
+}
+)";
+
+struct TriangleVertex final {
+    float position[3];
+    float color[4];
+};
+
+struct TriangleResource final {
+    Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> vertex_shader;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel_shader;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout;
+};
 
 LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
@@ -106,6 +143,15 @@ public:
             return false;
         }
 
+        D3D11_TEXTURE2D_DESC back_buffer_desc{};
+        back_buffer->GetDesc(&back_buffer_desc);
+        viewport_.TopLeftX = 0.0f;
+        viewport_.TopLeftY = 0.0f;
+        viewport_.Width = static_cast<float>(back_buffer_desc.Width);
+        viewport_.Height = static_cast<float>(back_buffer_desc.Height);
+        viewport_.MinDepth = 0.0f;
+        viewport_.MaxDepth = 1.0f;
+
         result = device_->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view_.GetAddressOf());
         if (FAILED(result)) {
             shutdown();
@@ -123,6 +169,7 @@ public:
         }
 
         render_target_view_.Reset();
+        triangle_resources_.clear();
         swap_chain_.Reset();
         context_.Reset();
         device_.Reset();
@@ -136,6 +183,7 @@ public:
 
         ID3D11RenderTargetView* render_targets[] = { render_target_view_.Get() };
         context_->OMSetRenderTargets(1, render_targets, nullptr);
+        context_->RSSetViewports(1, &viewport_);
         return true;
     }
 
@@ -191,6 +239,149 @@ public:
         return clear(found->second[0], found->second[1], found->second[2], found->second[3]);
     }
 
+    bool create_triangle(std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || next_triangle_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> vertex_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> pixel_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+
+        HRESULT result = D3DCompile(
+            kTriangleShaderSource,
+            sizeof(kTriangleShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "vs_main",
+            "vs_4_0",
+            0,
+            0,
+            vertex_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        error_blob.Reset();
+        result = D3DCompile(
+            kTriangleShaderSource,
+            sizeof(kTriangleShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "ps_main",
+            "ps_4_0",
+            0,
+            0,
+            pixel_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        TriangleResource resource{};
+        result = device_->CreateVertexShader(
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            nullptr,
+            resource.vertex_shader.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreatePixelShader(
+            pixel_shader_blob->GetBufferPointer(),
+            pixel_shader_blob->GetBufferSize(),
+            nullptr,
+            resource.pixel_shader.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr D3D11_INPUT_ELEMENT_DESC input_elements[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(TriangleVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(TriangleVertex, color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        result = device_->CreateInputLayout(
+            input_elements,
+            2,
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            resource.input_layout.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr TriangleVertex vertices[] = {
+            { { 0.0f, 0.65f, 0.0f }, { 0.95f, 0.25f, 0.20f, 1.0f } },
+            { { 0.65f, -0.55f, 0.0f }, { 0.20f, 0.85f, 0.45f, 1.0f } },
+            { { -0.65f, -0.55f, 0.0f }, { 0.20f, 0.45f, 0.95f, 1.0f } },
+        };
+
+        D3D11_BUFFER_DESC buffer_desc{};
+        buffer_desc.ByteWidth = sizeof(vertices);
+        buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+        buffer_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA initial_data{};
+        initial_data.pSysMem = vertices;
+        result = device_->CreateBuffer(&buffer_desc, &initial_data, resource.vertex_buffer.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        const std::uint64_t handle = next_triangle_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        triangle_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        std::cerr << "[ZENO][native] triangle resource created\n";
+        return true;
+    }
+
+    bool destroy_triangle(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = triangle_resources_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] triangle resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
+    bool draw_triangle(std::uint64_t handle)
+    {
+        if (context_ == nullptr || render_target_view_ == nullptr) {
+            return false;
+        }
+
+        const auto found = triangle_resources_.find(handle);
+        if (found == triangle_resources_.end()) {
+            return false;
+        }
+
+        const TriangleResource& resource = found->second;
+        constexpr UINT stride = sizeof(TriangleVertex);
+        constexpr UINT offset = 0;
+        ID3D11Buffer* vertex_buffers[] = { resource.vertex_buffer.Get() };
+        context_->IASetInputLayout(resource.input_layout.Get());
+        context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        context_->VSSetShader(resource.vertex_shader.Get(), nullptr, 0);
+        context_->PSSetShader(resource.pixel_shader.Get(), nullptr, 0);
+        context_->Draw(3, 0);
+        return true;
+    }
+
     bool present()
     {
         if (swap_chain_ == nullptr) {
@@ -205,8 +396,11 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+    D3D11_VIEWPORT viewport_{};
     std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
+    std::unordered_map<std::uint64_t, TriangleResource> triangle_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
+    std::uint64_t next_triangle_handle_ = 1;
 };
 
 bool NativeBackend::initialize(const NativeBackendConfig& config)
@@ -353,6 +547,21 @@ bool NativeBackend::destroy_clear_color(std::uint64_t handle)
 bool NativeBackend::clear_with_resource(std::uint64_t handle)
 {
     return renderer_ != nullptr && renderer_->clear_with_resource(handle);
+}
+
+bool NativeBackend::create_triangle(std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr && renderer_->create_triangle(out_handle);
+}
+
+bool NativeBackend::destroy_triangle(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_triangle(handle);
+}
+
+bool NativeBackend::draw_triangle(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->draw_triangle(handle);
 }
 
 bool NativeBackend::present()

@@ -290,6 +290,67 @@ extern "C" ZenResultCode zen_native_backend_clear_with_resource(
     }
 }
 
+extern "C" ZenResultCode zen_native_backend_create_triangle(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle* out_triangle)
+{
+    try {
+        if (out_triangle == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [out_triangle](zeno::native::NativeBackend& native_backend) {
+            std::uint64_t handle = 0;
+            if (!native_backend.create_triangle(handle)) {
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            out_triangle->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_triangle(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle triangle)
+{
+    try {
+        if (triangle.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [triangle](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_triangle(triangle.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_triangle(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle triangle)
+{
+    try {
+        if (triangle.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [triangle](zeno::native::NativeBackend& native_backend) {
+            return native_backend.draw_triangle(triangle.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
 extern "C" ZenResultCode zen_native_backend_present(ZenNativeBackendHandle backend)
 {
     try {

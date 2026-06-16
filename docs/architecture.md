@@ -51,7 +51,7 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 - DirectX 11 device/context/swap-chain setup,
 - render target creation,
 - clear/present operations,
-- backend-owned render resources.
+- backend-owned clear-color and minimal triangle render resources.
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
 
@@ -70,7 +70,7 @@ SDK classes are allowed for game code ergonomics, but they do not cross the Rust
 - `on_render`,
 - `on_shutdown`.
 
-The current sample changes the DirectX 11 clear color over time and exits cleanly after a short demo loop.
+The current sample changes the DirectX 11 clear color over time, draws a fixed colored triangle through the SDK, and exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

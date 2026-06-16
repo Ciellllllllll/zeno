@@ -23,6 +23,11 @@ typedef struct ZenRenderClearColorHandle {
     uint64_t value;
 } ZenRenderClearColorHandle;
 
+typedef struct ZenRenderTriangleHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenRenderTriangleHandle;
+
 typedef struct ZenNativeBackendConfig {
     /* Must be set to ZEN_NATIVE_BACKEND_CONFIG_SIZE by the caller. */
     uint32_t size;
@@ -175,6 +180,51 @@ ZenResultCode zen_native_backend_destroy_clear_color(
 ZenResultCode zen_native_backend_clear_with_resource(
     ZenNativeBackendHandle backend,
     ZenRenderClearColorHandle clear_color);
+
+/*
+ * Creates a backend-owned minimal triangle render resource.
+ *
+ * backend: must have an initialized renderer.
+ * out_triangle: borrowed output pointer, must not be null. Receives an owned
+ * non-zero resource handle on success.
+ * On failure, out_triangle is left unchanged.
+ * The caller must release a successful handle with
+ * zen_native_backend_destroy_triangle before or during backend shutdown.
+ * Destroying the backend invalidates outstanding triangle handles.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_create_triangle(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle* out_triangle);
+
+/*
+ * Destroys a backend-owned triangle render resource.
+ *
+ * backend: must have an initialized renderer. triangle must be a non-zero
+ * handle created by zen_native_backend_create_triangle for the same backend.
+ * Returns ZEN_RESULT_NOT_INITIALIZED when a non-zero handle is not present,
+ * including double destroy and handles invalidated by backend destruction.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_destroy_triangle(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle triangle);
+
+/*
+ * Draws a backend-owned minimal triangle render resource.
+ *
+ * backend: must have an initialized renderer and an active frame.
+ * triangle: must be a non-zero handle created by
+ * zen_native_backend_create_triangle for the same backend.
+ * Returns ZEN_RESULT_NOT_INITIALIZED when a non-zero handle is not present.
+ * Thread-safety: this function must not be called concurrently for the same
+ * backend handle, including concurrent destroy.
+ */
+ZenResultCode zen_native_backend_draw_triangle(
+    ZenNativeBackendHandle backend,
+    ZenRenderTriangleHandle triangle);
 
 /*
  * Presents the current swap chain frame.

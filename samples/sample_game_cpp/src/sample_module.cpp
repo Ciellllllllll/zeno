@@ -8,12 +8,17 @@ constexpr double kDemoDurationSeconds = 4.0;
 constexpr double kColorCycleSeconds = 2.0;
 
 double g_elapsed_seconds = 0.0;
+zeno::RenderTriangle g_triangle;
 
-zeno::Result on_init(zeno::GameContext&)
+zeno::Result on_init(zeno::GameContext& context)
 {
+    if (context.backend == nullptr) {
+        return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
     g_elapsed_seconds = 0.0;
     std::cerr << "[ZENO][sample] game init\n";
-    return zeno::Result();
+    return context.backend->create_triangle(g_triangle);
 }
 
 zeno::Result on_update(zeno::GameContext& context)
@@ -48,11 +53,17 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
+    result = context.backend->draw_triangle(g_triangle);
+    if (!result.ok()) {
+        return result;
+    }
+
     return context.backend->present();
 }
 
 zeno::Result on_shutdown(zeno::GameContext&)
 {
+    g_triangle.reset();
     std::cerr << "[ZENO][sample] game shutdown\n";
     return zeno::Result();
 }

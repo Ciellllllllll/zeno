@@ -9,10 +9,10 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Rust engine core with runtime lifecycle, frame stepping, frame timing, shutdown state, and error model.
 - Rust C ABI crate that exposes engine creation, stepping, shutdown request, destruction, result codes, and POD frame/config structs.
 - C++ native backend with Win32 window creation and DirectX 11 device/swap-chain/render-target bootstrap.
-- Handle-based native backend resource example for clear-color resources.
+- Handle-based native backend resources for clear colors and a minimal DirectX 11 triangle draw path.
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
-- Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, and clears with a changing DirectX 11 color before shutting down.
+- Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, draws a visible triangle, and shuts down cleanly.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for local build, run, and cleanup.
 
@@ -74,7 +74,7 @@ Run the sample:
 .\scripts\run-sample.ps1
 ```
 
-The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds. Console output shows native backend initialization/shutdown and sample module init/shutdown.
+The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds and a visible colored triangle. Console output shows native backend initialization/shutdown and sample module init/shutdown.
 
 Visual Studio 2022 should open this repository as a folder and consume `CMakePresets.json`. VS Code should use rust-analyzer for the Cargo workspace and CMake Tools for the same presets. Both IDEs are auxiliary entry points over the same targets used by the CLI.
 
@@ -112,11 +112,11 @@ The local `docs/` directory contains phase specs and phase reports in this worki
 
 ## Screenshots Or GIFs
 
-Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the clear color is changing, and place approved public media under a future tracked `media/` directory. Do not commit generated binaries or local build output when adding media.
+Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the triangle is visible and the clear color is changing, and place approved public media under a future tracked `media/` directory. Do not commit generated binaries or local build output when adding media.
 
 ## Current Limitations
 
-- Rendering is currently a clear-color DirectX 11 path only.
+- Rendering is currently limited to a clear-color DirectX 11 path plus a fixed minimal triangle resource.
 - There is no input system, mesh renderer, sprite renderer, texture loading, asset pipeline, editor, physics, audio, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
 - The sample loop currently drives the native backend directly through the C++ SDK; integrating the Rust runtime as the sample's outer frame scheduler is future work.
@@ -127,7 +127,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the clea
 Near-term realistic next steps:
 
 - Add a minimal input API.
-- Add triangle or sprite rendering with handle-based shader/buffer/texture resources.
+- Add sprite rendering with handle-based shader/buffer/texture resources.
 - Add a small asset-loading convention for sample resources.
 - Introduce dynamic game module loading through C ABI entry points.
 - Add conservative Windows CI once the local workflow remains stable.
