@@ -9,17 +9,14 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
-    cargo build -p zeno_abi
-    cargo test
+    $preset = if ($Configuration -eq "Release") { "windows-msvc-release" } else { "windows-msvc-debug" }
+    $cargoProfileArgs = if ($Configuration -eq "Release") { @("--release") } else { @() }
 
-    cmake -S native -B build/native
-    cmake --build build/native --config $Configuration
+    cargo build -p zeno_abi @cargoProfileArgs
+    cargo test --workspace
 
-    cmake -S sdk/cpp -B build/sdk-cpp
-    cmake --build build/sdk-cpp --config $Configuration
-
-    cmake -S samples/sample_game_cpp -B build/sample-game-cpp
-    cmake --build build/sample-game-cpp --config $Configuration
+    cmake --preset $preset
+    cmake --build --preset $preset
 }
 finally {
     Pop-Location

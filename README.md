@@ -13,6 +13,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - C++ Game SDK with RAII wrappers over engine/backend handles and explicit `zeno::Result` returns.
 - Static-linked C++ game module lifecycle with `on_init`, `on_update`, `on_render`, and `on_shutdown`.
 - Runnable sample game whose C++ host drives the current loop, calls the static-linked module lifecycle, and clears with a changing DirectX 11 color before shutting down.
+- Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for local build, run, and cleanup.
 
 ## Why This Shape
@@ -37,6 +38,14 @@ Supported local environment:
 - Rust stable with Cargo
 - VS Code with rust-analyzer and CMake Tools is the intended lightweight editor workflow
 
+The canonical build inputs are:
+
+- Rust: `Cargo.toml` / Cargo workspace
+- C++: `CMakeLists.txt` / `CMakePresets.json`
+- Scripts: thin wrappers around Cargo and CMake presets
+
+Do not treat generated `.sln`, `.vcxproj`, or editor task files as source-of-truth build files.
+
 Recommended full local build:
 
 ```powershell
@@ -47,20 +56,16 @@ Manual Rust build:
 
 ```powershell
 cargo build -p zeno_abi
-cargo test
+cargo test --workspace
 ```
 
 Manual C++ build:
 
 ```powershell
-cmake -S native -B build/native
-cmake --build build/native --config Debug
-
-cmake -S sdk/cpp -B build/sdk-cpp
-cmake --build build/sdk-cpp --config Debug
-
-cmake -S samples/sample_game_cpp -B build/sample-game-cpp
-cmake --build build/sample-game-cpp --config Debug
+cmake --list-presets
+cmake --preset windows-msvc-debug
+cmake --build --preset windows-msvc-debug
+ctest --preset windows-msvc-debug
 ```
 
 Run the sample:
@@ -70,6 +75,8 @@ Run the sample:
 ```
 
 The sample should show a 640x360 window with a DirectX 11 clear color that changes for a few seconds. Console output shows native backend initialization/shutdown and sample module init/shutdown.
+
+Visual Studio 2022 should open this repository as a folder and consume `CMakePresets.json`. VS Code should use rust-analyzer for the Cargo workspace and CMake Tools for the same presets. Both IDEs are auxiliary entry points over the same targets used by the CLI.
 
 Clean generated local outputs:
 
@@ -92,6 +99,7 @@ zeno/
     sample_game_cpp/    Sample C++ game using the SDK/module path
   scripts/              Local Windows build/run helpers
   tools/                Reserved for future local tools
+  CMakePresets.json     Canonical C++ configure/build/test presets
 ```
 
 ## Documentation

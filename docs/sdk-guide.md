@@ -7,7 +7,7 @@
 - C++ native backend ownership for Win32 and DirectX 11 resources.
 - A C++ SDK layer that is ergonomic for game code without leaking through the ABI.
 - A small sample game module that proves init/update/render/shutdown flow.
-- Practical Windows build workflow using Cargo, CMake, and Visual Studio 2022/MSVC.
+- Practical Windows build workflow using Cargo, CMakePresets, and Visual Studio 2022/MSVC.
 
 ## Design Decisions
 
@@ -16,13 +16,14 @@
 - C ABI is used instead of Rust/C++ native ABI to keep the boundary compiler-stable and easy to audit.
 - DirectX 11 is the first renderer to keep the milestone narrow and demonstrable.
 - Static game-module linking is used for the first module phase; dynamic loading should use C ABI entry points later.
+- Cargo and CMakePresets are the canonical build inputs so Visual Studio 2022, VS Code, and CLI usage share the same targets.
 
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
 - Rendering only clears the screen. This is intentionally honest: the current milestone proves backend initialization and frame presentation, not a full renderer.
 - The SDK is intentionally small. It is enough to demonstrate ownership and lifecycle without introducing a framework too early.
-- Build scripts are local PowerShell scripts rather than CI. This keeps the workflow practical before adding public automation.
+- Build scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical before adding public automation.
 
 ## Difficult Parts
 
@@ -41,6 +42,7 @@
 - No CI yet.
 - No multi-platform support.
 - No checked-in screenshots or GIFs yet; capture approved media from the sample window when needed.
+- No generated Visual Studio solution or project files are source-of-truth artifacts; IDEs consume the preset-based build graph.
 
 ## Roadmap
 

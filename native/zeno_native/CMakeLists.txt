@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.24)
 
 project(zeno_native LANGUAGES CXX)
 
+set(ZENO_RUST_PROFILE "debug" CACHE STRING "Cargo profile directory that contains zeno_abi artifacts.")
+
 add_library(zeno_native STATIC
     src/native_backend.cpp
     src/native_backend_c_api.cpp
@@ -12,7 +14,7 @@ target_include_directories(zeno_native PUBLIC
 )
 target_link_libraries(zeno_native PRIVATE user32 d3d11 dxgi)
 
-set(ZENO_ABI_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../target/debug")
+set(ZENO_ABI_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../target/${ZENO_RUST_PROFILE}")
 
 if(NOT TARGET zeno_abi_rust)
     add_library(zeno_abi_rust SHARED IMPORTED GLOBAL)
@@ -28,6 +30,7 @@ target_include_directories(zeno_abi_smoke PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(zeno_abi_smoke PRIVATE zeno_abi_rust)
+add_test(NAME zeno_abi_smoke COMMAND zeno_abi_smoke)
 
 add_custom_command(TARGET zeno_abi_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -38,3 +41,4 @@ add_custom_command(TARGET zeno_abi_smoke POST_BUILD
 add_executable(zeno_native_backend_smoke src/native_backend_smoke.cpp)
 target_compile_features(zeno_native_backend_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_native_backend_smoke PRIVATE zeno_native)
+add_test(NAME zeno_native_backend_smoke COMMAND zeno_native_backend_smoke)

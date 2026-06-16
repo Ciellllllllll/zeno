@@ -11,6 +11,14 @@ Sample Game Host
 
 The current sample host owns the outer loop. It calls the SDK/module lifecycle and drives the native backend render path through the SDK. The Rust runtime path is verified by Rust, ABI, and SDK smoke tests in this milestone; wiring it in as the sample's outer frame scheduler is future work.
 
+## Canonical Build Graph
+
+Rust build ownership stays with the Cargo workspace rooted at `Cargo.toml`.
+
+C++ build ownership stays with the top-level `CMakeLists.txt` and `CMakePresets.json`. The canonical preset names are `windows-msvc-debug` and `windows-msvc-release`. Visual Studio 2022 Open Folder, VS Code CMake Tools, and CLI builds all consume the same native backend, SDK, and sample game CMake targets.
+
+The PowerShell scripts in `scripts/` are wrappers over Cargo and CMake presets; they are not separate build definitions.
+
 ## Rust Engine Core
 
 `crates/zeno_core` owns high-level runtime behavior:

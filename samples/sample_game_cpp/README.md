@@ -10,14 +10,16 @@ From the repository root:
 
 ```powershell
 cargo build -p zeno_abi
-cmake -S samples/sample_game_cpp -B build/sample-game-cpp
-cmake --build build/sample-game-cpp --config Debug
+cmake --preset windows-msvc-debug
+cmake --build --preset windows-msvc-debug
 ```
+
+The sample target is part of the repository-level CMake preset graph. Visual Studio 2022 Open Folder, VS Code CMake Tools, and CLI builds all use the same `zeno_sample_game_cpp` target.
 
 ## Run
 
 ```powershell
-.\build\sample-game-cpp\Debug\zeno_sample_game_cpp.exe
+.\scripts\run-sample.ps1
 ```
 
 ## Expected Result
