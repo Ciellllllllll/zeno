@@ -21,6 +21,8 @@ constexpr std::uint32_t kVertexInputLayoutDescApiVersion = 1;
 constexpr std::uint32_t kVertexInputLayoutDescSize = sizeof(ZenVertexInputLayoutDesc);
 constexpr std::uint32_t kSpriteDrawDescApiVersion = 1;
 constexpr std::uint32_t kSpriteDrawDescSize = sizeof(ZenSpriteDrawDesc);
+constexpr std::uint32_t kMeshDescApiVersion = 1;
+constexpr std::uint32_t kMeshDescSize = sizeof(ZenMeshDesc);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
@@ -69,6 +71,23 @@ bool is_valid_sprite_draw_desc(const ZenSpriteDrawDesc& desc)
 {
     return desc.size == kSpriteDrawDescSize
         && desc.api_version == kSpriteDrawDescApiVersion;
+}
+
+bool is_valid_mesh_desc(const ZenMeshDesc& desc)
+{
+    if (desc.size != kMeshDescSize
+        || desc.api_version != kMeshDescApiVersion
+        || desc.vertex_data == nullptr
+        || desc.index_data == nullptr
+        || desc.vertex_count == 0
+        || desc.index_count == 0
+        || desc.vertex_stride_bytes < sizeof(float) * 7
+        || desc.vertex_stride_bytes % sizeof(float) != 0) {
+        return false;
+    }
+
+    return desc.vertex_count <= UINT64_MAX / desc.vertex_stride_bytes
+        && desc.index_count <= UINT64_MAX / sizeof(std::uint32_t);
 }
 
 bool allocate_handle(std::uint64_t& out_handle)
@@ -128,6 +147,17 @@ zeno::native::SpriteDrawDesc to_native_sprite_draw_desc(const ZenSpriteDrawDesc&
         native_desc.color[i] = desc.color[i];
     }
 
+    return native_desc;
+}
+
+zeno::native::MeshDesc to_native_mesh_desc(const ZenMeshDesc& desc)
+{
+    zeno::native::MeshDesc native_desc{};
+    native_desc.vertex_data = desc.vertex_data;
+    native_desc.vertex_count = desc.vertex_count;
+    native_desc.vertex_stride_bytes = desc.vertex_stride_bytes;
+    native_desc.index_data = desc.index_data;
+    native_desc.index_count = desc.index_count;
     return native_desc;
 }
 
@@ -718,6 +748,72 @@ extern "C" ZenResultCode zen_native_backend_draw_sprite(
         return with_backend(backend, [texture, desc](zeno::native::NativeBackend& native_backend) {
             return map_render_command_result(
                 native_backend.draw_sprite(texture.value, to_native_sprite_draw_desc(*desc)));
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_create_mesh(
+    ZenNativeBackendHandle backend,
+    const ZenMeshDesc* desc,
+    ZenMeshHandle* out_mesh)
+{
+    try {
+        if (desc == nullptr || out_mesh == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_mesh_desc(*desc)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [desc, out_mesh](zeno::native::NativeBackend& native_backend) {
+            std::uint64_t handle = 0;
+            if (!native_backend.create_mesh(to_native_mesh_desc(*desc), handle)) {
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            out_mesh->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_mesh(
+    ZenNativeBackendHandle backend,
+    ZenMeshHandle mesh)
+{
+    try {
+        if (mesh.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [mesh](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_mesh(mesh.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_mesh(
+    ZenNativeBackendHandle backend,
+    ZenMeshHandle mesh,
+    const ZenMatrix4x4* model_matrix)
+{
+    try {
+        if (mesh.value == 0 || model_matrix == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [mesh, model_matrix](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(
+                native_backend.draw_mesh(mesh.value, to_native_matrix(*model_matrix)));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

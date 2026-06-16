@@ -48,6 +48,14 @@ struct SpriteDrawDesc final {
     float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
+struct MeshDesc final {
+    const void* vertex_data = nullptr;
+    std::uint64_t vertex_count = 0;
+    std::uint32_t vertex_stride_bytes = 0;
+    const std::uint32_t* index_data = nullptr;
+    std::uint64_t index_count = 0;
+};
+
 struct ShaderCompileLog final {
     char message[1024]{};
     std::uint32_t message_length = 0;
@@ -121,6 +129,9 @@ public:
     bool create_texture_from_memory(const std::uint8_t* image_bytes, std::uint64_t image_byte_count, std::uint64_t& out_handle);
     bool destroy_texture(std::uint64_t handle);
     RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc);
+    bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle);
+    bool destroy_mesh(std::uint64_t handle);
+    RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix);
     RenderCommandResult draw_triangle(std::uint64_t handle);
     bool set_camera_matrix(const Matrix4x4& matrix);
     RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix);

@@ -87,6 +87,34 @@ float4 ps_main(PSInput input) : SV_TARGET {
 }
 )";
 
+constexpr char kMeshShaderSource[] = R"(
+cbuffer MeshConstants : register(b0) {
+    row_major float4x4 u_world;
+    row_major float4x4 u_view_projection;
+};
+
+struct VSInput {
+    float3 position : POSITION;
+    float4 color : COLOR;
+};
+
+struct PSInput {
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+PSInput vs_main(VSInput input) {
+    PSInput output;
+    output.position = mul(mul(float4(input.position, 1.0), u_world), u_view_projection);
+    output.color = input.color;
+    return output;
+}
+
+float4 ps_main(PSInput input) : SV_TARGET {
+    return input.color;
+}
+)";
+
 struct TriangleVertex final {
     float position[3];
     float color[4];
@@ -118,6 +146,13 @@ struct TextureResource final {
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view;
     std::uint32_t width = 0;
     std::uint32_t height = 0;
+};
+
+struct MeshResource final {
+    Microsoft::WRL::ComPtr<ID3D11Buffer> vertex_buffer;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> index_buffer;
+    std::uint32_t vertex_stride_bytes = 0;
+    std::uint32_t index_count = 0;
 };
 
 struct TriangleTransformConstants final {
@@ -435,6 +470,49 @@ public:
             return false;
         }
 
+        D3D11_TEXTURE2D_DESC depth_texture_desc{};
+        depth_texture_desc.Width = back_buffer_desc.Width;
+        depth_texture_desc.Height = back_buffer_desc.Height;
+        depth_texture_desc.MipLevels = 1;
+        depth_texture_desc.ArraySize = 1;
+        depth_texture_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        depth_texture_desc.SampleDesc.Count = 1;
+        depth_texture_desc.Usage = D3D11_USAGE_DEFAULT;
+        depth_texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+        result = device_->CreateTexture2D(&depth_texture_desc, nullptr, depth_texture_.GetAddressOf());
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
+        result = device_->CreateDepthStencilView(depth_texture_.Get(), nullptr, depth_stencil_view_.GetAddressOf());
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
+        D3D11_DEPTH_STENCIL_DESC depth_state_desc{};
+        depth_state_desc.DepthEnable = TRUE;
+        depth_state_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+        depth_state_desc.DepthFunc = D3D11_COMPARISON_LESS;
+        result = device_->CreateDepthStencilState(&depth_state_desc, depth_stencil_state_.GetAddressOf());
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
+        D3D11_DEPTH_STENCIL_DESC disabled_depth_state_desc{};
+        disabled_depth_state_desc.DepthEnable = FALSE;
+        disabled_depth_state_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+        disabled_depth_state_desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
+        result = device_->CreateDepthStencilState(
+            &disabled_depth_state_desc,
+            disabled_depth_stencil_state_.GetAddressOf());
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
         D3D11_BUFFER_DESC transform_buffer_desc{};
         transform_buffer_desc.ByteWidth = sizeof(TriangleTransformConstants);
         transform_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
@@ -456,6 +534,10 @@ public:
         }
 
         frame_active_ = false;
+        mesh_resources_.clear();
+        mesh_input_layout_.Reset();
+        mesh_pixel_shader_.Reset();
+        mesh_vertex_shader_.Reset();
         texture_resources_.clear();
         sprite_blend_state_.Reset();
         sprite_sampler_state_.Reset();
@@ -465,6 +547,10 @@ public:
         sprite_pixel_shader_.Reset();
         sprite_vertex_shader_.Reset();
         triangle_transform_buffer_.Reset();
+        disabled_depth_stencil_state_.Reset();
+        depth_stencil_state_.Reset();
+        depth_stencil_view_.Reset();
+        depth_texture_.Reset();
         render_target_view_.Reset();
         triangle_resources_.clear();
         pixel_shader_resources_.clear();
@@ -481,12 +567,13 @@ public:
 
     bool begin_frame()
     {
-        if (context_ == nullptr || render_target_view_ == nullptr || frame_active_) {
+        if (context_ == nullptr || render_target_view_ == nullptr || depth_stencil_view_ == nullptr || frame_active_) {
             return false;
         }
 
         ID3D11RenderTargetView* render_targets[] = { render_target_view_.Get() };
-        context_->OMSetRenderTargets(1, render_targets, nullptr);
+        context_->OMSetRenderTargets(1, render_targets, depth_stencil_view_.Get());
+        context_->ClearDepthStencilView(depth_stencil_view_.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
         context_->RSSetViewports(1, &viewport_);
         frame_active_ = true;
         return true;
@@ -949,6 +1036,86 @@ public:
         return destroyed;
     }
 
+    bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || next_mesh_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        if (desc.vertex_data == nullptr
+            || desc.index_data == nullptr
+            || desc.vertex_count == 0
+            || desc.index_count == 0
+            || desc.vertex_stride_bytes < sizeof(float) * 7
+            || desc.vertex_stride_bytes % sizeof(float) != 0
+            || desc.vertex_count > UINT32_MAX
+            || desc.index_count > UINT32_MAX
+            || desc.vertex_count > UINT_MAX / desc.vertex_stride_bytes
+            || desc.index_count > UINT_MAX / sizeof(std::uint32_t)) {
+            return false;
+        }
+
+        if (!ensure_mesh_pipeline()) {
+            return false;
+        }
+
+        D3D11_BUFFER_DESC vertex_buffer_desc{};
+        vertex_buffer_desc.ByteWidth = static_cast<UINT>(desc.vertex_count * desc.vertex_stride_bytes);
+        vertex_buffer_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        vertex_buffer_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA vertex_initial_data{};
+        vertex_initial_data.pSysMem = desc.vertex_data;
+
+        MeshResource resource{};
+        HRESULT result = device_->CreateBuffer(
+            &vertex_buffer_desc,
+            &vertex_initial_data,
+            resource.vertex_buffer.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_BUFFER_DESC index_buffer_desc{};
+        index_buffer_desc.ByteWidth = static_cast<UINT>(desc.index_count * sizeof(std::uint32_t));
+        index_buffer_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        index_buffer_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA index_initial_data{};
+        index_initial_data.pSysMem = desc.index_data;
+        result = device_->CreateBuffer(
+            &index_buffer_desc,
+            &index_initial_data,
+            resource.index_buffer.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        const std::uint64_t handle = next_mesh_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        resource.vertex_stride_bytes = desc.vertex_stride_bytes;
+        resource.index_count = static_cast<std::uint32_t>(desc.index_count);
+        mesh_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        std::cerr << "[ZENO][native] mesh resource created\n";
+        return true;
+    }
+
+    bool destroy_mesh(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = mesh_resources_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] mesh resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
     bool create_triangle_with_shaders(
         std::uint64_t vertex_shader,
         std::uint64_t pixel_shader,
@@ -1138,6 +1305,80 @@ public:
         return SUCCEEDED(result);
     }
 
+    bool ensure_mesh_pipeline()
+    {
+        if (mesh_vertex_shader_ != nullptr) {
+            return true;
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> vertex_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> pixel_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+
+        HRESULT result = D3DCompile(
+            kMeshShaderSource,
+            sizeof(kMeshShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "vs_main",
+            "vs_4_0",
+            0,
+            0,
+            vertex_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        error_blob.Reset();
+        result = D3DCompile(
+            kMeshShaderSource,
+            sizeof(kMeshShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "ps_main",
+            "ps_4_0",
+            0,
+            0,
+            pixel_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreateVertexShader(
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            nullptr,
+            mesh_vertex_shader_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreatePixelShader(
+            pixel_shader_blob->GetBufferPointer(),
+            pixel_shader_blob->GetBufferSize(),
+            nullptr,
+            mesh_pixel_shader_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr D3D11_INPUT_ELEMENT_DESC input_elements[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, sizeof(float) * 3, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        result = device_->CreateInputLayout(
+            input_elements,
+            2,
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            mesh_input_layout_.GetAddressOf());
+        return SUCCEEDED(result);
+    }
+
     RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc)
     {
         const auto found = texture_resources_.find(texture);
@@ -1181,12 +1422,53 @@ public:
         context_->PSSetConstantBuffers(0, 1, constant_buffers);
         context_->PSSetShaderResources(0, 1, shader_resource_views);
         context_->PSSetSamplers(0, 1, samplers);
+        context_->OMSetDepthStencilState(disabled_depth_stencil_state_.Get(), 0);
         context_->OMSetBlendState(sprite_blend_state_.Get(), blend_factor, 0xffffffff);
         context_->Draw(6, 0);
 
         ID3D11ShaderResourceView* null_srvs[] = { nullptr };
         context_->PSSetShaderResources(0, 1, null_srvs);
         context_->OMSetBlendState(nullptr, blend_factor, 0xffffffff);
+        return RenderCommandResult::ok;
+    }
+
+    RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix)
+    {
+        const auto found = mesh_resources_.find(mesh);
+        if (found == mesh_resources_.end()) {
+            return RenderCommandResult::missing_resource;
+        }
+
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (!ensure_mesh_pipeline()) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        TriangleTransformConstants constants{};
+        for (int i = 0; i < 16; ++i) {
+            constants.world[i] = model_matrix.elements[i];
+            constants.view_projection[i] = view_projection_matrix_.elements[i];
+        }
+        context_->UpdateSubresource(triangle_transform_buffer_.Get(), 0, nullptr, &constants, 0, 0);
+
+        const MeshResource& resource = found->second;
+        const UINT stride = resource.vertex_stride_bytes;
+        constexpr UINT offset = 0;
+        ID3D11Buffer* vertex_buffers[] = { resource.vertex_buffer.Get() };
+        ID3D11Buffer* constant_buffers[] = { triangle_transform_buffer_.Get() };
+        context_->IASetInputLayout(mesh_input_layout_.Get());
+        context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
+        context_->IASetIndexBuffer(resource.index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        context_->VSSetShader(mesh_vertex_shader_.Get(), nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShader(mesh_pixel_shader_.Get(), nullptr, 0);
+        context_->OMSetDepthStencilState(depth_stencil_state_.Get(), 0);
+        context_->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+        context_->DrawIndexed(resource.index_count, 0, 0);
         return RenderCommandResult::ok;
     }
 
@@ -1234,6 +1516,7 @@ public:
         context_->VSSetShader(resource.vertex_shader.Get(), nullptr, 0);
         context_->VSSetConstantBuffers(0, 1, constant_buffers);
         context_->PSSetShader(resource.pixel_shader.Get(), nullptr, 0);
+        context_->OMSetDepthStencilState(disabled_depth_stencil_state_.Get(), 0);
         context_->Draw(3, 0);
         return RenderCommandResult::ok;
     }
@@ -1254,7 +1537,14 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> depth_texture_;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> depth_stencil_view_;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depth_stencil_state_;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> disabled_depth_stencil_state_;
     Microsoft::WRL::ComPtr<ID3D11Buffer> triangle_transform_buffer_;
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> mesh_vertex_shader_;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> mesh_pixel_shader_;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> mesh_input_layout_;
     Microsoft::WRL::ComPtr<ID3D11VertexShader> sprite_vertex_shader_;
     Microsoft::WRL::ComPtr<ID3D11PixelShader> sprite_pixel_shader_;
     Microsoft::WRL::ComPtr<ID3D11InputLayout> sprite_input_layout_;
@@ -1272,11 +1562,13 @@ private:
     std::unordered_map<std::uint64_t, VertexShaderResource> vertex_shader_resources_;
     std::unordered_map<std::uint64_t, PixelShaderResource> pixel_shader_resources_;
     std::unordered_map<std::uint64_t, TextureResource> texture_resources_;
+    std::unordered_map<std::uint64_t, MeshResource> mesh_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
     std::uint64_t next_triangle_handle_ = 1;
     std::uint64_t next_vertex_shader_handle_ = 1;
     std::uint64_t next_pixel_shader_handle_ = 1;
     std::uint64_t next_texture_handle_ = 1;
+    std::uint64_t next_mesh_handle_ = 1;
 };
 
 bool NativeBackend::initialize(const NativeBackendConfig& config)
@@ -1614,6 +1906,25 @@ RenderCommandResult NativeBackend::draw_sprite(std::uint64_t texture, const Spri
     }
 
     return renderer_->draw_sprite(texture, desc);
+}
+
+bool NativeBackend::create_mesh(const MeshDesc& desc, std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr && renderer_->create_mesh(desc, out_handle);
+}
+
+bool NativeBackend::destroy_mesh(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_mesh(handle);
+}
+
+RenderCommandResult NativeBackend::draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_mesh(mesh, model_matrix);
 }
 
 RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)

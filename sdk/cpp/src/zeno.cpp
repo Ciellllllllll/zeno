@@ -77,6 +77,23 @@ ZenSpriteDrawDesc make_native_sprite_draw_desc(const SpriteDrawDesc& desc)
     return native_desc;
 }
 
+ZenMeshDesc make_native_mesh_desc(
+    const MeshVertex* vertices,
+    std::uint32_t vertex_count,
+    const std::uint32_t* indices,
+    std::uint32_t index_count)
+{
+    ZenMeshDesc desc{};
+    desc.size = ZEN_MESH_DESC_SIZE;
+    desc.api_version = ZEN_MESH_DESC_API_VERSION;
+    desc.vertex_stride_bytes = sizeof(MeshVertex);
+    desc.vertex_data = vertices;
+    desc.vertex_count = vertex_count;
+    desc.index_data = indices;
+    desc.index_count = index_count;
+    return desc;
+}
+
 } // namespace
 
 bool InputSnapshot::down(Key key) const
@@ -381,6 +398,24 @@ Result NativeBackend::create_texture(
     return Result();
 }
 
+Result NativeBackend::create_mesh(
+    const MeshVertex* vertices,
+    std::uint32_t vertex_count,
+    const std::uint32_t* indices,
+    std::uint32_t index_count,
+    Mesh& out_mesh)
+{
+    ZenMeshDesc desc = make_native_mesh_desc(vertices, vertex_count, indices, index_count);
+    ZenMeshHandle handle{};
+    const ZenResultCode result = zen_native_backend_create_mesh(handle_, &desc, &handle);
+    if (result != ZEN_RESULT_OK) {
+        return Result(result);
+    }
+
+    out_mesh = Mesh(handle_, handle);
+    return Result();
+}
+
 Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
 {
     ZenRenderTriangleHandle handle{};
@@ -440,6 +475,17 @@ Result NativeBackend::draw_sprite(const Texture& texture, const SpriteDrawDesc& 
 {
     const ZenSpriteDrawDesc native_desc = make_native_sprite_draw_desc(desc);
     return Result(zen_native_backend_draw_sprite(handle_, texture.handle_, &native_desc));
+}
+
+Result NativeBackend::draw_mesh(const Mesh& mesh, const Mat4& model_matrix)
+{
+    const ZenMatrix4x4 native_model_matrix = to_native_matrix(model_matrix);
+    return Result(zen_native_backend_draw_mesh(handle_, mesh.handle_, &native_model_matrix));
+}
+
+Result NativeBackend::draw_mesh(const Mesh& mesh, const Transform& transform)
+{
+    return draw_mesh(mesh, transform.matrix());
 }
 
 Result NativeBackend::present()
@@ -609,6 +655,45 @@ void Texture::reset()
     }
 
     zen_native_backend_destroy_texture(backend_, handle_);
+    backend_ = {};
+    handle_ = {};
+}
+
+Mesh::Mesh(ZenNativeBackendHandle backend, ZenMeshHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+Mesh::~Mesh()
+{
+    reset();
+}
+
+Mesh::Mesh(Mesh&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenMeshHandle{}))
+{
+}
+
+Mesh& Mesh::operator=(Mesh&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenMeshHandle{});
+    }
+
+    return *this;
+}
+
+void Mesh::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_mesh(backend_, handle_);
     backend_ = {};
     handle_ = {};
 }

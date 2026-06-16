@@ -51,10 +51,15 @@ This layer converts between ABI-safe data and Rust core types. Unsafe code is ke
 - Win32 keyboard/mouse message collection,
 - DirectX 11 device/context/swap-chain setup,
 - render target creation,
+- depth buffer and depth state creation,
 - clear/present operations,
-- backend-owned clear-color and minimal triangle render resources.
+- backend-owned clear-color, shader, texture, sprite, triangle, and mesh render resources.
 
 The public backend API exposes handles and POD structs, not Win32 or DirectX objects.
+
+Renderer resources such as shaders, textures, sprite state, mesh vertex/index buffers, depth buffers, and DirectX state objects are owned by the native backend. The SDK owns RAII wrappers over opaque handles only.
+
+Vertex and index data cross the ABI as borrowed pointers plus explicit counts and stride. The native backend copies that data into backend-owned GPU buffers during creation. Transform and camera data cross as POD matrices. DirectX buffers, input layouts, depth stencil objects, shader resource views, COM pointers, and Win32 handles remain native-backend private.
 
 ## Input Model
 
@@ -70,10 +75,12 @@ The native renderer is single-threaded per backend handle. Resource creation can
 begin_frame
   clear or clear_with_resource
   draw_triangle zero or more times
+  draw_sprite zero or more times
+  draw_mesh zero or more times
 present
 ```
 
-`present` closes the active frame. Calls such as nested `begin_frame`, `clear` before `begin_frame`, `draw_triangle` outside an active frame, or `present` outside an active frame return a stable `ZenResultCode` instead of relying on undefined DirectX state.
+`begin_frame` binds the render target and depth stencil view and clears depth. Mesh drawing enables depth testing and writes; the current triangle and sprite paths explicitly use depth-disabled state. `present` closes the active frame. Calls such as nested `begin_frame`, `clear` before `begin_frame`, draw calls outside an active frame, or `present` outside an active frame return a stable `ZenResultCode` instead of relying on undefined DirectX state.
 
 ## Math And Coordinate Convention
 
@@ -107,7 +114,7 @@ SDK classes are allowed for game code ergonomics, but they do not cross the Rust
 - `on_render`,
 - `on_shutdown`.
 
-The current sample changes the DirectX 11 clear color over time, draws a fixed colored triangle through the SDK, and exits cleanly after a short demo loop.
+The current sample changes the DirectX 11 clear color over time, draws a fixed colored triangle, a texture-backed sprite, and a basic indexed cube mesh through the SDK, then exits cleanly after a short demo loop.
 
 The game module is statically linked into the sample executable. Dynamic module loading and hot reload are not implemented in this milestone.
 

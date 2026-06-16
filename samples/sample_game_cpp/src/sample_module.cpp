@@ -15,8 +15,10 @@ zeno::RenderTriangle g_triangle;
 zeno::VertexShader g_vertex_shader;
 zeno::PixelShader g_pixel_shader;
 zeno::Texture g_sprite_texture;
+zeno::Mesh g_cube_mesh;
 zeno::Transform g_triangle_transform;
 zeno::Transform g_sprite_transform;
+zeno::Transform g_cube_transform;
 zeno::Camera g_camera;
 
 void log_shader_failure(
@@ -48,11 +50,15 @@ zeno::Result on_init(zeno::GameContext& context)
     g_elapsed_seconds = 0.0;
     g_keyboard_tint = 0.0f;
     g_triangle_transform = zeno::Transform{};
+    g_triangle_transform.position = zeno::Vec3{ 0.0f, 0.0f, 2.0f };
     g_triangle_transform.scale = zeno::Vec3{ 0.75f, 0.75f, 1.0f };
     g_sprite_transform = zeno::Transform{};
-    g_sprite_transform.position = zeno::Vec3{ -0.45f, -0.35f, 0.0f };
+    g_sprite_transform.position = zeno::Vec3{ -0.45f, -0.35f, 1.7f };
     g_sprite_transform.scale = zeno::Vec3{ 0.42f, 0.42f, 1.0f };
-    g_camera = zeno::Camera::orthographic(2.0f, 2.0f, 0.0f, 1.0f);
+    g_cube_transform = zeno::Transform{};
+    g_cube_transform.position = zeno::Vec3{ 0.0f, 0.0f, 3.0f };
+    g_cube_transform.scale = zeno::Vec3{ 0.7f, 0.7f, 0.7f };
+    g_camera = zeno::Camera::perspective(1.0471976f, 640.0f / 360.0f, 0.1f, 10.0f);
     std::string manifest;
     zeno::Result result = context.assets->read_text("sample_manifest.txt", manifest);
     if (!result.ok()) {
@@ -86,6 +92,30 @@ zeno::Result on_init(zeno::GameContext& context)
         return result;
     }
 
+    constexpr zeno::MeshVertex cube_vertices[] = {
+        { { -0.5f, -0.5f, -0.5f }, { 0.95f, 0.20f, 0.20f, 1.0f } },
+        { { -0.5f, 0.5f, -0.5f }, { 0.95f, 0.55f, 0.20f, 1.0f } },
+        { { 0.5f, 0.5f, -0.5f }, { 0.95f, 0.90f, 0.20f, 1.0f } },
+        { { 0.5f, -0.5f, -0.5f }, { 0.35f, 0.85f, 0.35f, 1.0f } },
+        { { -0.5f, -0.5f, 0.5f }, { 0.20f, 0.80f, 0.95f, 1.0f } },
+        { { -0.5f, 0.5f, 0.5f }, { 0.30f, 0.45f, 0.95f, 1.0f } },
+        { { 0.5f, 0.5f, 0.5f }, { 0.70f, 0.35f, 0.95f, 1.0f } },
+        { { 0.5f, -0.5f, 0.5f }, { 0.95f, 0.35f, 0.70f, 1.0f } },
+    };
+    constexpr std::uint32_t cube_indices[] = {
+        0, 1, 2, 0, 2, 3,
+        4, 6, 5, 4, 7, 6,
+        4, 5, 1, 4, 1, 0,
+        3, 2, 6, 3, 6, 7,
+        1, 5, 6, 1, 6, 2,
+        4, 0, 3, 4, 3, 7,
+    };
+
+    result = context.backend->create_mesh(cube_vertices, 8, cube_indices, 36, g_cube_mesh);
+    if (!result.ok()) {
+        return result;
+    }
+
     return context.backend->create_triangle(g_vertex_shader, g_pixel_shader, g_triangle);
 }
 
@@ -115,6 +145,7 @@ zeno::Result on_update(zeno::GameContext& context)
     g_triangle_transform.rotation_z_radians = static_cast<float>(g_elapsed_seconds);
     g_triangle_transform.position.x = 0.25f * g_keyboard_tint;
     g_sprite_transform.rotation_z_radians = -0.5f * static_cast<float>(g_elapsed_seconds);
+    g_cube_transform.rotation_z_radians = 0.7f * static_cast<float>(g_elapsed_seconds);
 
     context.should_close = g_elapsed_seconds >= kDemoDurationSeconds;
     return zeno::Result();
@@ -151,6 +182,11 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
+    result = context.backend->draw_mesh(g_cube_mesh, g_cube_transform);
+    if (!result.ok()) {
+        return result;
+    }
+
     result = context.backend->draw_triangle(g_triangle, g_triangle_transform);
     if (!result.ok()) {
         return result;
@@ -170,6 +206,7 @@ zeno::Result on_render(zeno::GameContext& context)
 zeno::Result on_shutdown(zeno::GameContext&)
 {
     g_triangle.reset();
+    g_cube_mesh.reset();
     g_sprite_texture.reset();
     g_pixel_shader.reset();
     g_vertex_shader.reset();

@@ -40,6 +40,19 @@ float4 ps_main(PSInput input) : SV_TARGET {
 
 constexpr const char kInvalidShaderSource[] = "float4 broken_shader(";
 
+struct MeshVertex final {
+    float position[3];
+    float color[4];
+};
+
+constexpr MeshVertex kMeshVertices[] = {
+    { { -0.5f, -0.5f, 1.5f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+    { { 0.0f, 0.5f, 1.5f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+    { { 0.5f, -0.5f, 1.5f }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+};
+
+constexpr std::uint32_t kMeshIndices[] = { 0, 1, 2 };
+
 constexpr uint8_t kBmp2x2[] = {
     0x42, 0x4D, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00,
@@ -83,6 +96,19 @@ ZenMatrix4x4 identity_matrix()
     matrix.elements[10] = 1.0f;
     matrix.elements[15] = 1.0f;
     return matrix;
+}
+
+ZenMeshDesc make_mesh_desc()
+{
+    ZenMeshDesc desc{};
+    desc.size = ZEN_MESH_DESC_SIZE;
+    desc.api_version = ZEN_MESH_DESC_API_VERSION;
+    desc.vertex_stride_bytes = sizeof(MeshVertex);
+    desc.vertex_data = kMeshVertices;
+    desc.vertex_count = 3;
+    desc.index_data = kMeshIndices;
+    desc.index_count = 3;
+    return desc;
 }
 
 ZenSpriteDrawDesc make_sprite_draw_desc()
@@ -255,6 +281,19 @@ int main()
         return 113;
     }
 
+    ZenMeshDesc mesh_desc = make_mesh_desc();
+    ZenMeshHandle scratch_mesh{ 777 };
+    if (!expect(zen_native_backend_create_mesh(backend, &mesh_desc, &scratch_mesh), ZEN_RESULT_BACKEND_ERROR)
+        || scratch_mesh.value != 777) {
+        zen_native_backend_destroy(backend);
+        return 127;
+    }
+
+    if (!expect(zen_native_backend_draw_mesh(backend, scratch_mesh, &identity), ZEN_RESULT_BACKEND_ERROR)) {
+        zen_native_backend_destroy(backend);
+        return 128;
+    }
+
     ZenNativeWindowConfig window_config{};
     window_config.size = ZEN_NATIVE_WINDOW_CONFIG_SIZE;
     window_config.api_version = ZEN_NATIVE_WINDOW_CONFIG_API_VERSION;
@@ -306,6 +345,39 @@ int main()
         zen_native_backend_destroy_texture(backend, texture);
         zen_native_backend_destroy(backend);
         return 117;
+    }
+
+    ZenMeshHandle mesh{};
+    result = zen_native_backend_create_mesh(backend, &mesh_desc, &mesh);
+    if (result != ZEN_RESULT_OK || mesh.value == 0) {
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 129;
+    }
+
+    ZenMeshHandle second_mesh{};
+    result = zen_native_backend_create_mesh(backend, &mesh_desc, &second_mesh);
+    if (result != ZEN_RESULT_OK || second_mesh.value == 0 || second_mesh.value == mesh.value) {
+        zen_native_backend_destroy_mesh(backend, mesh);
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 130;
+    }
+
+    result = zen_native_backend_destroy_mesh(backend, second_mesh);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_mesh(backend, mesh);
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 131;
+    }
+
+    result = zen_native_backend_destroy_mesh(backend, second_mesh);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy_mesh(backend, mesh);
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 132;
     }
 
     ZenShaderCompileLog shader_log = make_log();
@@ -433,6 +505,22 @@ int main()
         return 119;
     }
 
+    ZenMeshHandle invalid_mesh{};
+    result = zen_native_backend_draw_mesh(backend, invalid_mesh, &identity);
+    if (result != ZEN_RESULT_INVALID_ARGUMENT) {
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 133;
+    }
+
+    invalid_mesh.value = 999999;
+    result = zen_native_backend_draw_mesh(backend, invalid_mesh, &identity);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 134;
+    }
+
     ZenRenderTriangleHandle fake_triangle{ 999999 };
     result = zen_native_backend_draw_triangle(backend, fake_triangle);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
@@ -513,6 +601,14 @@ int main()
         return 120;
     }
 
+    result = zen_native_backend_draw_mesh(backend, mesh, &identity);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 135;
+    }
+
     result = zen_native_backend_begin_frame(backend);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
@@ -572,6 +668,15 @@ int main()
         return 121;
     }
 
+    result = zen_native_backend_draw_mesh(backend, mesh, &identity);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 136;
+    }
+
     result = zen_native_backend_present(backend);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
@@ -610,6 +715,14 @@ int main()
         zen_native_backend_destroy_clear_color(backend, clear_color);
         zen_native_backend_destroy(backend);
         return 122;
+    }
+
+    result = zen_native_backend_draw_mesh(backend, mesh, &identity);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 137;
     }
 
     for (int i = 0; i < 120; ++i) {
@@ -656,6 +769,14 @@ int main()
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
             return 123;
+        }
+
+        result = zen_native_backend_draw_mesh(backend, mesh, &identity);
+        if (result != ZEN_RESULT_OK) {
+            zen_native_backend_destroy_triangle(backend, triangle);
+            zen_native_backend_destroy_clear_color(backend, clear_color);
+            zen_native_backend_destroy(backend);
+            return 138;
         }
 
         result = zen_native_backend_present(backend);
@@ -727,6 +848,24 @@ int main()
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
         zen_native_backend_destroy(backend);
         return 126;
+    }
+
+    result = zen_native_backend_destroy_mesh(backend, mesh);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 139;
+    }
+
+    result = zen_native_backend_draw_mesh(backend, mesh, &identity);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 140;
+    }
+
+    result = zen_native_backend_destroy_mesh(backend, mesh);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 141;
     }
 
     result = zen_native_backend_draw_triangle(backend, triangle);

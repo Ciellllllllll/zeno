@@ -22,6 +22,8 @@ extern "C" {
 #define ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS 8u
 #define ZEN_SPRITE_DRAW_DESC_API_VERSION 1u
 #define ZEN_SPRITE_DRAW_DESC_SIZE ((uint32_t)sizeof(ZenSpriteDrawDesc))
+#define ZEN_MESH_DESC_API_VERSION 1u
+#define ZEN_MESH_DESC_SIZE ((uint32_t)sizeof(ZenMeshDesc))
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -74,6 +76,11 @@ typedef struct ZenTextureHandle {
     /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
     uint64_t value;
 } ZenTextureHandle;
+
+typedef struct ZenMeshHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenMeshHandle;
 
 typedef enum ZenVertexInputSemantic {
     ZEN_VERTEX_INPUT_SEMANTIC_POSITION = 1,
@@ -179,6 +186,22 @@ typedef struct ZenSpriteDrawDesc {
     /* Multiplicative RGBA tint. */
     float color[4];
 } ZenSpriteDrawDesc;
+
+typedef struct ZenMeshDesc {
+    /* Must be set to ZEN_MESH_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_MESH_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    /* Size in bytes of one vertex. Must contain position float3 and color float4. */
+    uint32_t vertex_stride_bytes;
+    uint32_t reserved;
+    /* Borrowed vertex byte range, only needed during the call. */
+    const void* vertex_data;
+    uint64_t vertex_count;
+    /* Borrowed uint32 index range, only needed during the call. */
+    const uint32_t* index_data;
+    uint64_t index_count;
+} ZenMeshDesc;
 
 /*
  * Creates the native backend shell.
@@ -458,6 +481,39 @@ ZenResultCode zen_native_backend_draw_sprite(
     ZenNativeBackendHandle backend,
     ZenTextureHandle texture,
     const ZenSpriteDrawDesc* desc);
+
+/*
+ * Creates a backend-owned indexed mesh from caller-owned POD vertex/index data.
+ *
+ * Mesh vertices for this phase must use position float3 at byte offset 0 and
+ * color float4 at byte offset sizeof(float) * 3. Indices are uint32.
+ * desc: borrowed, copied into backend-owned GPU buffers during the call.
+ * out_mesh: borrowed output pointer, must not be null.
+ */
+ZenResultCode zen_native_backend_create_mesh(
+    ZenNativeBackendHandle backend,
+    const ZenMeshDesc* desc,
+    ZenMeshHandle* out_mesh);
+
+/*
+ * Destroys a backend-owned mesh handle.
+ */
+ZenResultCode zen_native_backend_destroy_mesh(
+    ZenNativeBackendHandle backend,
+    ZenMeshHandle mesh);
+
+/*
+ * Draws a backend-owned mesh with the supplied model matrix and current camera matrix.
+ *
+ * backend: must have an initialized renderer and an active frame.
+ * mesh: must be a valid non-zero mesh handle for this backend.
+ * model_matrix: borrowed pointer to a row-major left-handed matrix. The data
+ * is copied during the call.
+ */
+ZenResultCode zen_native_backend_draw_mesh(
+    ZenNativeBackendHandle backend,
+    ZenMeshHandle mesh,
+    const ZenMatrix4x4* model_matrix);
 
 /*
  * Draws a backend-owned minimal triangle render resource.

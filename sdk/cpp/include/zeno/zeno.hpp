@@ -123,6 +123,11 @@ struct SpriteDrawDesc final {
     Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
+struct MeshVertex final {
+    Vec3 position{};
+    Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 enum class Key : std::uint32_t {
     unknown = ZEN_INPUT_KEY_UNKNOWN,
     escape = ZEN_INPUT_KEY_ESCAPE,
@@ -166,6 +171,7 @@ class RenderTriangle;
 class VertexShader;
 class PixelShader;
 class Texture;
+class Mesh;
 
 class NativeBackend final {
 public:
@@ -202,6 +208,12 @@ public:
         const AssetRoot& assets,
         std::string_view relative_path_utf8,
         Texture& out_texture);
+    Result create_mesh(
+        const MeshVertex* vertices,
+        std::uint32_t vertex_count,
+        const std::uint32_t* indices,
+        std::uint32_t index_count,
+        Mesh& out_mesh);
     Result create_triangle(RenderTriangle& out_triangle);
     Result create_triangle(const VertexShader& vertex_shader, const PixelShader& pixel_shader, RenderTriangle& out_triangle);
     Result set_camera_matrix(const Mat4& camera_matrix);
@@ -209,6 +221,8 @@ public:
     Result draw_triangle(const RenderTriangle& triangle, const Mat4& model_matrix);
     Result draw_triangle(const RenderTriangle& triangle, const Transform& transform);
     Result draw_sprite(const Texture& texture, const SpriteDrawDesc& desc);
+    Result draw_mesh(const Mesh& mesh, const Mat4& model_matrix);
+    Result draw_mesh(const Mesh& mesh, const Transform& transform);
     Result present();
     void reset();
 
@@ -314,6 +328,30 @@ private:
 
     ZenNativeBackendHandle backend_{};
     ZenTextureHandle handle_{};
+};
+
+class Mesh final {
+public:
+    Mesh() = default;
+    ~Mesh();
+
+    Mesh(const Mesh&) = delete;
+    Mesh& operator=(const Mesh&) = delete;
+
+    Mesh(Mesh&& other) noexcept;
+    Mesh& operator=(Mesh&& other) noexcept;
+
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+
+    Mesh(ZenNativeBackendHandle backend, ZenMeshHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenMeshHandle handle_{};
 };
 
 } // namespace zeno
