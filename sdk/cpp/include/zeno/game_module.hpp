@@ -14,6 +14,7 @@ struct GameContext final {
     NativeBackend* backend = nullptr;
     AssetRoot* assets = nullptr;
     AudioEngine* audio = nullptr;
+    ResourceManager* resources = nullptr;
     Scene* runtime_scene = nullptr;
     const ProjectConfig* project = nullptr;
     const SceneDescription* scene = nullptr;
@@ -101,6 +102,7 @@ private:
     NativeBackend backend_{};
     AssetRoot assets_{};
     AudioEngine audio_{};
+    ResourceManager resources_{};
     Scene runtime_scene_{};
     ProjectConfig project_{};
     SceneDescription scene_{};

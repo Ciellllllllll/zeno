@@ -10,6 +10,7 @@
 - Explicit `GameApp` failure cleanup semantics: partial `on_init` failure is followed by `on_shutdown` before SDK-owned backend/audio resources are reset.
 - A first Windows dynamic module loader that uses a C-compatible descriptor entry point without exposing SDK classes, STL, Win32, DirectX, or Rust internals across the DLL boundary.
 - A DirectX 11 resize baseline that rebuilds swap-chain render target/depth resources and detects device removed/reset without claiming full recovery.
+- SDK-side ResourceManager IDs that decouple scene render components from raw SDK wrapper pointers and native backend handles.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
 - A packaged SDK layout and external CMake example that prove SDK consumption outside the repository sample/template graph.
@@ -44,7 +45,7 @@
 ## Tradeoffs
 
 - The engine is Windows-only for now. This keeps the first milestone focused but does not prove portability.
-- Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, texture/mesh/material resource creation, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
+- Rendering, audio, and collision are intentionally small. The current milestone proves backend initialization, frame presentation, shader resource creation, SDK ResourceManager ownership for texture/mesh/material/sound/triangle references, SDK scene object organization, project/scene startup loading, transform/camera constant buffer binding, depth testing, fixed triangle/sprite/mesh draw paths, temporary debug visualization, SDK-side AABB checks, and short PCM WAV effects, not a full renderer, physics engine, or audio engine.
 - Input is intentionally small. It proves per-frame keyboard/mouse state without claiming text input, gamepad, or rebinding support.
 - The SDK is intentionally small. `GameApp` removes boilerplate from game hosts while still exposing the low-level wrappers for focused tests and future engine work.
 - Build, verification, and package scripts are local PowerShell wrappers over Cargo and CMake presets rather than separate build definitions. This keeps the workflow practical while CI remains conservative and headless by default.

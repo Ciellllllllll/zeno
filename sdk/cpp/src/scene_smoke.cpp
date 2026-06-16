@@ -48,9 +48,6 @@ int main()
         return 6;
     }
 
-    zeno::Material invalid_material;
-    zeno::Mesh invalid_mesh;
-    zeno::RenderTriangle invalid_triangle;
     if (!invalid_argument(scene.set_sprite_renderer(first, zeno::SpriteRenderer{}))) {
         return 7;
     }
@@ -61,15 +58,18 @@ int main()
         return 9;
     }
 
-    if (!ok(scene.set_sprite_renderer(first, zeno::SpriteRenderer{ &invalid_material, zeno::Color{} }))
+    const zeno::MaterialId material{ 100 };
+    const zeno::MeshId mesh{ 200 };
+    const zeno::TriangleId triangle{ 300 };
+    if (!ok(scene.set_sprite_renderer(first, zeno::SpriteRenderer{ material, zeno::Color{} }))
         || scene.renderable_kind(first) != zeno::RenderableKind::sprite) {
         return 10;
     }
-    if (!ok(scene.set_mesh_renderer(first, zeno::MeshRenderer{ &invalid_mesh, &invalid_material }))
+    if (!ok(scene.set_mesh_renderer(first, zeno::MeshRenderer{ mesh, material }))
         || scene.renderable_kind(first) != zeno::RenderableKind::mesh) {
         return 11;
     }
-    if (!ok(scene.set_triangle_renderer(first, zeno::TriangleRenderer{ &invalid_triangle }))
+    if (!ok(scene.set_triangle_renderer(first, zeno::TriangleRenderer{ triangle }))
         || scene.renderable_kind(first) != zeno::RenderableKind::triangle) {
         return 12;
     }
@@ -102,6 +102,18 @@ int main()
     zeno::NativeBackend invalid_backend;
     if (!invalid_argument(scene.render(invalid_backend))) {
         return 19;
+    }
+
+    zeno::ResourceManager resources;
+    if (resources.material(material) != nullptr || resources.mesh(mesh) != nullptr || resources.triangle(triangle) != nullptr) {
+        return 20;
+    }
+    if (!invalid_argument(resources.destroy(material))
+        || !invalid_argument(resources.destroy(mesh))
+        || !invalid_argument(resources.destroy(triangle))
+        || !invalid_argument(resources.destroy(zeno::TextureId{ 400 }))
+        || !invalid_argument(resources.destroy(zeno::SoundId{ 500 }))) {
+        return 21;
     }
 
     return 0;

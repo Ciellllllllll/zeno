@@ -78,7 +78,7 @@ const Transform* Scene::transform(ObjectId id) const
 
 Result Scene::set_sprite_renderer(ObjectId id, const SpriteRenderer& renderer)
 {
-    if (renderer.material == nullptr) {
+    if (!renderer.material.valid()) {
         return invalid_argument();
     }
 
@@ -96,7 +96,7 @@ Result Scene::set_sprite_renderer(ObjectId id, const SpriteRenderer& renderer)
 
 Result Scene::set_mesh_renderer(ObjectId id, const MeshRenderer& renderer)
 {
-    if (renderer.mesh == nullptr || renderer.material == nullptr) {
+    if (!renderer.mesh.valid() || !renderer.material.valid()) {
         return invalid_argument();
     }
 
@@ -114,7 +114,7 @@ Result Scene::set_mesh_renderer(ObjectId id, const MeshRenderer& renderer)
 
 Result Scene::set_triangle_renderer(ObjectId id, const TriangleRenderer& renderer)
 {
-    if (renderer.triangle == nullptr) {
+    if (!renderer.triangle.valid()) {
         return invalid_argument();
     }
 
@@ -174,6 +174,12 @@ std::vector<ObjectId> Scene::objects_in_render_order() const
 
 Result Scene::render(NativeBackend& backend) const
 {
+    ResourceManager resources;
+    return render(backend, resources);
+}
+
+Result Scene::render(NativeBackend& backend, const ResourceManager& resources) const
+{
     if (!backend.valid()) {
         return invalid_argument();
     }
@@ -186,27 +192,33 @@ Result Scene::render(NativeBackend& backend) const
         Result result;
         switch (state.renderable_kind) {
         case RenderableKind::sprite: {
-            if (state.sprite_renderer.material == nullptr || !state.sprite_renderer.material->valid()) {
+            const Material* material = resources.material(state.sprite_renderer.material);
+            if (material == nullptr || !material->valid()) {
                 return invalid_argument();
             }
             SpriteDrawDesc desc{};
             desc.transform = state.transform;
             desc.color = state.sprite_renderer.color;
-            result = backend.draw_sprite(*state.sprite_renderer.material, desc);
+            result = backend.draw_sprite(*material, desc);
             break;
         }
-        case RenderableKind::mesh:
-            if (state.mesh_renderer.mesh == nullptr || state.mesh_renderer.material == nullptr || !state.mesh_renderer.mesh->valid() || !state.mesh_renderer.material->valid()) {
+        case RenderableKind::mesh: {
+            const Mesh* mesh = resources.mesh(state.mesh_renderer.mesh);
+            const Material* material = resources.material(state.mesh_renderer.material);
+            if (mesh == nullptr || material == nullptr || !mesh->valid() || !material->valid()) {
                 return invalid_argument();
             }
-            result = backend.draw_mesh(*state.mesh_renderer.mesh, *state.mesh_renderer.material, state.transform);
+            result = backend.draw_mesh(*mesh, *material, state.transform);
             break;
-        case RenderableKind::triangle:
-            if (state.triangle_renderer.triangle == nullptr || !state.triangle_renderer.triangle->valid()) {
+        }
+        case RenderableKind::triangle: {
+            const RenderTriangle* triangle = resources.triangle(state.triangle_renderer.triangle);
+            if (triangle == nullptr || !triangle->valid()) {
                 return invalid_argument();
             }
-            result = backend.draw_triangle(*state.triangle_renderer.triangle, state.transform);
+            result = backend.draw_triangle(*triangle, state.transform);
             break;
+        }
         case RenderableKind::none:
             result = Result();
             break;

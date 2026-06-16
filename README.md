@@ -11,6 +11,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - C++ native backend with Win32 window creation and DirectX 11 device/swap-chain/render-target bootstrap.
 - Native DirectX 11 resize baseline for recreating swap-chain render target/depth resources and surfacing device removed/reset as backend errors.
 - Handle-based native backend resources for clear colors, shader resources, textures, sprites, meshes, minimal material/render-state handles, and DirectX 11 draw paths.
+- SDK-side `ResourceManager` IDs for scene-owned texture, material, mesh, sound, and triangle references without exposing native handles.
 - Keyboard and mouse input snapshot support for a small engine-owned key/button set.
 - Minimal C++ SDK math foundations: vectors, row-major matrices, transforms, orthographic/perspective cameras, and 2D AABB collision helpers.
 - SDK-side minimal component-lite scene layer with object IDs, transforms, renderable data, and deterministic update/render collection order.
@@ -211,7 +212,7 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 
 ## Current Limitations
 
-- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle, sprite, indexed mesh, material/render-state resources, temporary debug line/rectangle draw calls, SDK-side scene objects, and a strict text project/scene loader with transform, camera, texture, depth, and explicit vertex/pixel shader handles.
+- Rendering is currently limited to a clear-color DirectX 11 path plus fixed minimal triangle, sprite, indexed mesh, material/render-state resources, temporary debug line/rectangle draw calls, SDK-side scene objects with ResourceManager-backed IDs, and a strict text project/scene loader with transform, camera, texture, depth, and explicit vertex/pixel shader handles.
 - Audio is limited to short PCM WAV effects. There is no streaming BGM, spatial audio, mixer graph, compressed decode, or async loading.
 - Input is limited to a small keyboard/mouse snapshot. There is no gamepad, IME/text editing, rebinding UI, raw input, or cursor capture.
 - Collision is limited to SDK-side AABB helpers and sample-owned checks. There is no physics engine, rigid body solver, broadphase, swept collision system, or collision component model.

@@ -111,11 +111,11 @@ Only POD matrix data crosses the native backend ABI as `ZenMatrix4x4`. SDK math 
 
 ## C++ Game SDK
 
-`sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, a minimal component-lite `zeno::Scene`, `zeno::GameApp`, and game-module callback helpers.
+`sdk/cpp` is the game-facing convenience layer. It provides small C++ wrappers such as `zeno::Engine`, `zeno::NativeBackend`, `zeno::Result`, a minimal component-lite `zeno::Scene`, SDK-owned `zeno::ResourceManager`, `zeno::GameApp`, and game-module callback helpers.
 
 SDK classes are allowed for game code ergonomics, but they do not cross the Rust/C++ ABI boundary.
 
-The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderable record per object, then emits existing SDK draw calls in creation order. Scene objects are not exposed to Rust, the C ABI, or the native backend.
+The scene layer is SDK-owned. It tracks object IDs, transforms, and one renderable record per object, then emits existing SDK draw calls in creation order. Scene renderers store SDK resource IDs, not raw wrapper pointers or native backend handles. `ResourceManager` owns the move-only SDK wrappers for textures, materials, meshes, sounds, and triangles, and `Scene::render` resolves those IDs before calling the existing backend wrapper APIs. Missing, stale, invalid, or type-mismatched SDK resource IDs return `ZEN_RESULT_INVALID_ARGUMENT` at the SDK layer. Scene objects and resource IDs are not exposed to Rust, the C ABI, or the native backend.
 
 Project and scene loading are also SDK-owned. The current format is a strict versioned UTF-8 line format used for sample startup data. Parsed scene data becomes SDK objects and existing resource creation calls; filenames and scene structures do not cross the C ABI.
 

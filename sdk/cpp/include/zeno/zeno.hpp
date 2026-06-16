@@ -210,6 +210,7 @@ class Mesh;
 class Material;
 class AudioEngine;
 class Sound;
+class ResourceManager;
 
 class NativeBackend final {
 public:
@@ -289,6 +290,36 @@ struct ObjectId final {
     constexpr bool valid() const { return value != 0; }
 };
 
+struct TextureId final {
+    std::uint64_t value = 0;
+
+    constexpr bool valid() const { return value != 0; }
+};
+
+struct MaterialId final {
+    std::uint64_t value = 0;
+
+    constexpr bool valid() const { return value != 0; }
+};
+
+struct MeshId final {
+    std::uint64_t value = 0;
+
+    constexpr bool valid() const { return value != 0; }
+};
+
+struct SoundId final {
+    std::uint64_t value = 0;
+
+    constexpr bool valid() const { return value != 0; }
+};
+
+struct TriangleId final {
+    std::uint64_t value = 0;
+
+    constexpr bool valid() const { return value != 0; }
+};
+
 constexpr bool operator==(ObjectId left, ObjectId right)
 {
     return left.value == right.value;
@@ -299,6 +330,17 @@ constexpr bool operator!=(ObjectId left, ObjectId right)
     return !(left == right);
 }
 
+constexpr bool operator==(TextureId left, TextureId right) { return left.value == right.value; }
+constexpr bool operator!=(TextureId left, TextureId right) { return !(left == right); }
+constexpr bool operator==(MaterialId left, MaterialId right) { return left.value == right.value; }
+constexpr bool operator!=(MaterialId left, MaterialId right) { return !(left == right); }
+constexpr bool operator==(MeshId left, MeshId right) { return left.value == right.value; }
+constexpr bool operator!=(MeshId left, MeshId right) { return !(left == right); }
+constexpr bool operator==(SoundId left, SoundId right) { return left.value == right.value; }
+constexpr bool operator!=(SoundId left, SoundId right) { return !(left == right); }
+constexpr bool operator==(TriangleId left, TriangleId right) { return left.value == right.value; }
+constexpr bool operator!=(TriangleId left, TriangleId right) { return !(left == right); }
+
 enum class RenderableKind : std::uint32_t {
     none = 0,
     sprite = 1,
@@ -307,17 +349,17 @@ enum class RenderableKind : std::uint32_t {
 };
 
 struct SpriteRenderer final {
-    const Material* material = nullptr;
+    MaterialId material{};
     Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 struct MeshRenderer final {
-    const Mesh* mesh = nullptr;
-    const Material* material = nullptr;
+    MeshId mesh{};
+    MaterialId material{};
 };
 
 struct TriangleRenderer final {
-    const RenderTriangle* triangle = nullptr;
+    TriangleId triangle{};
 };
 
 class Scene final {
@@ -342,6 +384,7 @@ public:
     std::vector<ObjectId> objects_in_update_order() const;
     std::vector<ObjectId> objects_in_render_order() const;
     Result render(NativeBackend& backend) const;
+    Result render(NativeBackend& backend, const ResourceManager& resources) const;
 
 private:
     struct ObjectState final {
@@ -589,6 +632,97 @@ private:
     ZenNativeBackendHandle backend_{};
     ZenAudioEngineHandle audio_{};
     ZenSoundHandle handle_{};
+};
+
+class ResourceManager final {
+public:
+    ResourceManager() = default;
+
+    ResourceManager(const ResourceManager&) = delete;
+    ResourceManager& operator=(const ResourceManager&) = delete;
+
+    ResourceManager(ResourceManager&& other) noexcept = default;
+    ResourceManager& operator=(ResourceManager&& other) noexcept = default;
+
+    Result create_texture(NativeBackend& backend, const AssetRoot& assets, std::string_view relative_path_utf8, TextureId& out_texture);
+    Result create_mesh(
+        NativeBackend& backend,
+        const MeshVertex* vertices,
+        std::uint32_t vertex_count,
+        const std::uint32_t* indices,
+        std::uint32_t index_count,
+        MeshId& out_mesh);
+    Result create_material(NativeBackend& backend, const MaterialDesc& desc, MaterialId& out_material);
+    Result create_sprite_material(NativeBackend& backend, TextureId texture, const MaterialDesc& desc, MaterialId& out_material);
+    Result create_triangle(NativeBackend& backend, TriangleId& out_triangle);
+    Result create_triangle(
+        NativeBackend& backend,
+        const VertexShader& vertex_shader,
+        const PixelShader& pixel_shader,
+        TriangleId& out_triangle);
+    Result load_sound(AudioEngine& audio, const AssetRoot& assets, std::string_view relative_path_utf8, SoundId& out_sound);
+
+    const Texture* texture(TextureId id) const;
+    const Material* material(MaterialId id) const;
+    const Mesh* mesh(MeshId id) const;
+    const RenderTriangle* triangle(TriangleId id) const;
+    const Sound* sound(SoundId id) const;
+    Sound* sound(SoundId id);
+
+    Result destroy(TextureId id);
+    Result destroy(MaterialId id);
+    Result destroy(MeshId id);
+    Result destroy(SoundId id);
+    Result destroy(TriangleId id);
+    void clear();
+
+private:
+    struct TextureSlot final {
+        TextureId id{};
+        Texture resource{};
+    };
+
+    struct MaterialSlot final {
+        MaterialId id{};
+        Material resource{};
+    };
+
+    struct MeshSlot final {
+        MeshId id{};
+        Mesh resource{};
+    };
+
+    struct SoundSlot final {
+        SoundId id{};
+        Sound resource{};
+    };
+
+    struct TriangleSlot final {
+        TriangleId id{};
+        RenderTriangle resource{};
+    };
+
+    TextureSlot* find_slot(TextureId id);
+    const TextureSlot* find_slot(TextureId id) const;
+    MaterialSlot* find_slot(MaterialId id);
+    const MaterialSlot* find_slot(MaterialId id) const;
+    MeshSlot* find_slot(MeshId id);
+    const MeshSlot* find_slot(MeshId id) const;
+    SoundSlot* find_slot(SoundId id);
+    const SoundSlot* find_slot(SoundId id) const;
+    TriangleSlot* find_slot(TriangleId id);
+    const TriangleSlot* find_slot(TriangleId id) const;
+
+    std::uint64_t next_texture_id_ = 1;
+    std::uint64_t next_material_id_ = 1;
+    std::uint64_t next_mesh_id_ = 1;
+    std::uint64_t next_sound_id_ = 1;
+    std::uint64_t next_triangle_id_ = 1;
+    std::vector<TextureSlot> textures_{};
+    std::vector<MaterialSlot> materials_{};
+    std::vector<MeshSlot> meshes_{};
+    std::vector<SoundSlot> sounds_{};
+    std::vector<TriangleSlot> triangles_{};
 };
 
 } // namespace zeno

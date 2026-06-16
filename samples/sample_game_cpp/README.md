@@ -2,9 +2,9 @@
 
 This sample is a small C++ game-module demo that runs through the ZENO C++ SDK `GameApp` runtime.
 
-`GameApp` loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the Rust runtime, DirectX 11 renderer, and minimal audio path, calls the sample module lifecycle, and reads a keyboard/mouse input snapshot. The module compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material handles, organizes object IDs, transforms, and renderable data through the runtime scene, checks sample-owned AABB collision, clears the screen with a changing color, draws a playable player/goal/obstacle slice with debug collision rectangles through a perspective camera, and shuts down cleanly.
+`GameApp` loads `assets/project.zproj` and `assets/scenes/sample_scene.zscene`, creates a Win32 window through the SDK/native backend path, initializes the Rust runtime, DirectX 11 renderer, minimal audio path, and SDK `ResourceManager`, calls the sample module lifecycle, and reads a keyboard/mouse input snapshot. The module compiles shader assets, loads a BMP texture asset and short PCM WAV effect, creates minimal material resources, organizes object IDs, transforms, and ResourceManager-backed renderable IDs through the runtime scene, checks sample-owned AABB collision, clears the screen with a changing color, draws a playable player/goal/obstacle slice with debug collision rectangles through a perspective camera, and shuts down cleanly.
 
-`on_shutdown` must be safe even if `on_init` failed after creating only some resources. `GameApp` calls shutdown after partial init failure before resetting backend/audio ownership, so module cleanup should check each sample-owned wrapper before resetting it.
+`on_shutdown` must be safe even if `on_init` failed after creating only some resources. `GameApp` calls shutdown after partial init failure before resetting backend/audio ownership, so module cleanup should clear only the ResourceManager IDs and scene objects it may have created.
 
 ## Build
 
@@ -24,7 +24,7 @@ Source assets and startup data live in `samples/sample_game_cpp/assets/`. The CM
 
 The host reads `project.zproj` before creating the window. The project file selects the asset root, initial scene path, and window size. The scene file is a strict UTF-8 line-oriented text format with `version=1`, one `[object]` block per object, `position`, `rotation_z`, `scale`, `color`, and a small renderable reference such as `builtin:cube`, `builtin:triangle`, or `textures/sample_sprite_2x2.bmp`.
 
-The current sample reads `sample_manifest.txt` during `on_init` to prove the copied runtime layout is available before rendering. It also compiles `shaders/sample_triangle.hlsl` into vertex and pixel shader handles before creating the triangle resource, loads the scene-referenced sprite texture into a texture handle for sprite rendering, loads `audio/sample_click.wav` into a sound handle, creates sprite and mesh material handles, creates a hardcoded cube mesh through the SDK mesh API, and attaches those resources to scene objects. Shader compile failures are logged with the stage, asset path, entry point, result text, and bounded compiler output.
+The current sample reads `sample_manifest.txt` during `on_init` to prove the copied runtime layout is available before rendering. It also compiles `shaders/sample_triangle.hlsl` into vertex and pixel shader handles before creating the triangle resource ID, loads the scene-referenced sprite texture into a texture ID for sprite rendering, loads `audio/sample_click.wav` into a sound ID, creates sprite and mesh material IDs, creates a hardcoded cube mesh ID through the SDK mesh API, and attaches those ResourceManager IDs to scene objects. Shader compile failures are logged with the stage, asset path, entry point, result text, and bounded compiler output.
 
 ## Run
 
@@ -38,7 +38,7 @@ A 640x360 window opens using the size from `project.zproj`. The background clear
 
 ## Limitations
 
-- Rendering is limited to a DirectX 11 clear color, fixed triangle resources with transform/camera matrices and explicit shader handles, a fixed sprite draw path with texture/material handles, and indexed position/color mesh resources with material render state.
+- Rendering is limited to a DirectX 11 clear color, ResourceManager-owned fixed triangle resources with transform/camera matrices and explicit shader handles, a fixed sprite draw path with texture/material IDs, and indexed position/color mesh IDs with material render state.
 - The scene layer is component-lite organization for object IDs, transforms, and one renderable per object. It is not a full ECS, hierarchy, prefab, or editor system.
 - Collision is sample-owned SDK AABB helper usage. It is not a physics engine, rigid body solver, swept collision implementation, or scene collider component system.
 - Debug draw is temporary development visualization for collision bounds.

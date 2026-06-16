@@ -1020,6 +1020,386 @@ void Sound::reset()
     handle_ = {};
 }
 
+Result ResourceManager::create_texture(
+    NativeBackend& backend,
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    TextureId& out_texture)
+{
+    Texture resource;
+    Result result = backend.create_texture(assets, relative_path_utf8, resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    TextureId id{ next_texture_id_++ };
+    textures_.push_back(TextureSlot{ id, std::move(resource) });
+    out_texture = id;
+    return Result();
+}
+
+Result ResourceManager::create_mesh(
+    NativeBackend& backend,
+    const MeshVertex* vertices,
+    std::uint32_t vertex_count,
+    const std::uint32_t* indices,
+    std::uint32_t index_count,
+    MeshId& out_mesh)
+{
+    Mesh resource;
+    Result result = backend.create_mesh(vertices, vertex_count, indices, index_count, resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    MeshId id{ next_mesh_id_++ };
+    meshes_.push_back(MeshSlot{ id, std::move(resource) });
+    out_mesh = id;
+    return Result();
+}
+
+Result ResourceManager::create_material(NativeBackend& backend, const MaterialDesc& desc, MaterialId& out_material)
+{
+    Material resource;
+    Result result = backend.create_material(desc, resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    MaterialId id{ next_material_id_++ };
+    materials_.push_back(MaterialSlot{ id, std::move(resource) });
+    out_material = id;
+    return Result();
+}
+
+Result ResourceManager::create_sprite_material(
+    NativeBackend& backend,
+    TextureId texture_id,
+    const MaterialDesc& desc,
+    MaterialId& out_material)
+{
+    const Texture* texture_resource = texture(texture_id);
+    if (texture_resource == nullptr || !texture_resource->valid()) {
+        return Result(ZEN_RESULT_INVALID_ARGUMENT);
+    }
+
+    Material resource;
+    Result result = backend.create_sprite_material(*texture_resource, desc, resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    MaterialId id{ next_material_id_++ };
+    materials_.push_back(MaterialSlot{ id, std::move(resource) });
+    out_material = id;
+    return Result();
+}
+
+Result ResourceManager::create_triangle(NativeBackend& backend, TriangleId& out_triangle)
+{
+    RenderTriangle resource;
+    Result result = backend.create_triangle(resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    TriangleId id{ next_triangle_id_++ };
+    triangles_.push_back(TriangleSlot{ id, std::move(resource) });
+    out_triangle = id;
+    return Result();
+}
+
+Result ResourceManager::create_triangle(
+    NativeBackend& backend,
+    const VertexShader& vertex_shader,
+    const PixelShader& pixel_shader,
+    TriangleId& out_triangle)
+{
+    RenderTriangle resource;
+    Result result = backend.create_triangle(vertex_shader, pixel_shader, resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    TriangleId id{ next_triangle_id_++ };
+    triangles_.push_back(TriangleSlot{ id, std::move(resource) });
+    out_triangle = id;
+    return Result();
+}
+
+Result ResourceManager::load_sound(
+    AudioEngine& audio,
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    SoundId& out_sound)
+{
+    Sound resource;
+    Result result = audio.load_sound(assets, relative_path_utf8, resource);
+    if (!result.ok()) {
+        return result;
+    }
+
+    SoundId id{ next_sound_id_++ };
+    sounds_.push_back(SoundSlot{ id, std::move(resource) });
+    out_sound = id;
+    return Result();
+}
+
+const Texture* ResourceManager::texture(TextureId id) const
+{
+    const TextureSlot* slot = find_slot(id);
+    return slot != nullptr ? &slot->resource : nullptr;
+}
+
+const Material* ResourceManager::material(MaterialId id) const
+{
+    const MaterialSlot* slot = find_slot(id);
+    return slot != nullptr ? &slot->resource : nullptr;
+}
+
+const Mesh* ResourceManager::mesh(MeshId id) const
+{
+    const MeshSlot* slot = find_slot(id);
+    return slot != nullptr ? &slot->resource : nullptr;
+}
+
+const RenderTriangle* ResourceManager::triangle(TriangleId id) const
+{
+    const TriangleSlot* slot = find_slot(id);
+    return slot != nullptr ? &slot->resource : nullptr;
+}
+
+const Sound* ResourceManager::sound(SoundId id) const
+{
+    const SoundSlot* slot = find_slot(id);
+    return slot != nullptr ? &slot->resource : nullptr;
+}
+
+Sound* ResourceManager::sound(SoundId id)
+{
+    SoundSlot* slot = find_slot(id);
+    return slot != nullptr ? &slot->resource : nullptr;
+}
+
+Result ResourceManager::destroy(TextureId id)
+{
+    for (auto iterator = textures_.begin(); iterator != textures_.end(); ++iterator) {
+        if (iterator->id == id) {
+            textures_.erase(iterator);
+            return Result();
+        }
+    }
+
+    return Result(ZEN_RESULT_INVALID_ARGUMENT);
+}
+
+Result ResourceManager::destroy(MaterialId id)
+{
+    for (auto iterator = materials_.begin(); iterator != materials_.end(); ++iterator) {
+        if (iterator->id == id) {
+            materials_.erase(iterator);
+            return Result();
+        }
+    }
+
+    return Result(ZEN_RESULT_INVALID_ARGUMENT);
+}
+
+Result ResourceManager::destroy(MeshId id)
+{
+    for (auto iterator = meshes_.begin(); iterator != meshes_.end(); ++iterator) {
+        if (iterator->id == id) {
+            meshes_.erase(iterator);
+            return Result();
+        }
+    }
+
+    return Result(ZEN_RESULT_INVALID_ARGUMENT);
+}
+
+Result ResourceManager::destroy(SoundId id)
+{
+    for (auto iterator = sounds_.begin(); iterator != sounds_.end(); ++iterator) {
+        if (iterator->id == id) {
+            sounds_.erase(iterator);
+            return Result();
+        }
+    }
+
+    return Result(ZEN_RESULT_INVALID_ARGUMENT);
+}
+
+Result ResourceManager::destroy(TriangleId id)
+{
+    for (auto iterator = triangles_.begin(); iterator != triangles_.end(); ++iterator) {
+        if (iterator->id == id) {
+            triangles_.erase(iterator);
+            return Result();
+        }
+    }
+
+    return Result(ZEN_RESULT_INVALID_ARGUMENT);
+}
+
+void ResourceManager::clear()
+{
+    triangles_.clear();
+    sounds_.clear();
+    materials_.clear();
+    meshes_.clear();
+    textures_.clear();
+}
+
+ResourceManager::TextureSlot* ResourceManager::find_slot(TextureId id)
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (TextureSlot& slot : textures_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+const ResourceManager::TextureSlot* ResourceManager::find_slot(TextureId id) const
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (const TextureSlot& slot : textures_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+ResourceManager::MaterialSlot* ResourceManager::find_slot(MaterialId id)
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (MaterialSlot& slot : materials_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+const ResourceManager::MaterialSlot* ResourceManager::find_slot(MaterialId id) const
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (const MaterialSlot& slot : materials_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+ResourceManager::MeshSlot* ResourceManager::find_slot(MeshId id)
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (MeshSlot& slot : meshes_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+const ResourceManager::MeshSlot* ResourceManager::find_slot(MeshId id) const
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (const MeshSlot& slot : meshes_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+ResourceManager::SoundSlot* ResourceManager::find_slot(SoundId id)
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (SoundSlot& slot : sounds_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+const ResourceManager::SoundSlot* ResourceManager::find_slot(SoundId id) const
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (const SoundSlot& slot : sounds_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+ResourceManager::TriangleSlot* ResourceManager::find_slot(TriangleId id)
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (TriangleSlot& slot : triangles_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
+const ResourceManager::TriangleSlot* ResourceManager::find_slot(TriangleId id) const
+{
+    if (!id.valid()) {
+        return nullptr;
+    }
+
+    for (const TriangleSlot& slot : triangles_) {
+        if (slot.id == id) {
+            return &slot;
+        }
+    }
+
+    return nullptr;
+}
+
 } // namespace zeno
 
 namespace zeno {
@@ -1213,6 +1593,7 @@ GameApp::GameApp(GameApp&& other) noexcept
     , backend_(std::move(other.backend_))
     , assets_(std::move(other.assets_))
     , audio_(std::move(other.audio_))
+    , resources_(std::move(other.resources_))
     , runtime_scene_(std::move(other.runtime_scene_))
     , project_(std::move(other.project_))
     , scene_(std::move(other.scene_))
@@ -1224,6 +1605,7 @@ GameApp::GameApp(GameApp&& other) noexcept
     context_.backend = &backend_;
     context_.assets = &assets_;
     context_.audio = &audio_;
+    context_.resources = &resources_;
     context_.runtime_scene = &runtime_scene_;
     context_.project = &project_;
     context_.scene = &scene_;
@@ -1238,6 +1620,7 @@ GameApp& GameApp::operator=(GameApp&& other) noexcept
         backend_ = std::move(other.backend_);
         assets_ = std::move(other.assets_);
         audio_ = std::move(other.audio_);
+        resources_ = std::move(other.resources_);
         runtime_scene_ = std::move(other.runtime_scene_);
         project_ = std::move(other.project_);
         scene_ = std::move(other.scene_);
@@ -1248,6 +1631,7 @@ GameApp& GameApp::operator=(GameApp&& other) noexcept
         context_.backend = &backend_;
         context_.assets = &assets_;
         context_.audio = &audio_;
+        context_.resources = &resources_;
         context_.runtime_scene = &runtime_scene_;
         context_.project = &project_;
         context_.scene = &scene_;
@@ -1329,6 +1713,7 @@ Result GameApp::initialize(const GameAppConfig& config)
     context_.backend = &backend_;
     context_.assets = &assets_;
     context_.audio = &audio_;
+    context_.resources = &resources_;
     context_.runtime_scene = &runtime_scene_;
     context_.project = &project_;
     context_.scene = &scene_;
@@ -1496,6 +1881,7 @@ void GameApp::reset()
     running_ = false;
     context_ = {};
     runtime_scene_.clear();
+    resources_.clear();
     audio_.reset();
     backend_.reset();
     engine_.reset();
