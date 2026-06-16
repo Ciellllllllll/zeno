@@ -25,6 +25,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Runtime packaging script that installs the sample, template game, copied assets, startup config, and `zeno_abi.dll` into a local package layout.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for local build, run, and cleanup.
+- Public build, roadmap, and regression baseline notes for the v0 usable milestone.
 
 ## Why This Shape
 
@@ -82,6 +83,12 @@ Run the sample:
 
 ```powershell
 .\scripts\run-sample.ps1
+```
+
+Run the template game:
+
+```powershell
+.\scripts\run-template.ps1
 ```
 
 Build the template game:
@@ -149,7 +156,9 @@ zeno/
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
+- [BUILDING.md](BUILDING.md) documents setup, build/run/package commands, and the regression command matrix.
 - [PORTFOLIO_NOTES.md](PORTFOLIO_NOTES.md) summarizes tradeoffs, limitations, roadmap, and interview talking points.
+- [ROADMAP.md](ROADMAP.md) defines the v0 baseline and likely next steps.
 - [samples/sample_game_cpp/README.md](samples/sample_game_cpp/README.md) gives sample-specific build and run notes.
 - [templates/game-cpp/README.md](templates/game-cpp/README.md) explains the minimal template game and package layout.
 
@@ -168,6 +177,8 @@ Run `.\scripts\run-sample.ps1`, capture the 640x360 sample window while the tria
 - There is no shader reflection, material graph, hot reload, mesh importer, atlas system, font rendering, asset pipeline, editor, or scripting.
 - The sample game module is statically linked; dynamic module loading is left for a later phase.
 - `GameApp` supports the current static-linked module path only. Dynamic plugin loading, hot reload, and scripting are not implemented.
+- The template game is a buildable starting point, not a project generator or installer.
+- Packaging is a local runtime layout script, not a signed installer or release pipeline.
 - The first milestone is Windows-only.
 
 ## Roadmap

@@ -37,6 +37,6 @@ The packaged executable and assets are written under `build\package\windows-msvc
 - `src/main.cpp` creates `zeno::GameApp`.
 - `src/template_module.cpp` implements static-linked `GameModule` callbacks.
 - `assets/project.zproj` selects window size and startup scene.
-- `assets/scenes/template_scene.zscene` proves the same project/scene loader works for non-sample targets.
+- `assets/scenes/template_scene.zscene` proves `GameApp` loads startup project/scene data for a non-sample target. The template module validates that loaded scene context, then renders a hardcoded triangle to keep the starting point small.
 
 This template is not a project generator, installer, hot reload system, or plugin loader.
