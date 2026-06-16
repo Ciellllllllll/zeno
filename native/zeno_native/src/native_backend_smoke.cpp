@@ -40,6 +40,18 @@ float4 ps_main(PSInput input) : SV_TARGET {
 
 constexpr const char kInvalidShaderSource[] = "float4 broken_shader(";
 
+constexpr uint8_t kBmp2x2[] = {
+    0x42, 0x4D, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00,
+    0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00,
+    0x00, 0x00, 0x01, 0x00, 0x18, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x13, 0x0B,
+    0x00, 0x00, 0x13, 0x0B, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00,
+    0x00, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
+    0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00,
+};
+
 ZenShaderCompileLog make_log()
 {
     ZenShaderCompileLog log{};
@@ -71,6 +83,19 @@ ZenMatrix4x4 identity_matrix()
     matrix.elements[10] = 1.0f;
     matrix.elements[15] = 1.0f;
     return matrix;
+}
+
+ZenSpriteDrawDesc make_sprite_draw_desc()
+{
+    ZenSpriteDrawDesc desc{};
+    desc.size = ZEN_SPRITE_DRAW_DESC_SIZE;
+    desc.api_version = ZEN_SPRITE_DRAW_DESC_API_VERSION;
+    desc.model_matrix = identity_matrix();
+    desc.color[0] = 1.0f;
+    desc.color[1] = 1.0f;
+    desc.color[2] = 1.0f;
+    desc.color[3] = 0.85f;
+    return desc;
 }
 
 } // namespace
@@ -214,6 +239,22 @@ int main()
         return 22;
     }
 
+    ZenTextureHandle scratch_texture{ 777 };
+    if (!expect(
+            zen_native_backend_create_texture_from_memory(backend, kBmp2x2, sizeof(kBmp2x2), &scratch_texture),
+            ZEN_RESULT_BACKEND_ERROR)
+        || scratch_texture.value != 777) {
+        zen_native_backend_destroy(backend);
+        return 112;
+    }
+
+    ZenSpriteDrawDesc sprite_desc = make_sprite_draw_desc();
+    scratch_texture.value = 777;
+    if (!expect(zen_native_backend_draw_sprite(backend, scratch_texture, &sprite_desc), ZEN_RESULT_BACKEND_ERROR)) {
+        zen_native_backend_destroy(backend);
+        return 113;
+    }
+
     ZenNativeWindowConfig window_config{};
     window_config.size = ZEN_NATIVE_WINDOW_CONFIG_SIZE;
     window_config.api_version = ZEN_NATIVE_WINDOW_CONFIG_API_VERSION;
@@ -236,6 +277,35 @@ int main()
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy(backend);
         return 25;
+    }
+
+    ZenTextureHandle texture{};
+    result = zen_native_backend_create_texture_from_memory(backend, kBmp2x2, sizeof(kBmp2x2), &texture);
+    if (result != ZEN_RESULT_OK || texture.value == 0) {
+        zen_native_backend_destroy(backend);
+        return 114;
+    }
+
+    ZenTextureHandle second_texture{};
+    result = zen_native_backend_create_texture_from_memory(backend, kBmp2x2, sizeof(kBmp2x2), &second_texture);
+    if (result != ZEN_RESULT_OK || second_texture.value == 0 || second_texture.value == texture.value) {
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 115;
+    }
+
+    result = zen_native_backend_destroy_texture(backend, second_texture);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 116;
+    }
+
+    result = zen_native_backend_destroy_texture(backend, second_texture);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy_texture(backend, texture);
+        zen_native_backend_destroy(backend);
+        return 117;
     }
 
     ZenShaderCompileLog shader_log = make_log();
@@ -347,6 +417,22 @@ int main()
         return 26;
     }
 
+    ZenTextureHandle invalid_texture{};
+    result = zen_native_backend_draw_sprite(backend, invalid_texture, &sprite_desc);
+    if (result != ZEN_RESULT_INVALID_ARGUMENT) {
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 118;
+    }
+
+    invalid_texture.value = 999999;
+    result = zen_native_backend_draw_sprite(backend, invalid_texture, &sprite_desc);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 119;
+    }
+
     ZenRenderTriangleHandle fake_triangle{ 999999 };
     result = zen_native_backend_draw_triangle(backend, fake_triangle);
     if (result != ZEN_RESULT_NOT_INITIALIZED) {
@@ -419,6 +505,14 @@ int main()
         return 33;
     }
 
+    result = zen_native_backend_draw_sprite(backend, texture, &sprite_desc);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 120;
+    }
+
     result = zen_native_backend_begin_frame(backend);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
@@ -469,6 +563,15 @@ int main()
         return 105;
     }
 
+    result = zen_native_backend_draw_sprite(backend, texture, &sprite_desc);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy_triangle(backend, shader_triangle);
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 121;
+    }
+
     result = zen_native_backend_present(backend);
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy_triangle(backend, triangle);
@@ -499,6 +602,14 @@ int main()
         zen_native_backend_destroy_clear_color(backend, clear_color);
         zen_native_backend_destroy(backend);
         return 41;
+    }
+
+    result = zen_native_backend_draw_sprite(backend, texture, &sprite_desc);
+    if (result != ZEN_RESULT_BACKEND_ERROR) {
+        zen_native_backend_destroy_triangle(backend, triangle);
+        zen_native_backend_destroy_clear_color(backend, clear_color);
+        zen_native_backend_destroy(backend);
+        return 122;
     }
 
     for (int i = 0; i < 120; ++i) {
@@ -537,6 +648,14 @@ int main()
             zen_native_backend_destroy_clear_color(backend, clear_color);
             zen_native_backend_destroy(backend);
             return 45;
+        }
+
+        result = zen_native_backend_draw_sprite(backend, texture, &sprite_desc);
+        if (result != ZEN_RESULT_OK) {
+            zen_native_backend_destroy_triangle(backend, triangle);
+            zen_native_backend_destroy_clear_color(backend, clear_color);
+            zen_native_backend_destroy(backend);
+            return 123;
         }
 
         result = zen_native_backend_present(backend);
@@ -590,6 +709,24 @@ int main()
     if (result != ZEN_RESULT_OK) {
         zen_native_backend_destroy(backend);
         return 50;
+    }
+
+    result = zen_native_backend_destroy_texture(backend, texture);
+    if (result != ZEN_RESULT_OK) {
+        zen_native_backend_destroy(backend);
+        return 124;
+    }
+
+    result = zen_native_backend_draw_sprite(backend, texture, &sprite_desc);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 125;
+    }
+
+    result = zen_native_backend_destroy_texture(backend, texture);
+    if (result != ZEN_RESULT_NOT_INITIALIZED) {
+        zen_native_backend_destroy(backend);
+        return 126;
     }
 
     result = zen_native_backend_draw_triangle(backend, triangle);

@@ -14,7 +14,9 @@ float g_keyboard_tint = 0.0f;
 zeno::RenderTriangle g_triangle;
 zeno::VertexShader g_vertex_shader;
 zeno::PixelShader g_pixel_shader;
+zeno::Texture g_sprite_texture;
 zeno::Transform g_triangle_transform;
+zeno::Transform g_sprite_transform;
 zeno::Camera g_camera;
 
 void log_shader_failure(
@@ -47,6 +49,9 @@ zeno::Result on_init(zeno::GameContext& context)
     g_keyboard_tint = 0.0f;
     g_triangle_transform = zeno::Transform{};
     g_triangle_transform.scale = zeno::Vec3{ 0.75f, 0.75f, 1.0f };
+    g_sprite_transform = zeno::Transform{};
+    g_sprite_transform.position = zeno::Vec3{ -0.45f, -0.35f, 0.0f };
+    g_sprite_transform.scale = zeno::Vec3{ 0.42f, 0.42f, 1.0f };
     g_camera = zeno::Camera::orthographic(2.0f, 2.0f, 0.0f, 1.0f);
     std::string manifest;
     zeno::Result result = context.assets->read_text("sample_manifest.txt", manifest);
@@ -73,6 +78,11 @@ zeno::Result on_init(zeno::GameContext& context)
     result = context.backend->create_pixel_shader(*context.assets, shader_asset, "ps_main", g_pixel_shader, pixel_log);
     if (!result.ok()) {
         log_shader_failure("pixel", shader_asset, "ps_main", result, pixel_log);
+        return result;
+    }
+
+    result = context.backend->create_texture(*context.assets, "textures/sample_sprite_2x2.bmp", g_sprite_texture);
+    if (!result.ok()) {
         return result;
     }
 
@@ -104,6 +114,7 @@ zeno::Result on_update(zeno::GameContext& context)
 
     g_triangle_transform.rotation_z_radians = static_cast<float>(g_elapsed_seconds);
     g_triangle_transform.position.x = 0.25f * g_keyboard_tint;
+    g_sprite_transform.rotation_z_radians = -0.5f * static_cast<float>(g_elapsed_seconds);
 
     context.should_close = g_elapsed_seconds >= kDemoDurationSeconds;
     return zeno::Result();
@@ -145,12 +156,21 @@ zeno::Result on_render(zeno::GameContext& context)
         return result;
     }
 
+    zeno::SpriteDrawDesc sprite_desc{};
+    sprite_desc.transform = g_sprite_transform;
+    sprite_desc.color = zeno::Color{ 1.0f, 1.0f, 1.0f, 0.85f };
+    result = context.backend->draw_sprite(g_sprite_texture, sprite_desc);
+    if (!result.ok()) {
+        return result;
+    }
+
     return context.backend->present();
 }
 
 zeno::Result on_shutdown(zeno::GameContext&)
 {
     g_triangle.reset();
+    g_sprite_texture.reset();
     g_pixel_shader.reset();
     g_vertex_shader.reset();
     std::cerr << "[ZENO][sample] game shutdown\n";

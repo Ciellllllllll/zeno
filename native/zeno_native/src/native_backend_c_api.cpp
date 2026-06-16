@@ -19,6 +19,8 @@ constexpr std::uint32_t kShaderCompileLogApiVersion = 1;
 constexpr std::uint32_t kShaderCompileLogSize = sizeof(ZenShaderCompileLog);
 constexpr std::uint32_t kVertexInputLayoutDescApiVersion = 1;
 constexpr std::uint32_t kVertexInputLayoutDescSize = sizeof(ZenVertexInputLayoutDesc);
+constexpr std::uint32_t kSpriteDrawDescApiVersion = 1;
+constexpr std::uint32_t kSpriteDrawDescSize = sizeof(ZenSpriteDrawDesc);
 constexpr std::uint64_t kInvalidHandle = 0;
 
 static_assert(sizeof(ZenMatrix4x4) == sizeof(zeno::native::Matrix4x4));
@@ -61,6 +63,12 @@ bool is_valid_vertex_input_layout_desc(const ZenVertexInputLayoutDesc& desc)
         && desc.api_version == kVertexInputLayoutDescApiVersion
         && desc.element_count > 0
         && desc.element_count <= ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS;
+}
+
+bool is_valid_sprite_draw_desc(const ZenSpriteDrawDesc& desc)
+{
+    return desc.size == kSpriteDrawDescSize
+        && desc.api_version == kSpriteDrawDescApiVersion;
 }
 
 bool allocate_handle(std::uint64_t& out_handle)
@@ -112,6 +120,17 @@ zeno::native::VertexInputLayoutDesc to_native_input_layout(const ZenVertexInputL
     return native_desc;
 }
 
+zeno::native::SpriteDrawDesc to_native_sprite_draw_desc(const ZenSpriteDrawDesc& desc)
+{
+    zeno::native::SpriteDrawDesc native_desc{};
+    native_desc.model_matrix = to_native_matrix(desc.model_matrix);
+    for (std::uint32_t i = 0; i < 4; ++i) {
+        native_desc.color[i] = desc.color[i];
+    }
+
+    return native_desc;
+}
+
 void copy_compile_log(const zeno::native::ShaderCompileLog& native_log, ZenShaderCompileLog& out_log)
 {
     out_log.message_length = native_log.message_length;
@@ -121,6 +140,11 @@ void copy_compile_log(const zeno::native::ShaderCompileLog& native_log, ZenShade
 }
 
 bool is_valid_borrowed_bytes(const char* data, std::uint64_t length)
+{
+    return data != nullptr && length > 0;
+}
+
+bool is_valid_borrowed_bytes(const std::uint8_t* data, std::uint64_t length)
 {
     return data != nullptr && length > 0;
 }
@@ -626,6 +650,74 @@ extern "C" ZenResultCode zen_native_backend_destroy_pixel_shader(
             return native_backend.destroy_pixel_shader(shader.value)
                 ? ZEN_RESULT_OK
                 : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_create_texture_from_memory(
+    ZenNativeBackendHandle backend,
+    const std::uint8_t* image_bytes,
+    std::uint64_t image_byte_count,
+    ZenTextureHandle* out_texture)
+{
+    try {
+        if (!is_valid_borrowed_bytes(image_bytes, image_byte_count) || out_texture == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [image_bytes, image_byte_count, out_texture](
+            zeno::native::NativeBackend& native_backend) {
+            std::uint64_t handle = 0;
+            if (!native_backend.create_texture_from_memory(image_bytes, image_byte_count, handle)) {
+                return ZEN_RESULT_BACKEND_ERROR;
+            }
+
+            out_texture->value = handle;
+            return ZEN_RESULT_OK;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_destroy_texture(
+    ZenNativeBackendHandle backend,
+    ZenTextureHandle texture)
+{
+    try {
+        if (texture.value == 0) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [texture](zeno::native::NativeBackend& native_backend) {
+            return native_backend.destroy_texture(texture.value)
+                ? ZEN_RESULT_OK
+                : ZEN_RESULT_NOT_INITIALIZED;
+        });
+    } catch (...) {
+        return ZEN_RESULT_INTERNAL_ERROR;
+    }
+}
+
+extern "C" ZenResultCode zen_native_backend_draw_sprite(
+    ZenNativeBackendHandle backend,
+    ZenTextureHandle texture,
+    const ZenSpriteDrawDesc* desc)
+{
+    try {
+        if (texture.value == 0 || desc == nullptr) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        if (!is_valid_sprite_draw_desc(*desc)) {
+            return ZEN_RESULT_INVALID_ARGUMENT;
+        }
+
+        return with_backend(backend, [texture, desc](zeno::native::NativeBackend& native_backend) {
+            return map_render_command_result(
+                native_backend.draw_sprite(texture.value, to_native_sprite_draw_desc(*desc)));
         });
     } catch (...) {
         return ZEN_RESULT_INTERNAL_ERROR;

@@ -1,8 +1,10 @@
 #include <zeno/zeno.hpp>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 int main()
 {
@@ -54,6 +56,20 @@ int main()
     if (result.ok() || !text.empty()) {
         std::filesystem::remove_all(root, error);
         return 6;
+    }
+
+    std::vector<std::uint8_t> bytes;
+    result = asset_root.read_binary("sample.txt", bytes);
+    if (!result.ok() || bytes.size() != 17) {
+        std::filesystem::remove_all(root, error);
+        return 10;
+    }
+
+    bytes.clear();
+    result = asset_root.read_binary("missing.txt", bytes);
+    if (result.ok() || !bytes.empty()) {
+        std::filesystem::remove_all(root, error);
+        return 11;
     }
 
     result = asset_root.resolve("../outside.txt", resolved_path);

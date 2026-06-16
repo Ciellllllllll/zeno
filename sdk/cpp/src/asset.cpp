@@ -4,6 +4,7 @@
 #include <Windows.h>
 
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <system_error>
 #include <utility>
@@ -168,6 +169,30 @@ Result AssetRoot::read_text(std::string_view relative_path_utf8, std::string& ou
     std::ostringstream contents;
     contents << file.rdbuf();
     out_text = contents.str();
+    return Result();
+}
+
+Result AssetRoot::read_binary(std::string_view relative_path_utf8, std::vector<std::uint8_t>& out_bytes) const
+{
+    AssetPath path;
+    Result result = resolve(relative_path_utf8, path);
+    if (!result.ok()) {
+        return result;
+    }
+
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(path.path(), error) || error) {
+        return Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
+    std::ifstream file(path.path(), std::ios::binary);
+    if (!file) {
+        return Result(ZEN_RESULT_NOT_INITIALIZED);
+    }
+
+    out_bytes.assign(
+        std::istreambuf_iterator<char>(file),
+        std::istreambuf_iterator<char>());
     return Result();
 }
 

@@ -20,6 +20,8 @@ extern "C" {
 #define ZEN_VERTEX_INPUT_LAYOUT_DESC_API_VERSION 1u
 #define ZEN_VERTEX_INPUT_LAYOUT_DESC_SIZE ((uint32_t)sizeof(ZenVertexInputLayoutDesc))
 #define ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS 8u
+#define ZEN_SPRITE_DRAW_DESC_API_VERSION 1u
+#define ZEN_SPRITE_DRAW_DESC_SIZE ((uint32_t)sizeof(ZenSpriteDrawDesc))
 
 typedef enum ZenInputKey {
     ZEN_INPUT_KEY_UNKNOWN = 0,
@@ -67,6 +69,11 @@ typedef struct ZenPixelShaderHandle {
     /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
     uint64_t value;
 } ZenPixelShaderHandle;
+
+typedef struct ZenTextureHandle {
+    /* Non-zero renderer resource handle. Value 0 is always invalid/null. */
+    uint64_t value;
+} ZenTextureHandle;
 
 typedef enum ZenVertexInputSemantic {
     ZEN_VERTEX_INPUT_SEMANTIC_POSITION = 1,
@@ -160,6 +167,18 @@ typedef struct ZenVertexInputLayoutDesc {
     uint32_t reserved;
     ZenVertexInputElement elements[ZEN_VERTEX_INPUT_LAYOUT_MAX_ELEMENTS];
 } ZenVertexInputLayoutDesc;
+
+typedef struct ZenSpriteDrawDesc {
+    /* Must be set to ZEN_SPRITE_DRAW_DESC_SIZE by the caller. */
+    uint32_t size;
+    /* Must be set to ZEN_SPRITE_DRAW_DESC_API_VERSION by the caller. */
+    uint32_t api_version;
+    uint32_t reserved[2];
+    /* Row-major model matrix using the same convention as ZenMatrix4x4. */
+    ZenMatrix4x4 model_matrix;
+    /* Multiplicative RGBA tint. */
+    float color[4];
+} ZenSpriteDrawDesc;
 
 /*
  * Creates the native backend shell.
@@ -406,6 +425,39 @@ ZenResultCode zen_native_backend_destroy_vertex_shader(
 ZenResultCode zen_native_backend_destroy_pixel_shader(
     ZenNativeBackendHandle backend,
     ZenPixelShaderHandle shader);
+
+/*
+ * Decodes PNG/BMP image bytes with WIC and creates a backend-owned 2D texture.
+ *
+ * image_bytes: borrowed byte range, only needed during the call.
+ * out_texture: borrowed output pointer, must not be null.
+ * The caller must destroy a successful handle with
+ * zen_native_backend_destroy_texture before or during backend shutdown.
+ */
+ZenResultCode zen_native_backend_create_texture_from_memory(
+    ZenNativeBackendHandle backend,
+    const uint8_t* image_bytes,
+    uint64_t image_byte_count,
+    ZenTextureHandle* out_texture);
+
+/*
+ * Destroys a backend-owned texture handle.
+ */
+ZenResultCode zen_native_backend_destroy_texture(
+    ZenNativeBackendHandle backend,
+    ZenTextureHandle texture);
+
+/*
+ * Draws a textured 2D sprite using the current camera matrix.
+ *
+ * backend: must have an initialized renderer and an active frame.
+ * texture: must be a valid non-zero texture handle for this backend.
+ * desc: borrowed POD draw descriptor, copied during the call.
+ */
+ZenResultCode zen_native_backend_draw_sprite(
+    ZenNativeBackendHandle backend,
+    ZenTextureHandle texture,
+    const ZenSpriteDrawDesc* desc);
 
 /*
  * Draws a backend-owned minimal triangle render resource.

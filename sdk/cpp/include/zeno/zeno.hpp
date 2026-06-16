@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <zeno/zeno_abi.h>
 #include <zeno/math.hpp>
@@ -60,6 +61,7 @@ public:
 
     Result resolve(std::string_view relative_path_utf8, AssetPath& out_path) const;
     Result read_text(std::string_view relative_path_utf8, std::string& out_text) const;
+    Result read_binary(std::string_view relative_path_utf8, std::vector<std::uint8_t>& out_bytes) const;
 
     const std::filesystem::path& path() const { return root_; }
     bool valid() const { return !root_.empty(); }
@@ -116,6 +118,11 @@ struct ShaderCompileLog final {
     std::string message{};
 };
 
+struct SpriteDrawDesc final {
+    Transform transform{};
+    Color color{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 enum class Key : std::uint32_t {
     unknown = ZEN_INPUT_KEY_UNKNOWN,
     escape = ZEN_INPUT_KEY_ESCAPE,
@@ -158,6 +165,7 @@ struct InputSnapshot final {
 class RenderTriangle;
 class VertexShader;
 class PixelShader;
+class Texture;
 
 class NativeBackend final {
 public:
@@ -190,12 +198,17 @@ public:
         std::string_view entry,
         PixelShader& out_shader,
         ShaderCompileLog& out_log);
+    Result create_texture(
+        const AssetRoot& assets,
+        std::string_view relative_path_utf8,
+        Texture& out_texture);
     Result create_triangle(RenderTriangle& out_triangle);
     Result create_triangle(const VertexShader& vertex_shader, const PixelShader& pixel_shader, RenderTriangle& out_triangle);
     Result set_camera_matrix(const Mat4& camera_matrix);
     Result draw_triangle(const RenderTriangle& triangle);
     Result draw_triangle(const RenderTriangle& triangle, const Mat4& model_matrix);
     Result draw_triangle(const RenderTriangle& triangle, const Transform& transform);
+    Result draw_sprite(const Texture& texture, const SpriteDrawDesc& desc);
     Result present();
     void reset();
 
@@ -277,6 +290,30 @@ private:
 
     ZenNativeBackendHandle backend_{};
     ZenPixelShaderHandle handle_{};
+};
+
+class Texture final {
+public:
+    Texture() = default;
+    ~Texture();
+
+    Texture(const Texture&) = delete;
+    Texture& operator=(const Texture&) = delete;
+
+    Texture(Texture&& other) noexcept;
+    Texture& operator=(Texture&& other) noexcept;
+
+    void reset();
+
+    bool valid() const { return handle_.value != 0; }
+
+private:
+    friend class NativeBackend;
+
+    Texture(ZenNativeBackendHandle backend, ZenTextureHandle handle);
+
+    ZenNativeBackendHandle backend_{};
+    ZenTextureHandle handle_{};
 };
 
 } // namespace zeno

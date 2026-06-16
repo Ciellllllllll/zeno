@@ -43,6 +43,11 @@ struct Matrix4x4 final {
     float elements[16]{};
 };
 
+struct SpriteDrawDesc final {
+    Matrix4x4 model_matrix{};
+    float color[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+};
+
 struct ShaderCompileLog final {
     char message[1024]{};
     std::uint32_t message_length = 0;
@@ -113,6 +118,9 @@ public:
         std::uint64_t& out_handle);
     bool destroy_vertex_shader(std::uint64_t handle);
     bool destroy_pixel_shader(std::uint64_t handle);
+    bool create_texture_from_memory(const std::uint8_t* image_bytes, std::uint64_t image_byte_count, std::uint64_t& out_handle);
+    bool destroy_texture(std::uint64_t handle);
+    RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc);
     RenderCommandResult draw_triangle(std::uint64_t handle);
     bool set_camera_matrix(const Matrix4x4& matrix);
     RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix);

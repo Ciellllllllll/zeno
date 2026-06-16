@@ -64,6 +64,19 @@ ZenVertexInputLayoutDesc make_triangle_input_layout()
     return desc;
 }
 
+ZenSpriteDrawDesc make_native_sprite_draw_desc(const SpriteDrawDesc& desc)
+{
+    ZenSpriteDrawDesc native_desc{};
+    native_desc.size = ZEN_SPRITE_DRAW_DESC_SIZE;
+    native_desc.api_version = ZEN_SPRITE_DRAW_DESC_API_VERSION;
+    native_desc.model_matrix = to_native_matrix(desc.transform.matrix());
+    native_desc.color[0] = desc.color.r;
+    native_desc.color[1] = desc.color.g;
+    native_desc.color[2] = desc.color.b;
+    native_desc.color[3] = desc.color.a;
+    return native_desc;
+}
+
 } // namespace
 
 bool InputSnapshot::down(Key key) const
@@ -343,6 +356,31 @@ Result NativeBackend::create_pixel_shader(
     return Result();
 }
 
+Result NativeBackend::create_texture(
+    const AssetRoot& assets,
+    std::string_view relative_path_utf8,
+    Texture& out_texture)
+{
+    std::vector<std::uint8_t> bytes;
+    Result result = assets.read_binary(relative_path_utf8, bytes);
+    if (!result.ok()) {
+        return result;
+    }
+
+    ZenTextureHandle handle{};
+    const ZenResultCode native_result = zen_native_backend_create_texture_from_memory(
+        handle_,
+        bytes.data(),
+        bytes.size(),
+        &handle);
+    if (native_result != ZEN_RESULT_OK) {
+        return Result(native_result);
+    }
+
+    out_texture = Texture(handle_, handle);
+    return Result();
+}
+
 Result NativeBackend::create_triangle(RenderTriangle& out_triangle)
 {
     ZenRenderTriangleHandle handle{};
@@ -396,6 +434,12 @@ Result NativeBackend::draw_triangle(const RenderTriangle& triangle, const Mat4& 
 Result NativeBackend::draw_triangle(const RenderTriangle& triangle, const Transform& transform)
 {
     return draw_triangle(triangle, transform.matrix());
+}
+
+Result NativeBackend::draw_sprite(const Texture& texture, const SpriteDrawDesc& desc)
+{
+    const ZenSpriteDrawDesc native_desc = make_native_sprite_draw_desc(desc);
+    return Result(zen_native_backend_draw_sprite(handle_, texture.handle_, &native_desc));
 }
 
 Result NativeBackend::present()
@@ -526,6 +570,45 @@ void PixelShader::reset()
     }
 
     zen_native_backend_destroy_pixel_shader(backend_, handle_);
+    backend_ = {};
+    handle_ = {};
+}
+
+Texture::Texture(ZenNativeBackendHandle backend, ZenTextureHandle handle)
+    : backend_(backend)
+    , handle_(handle)
+{
+}
+
+Texture::~Texture()
+{
+    reset();
+}
+
+Texture::Texture(Texture&& other) noexcept
+    : backend_(std::exchange(other.backend_, ZenNativeBackendHandle{}))
+    , handle_(std::exchange(other.handle_, ZenTextureHandle{}))
+{
+}
+
+Texture& Texture::operator=(Texture&& other) noexcept
+{
+    if (this != &other) {
+        reset();
+        backend_ = std::exchange(other.backend_, ZenNativeBackendHandle{});
+        handle_ = std::exchange(other.handle_, ZenTextureHandle{});
+    }
+
+    return *this;
+}
+
+void Texture::reset()
+{
+    if (backend_.value == 0 || handle_.value == 0) {
+        return;
+    }
+
+    zen_native_backend_destroy_texture(backend_, handle_);
     backend_ = {};
     handle_ = {};
 }

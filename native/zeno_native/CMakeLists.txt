@@ -12,7 +12,7 @@ target_compile_features(zeno_native PUBLIC cxx_std_20)
 target_include_directories(zeno_native PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-target_link_libraries(zeno_native PRIVATE user32 d3d11 dxgi d3dcompiler)
+target_link_libraries(zeno_native PRIVATE user32 d3d11 dxgi d3dcompiler windowscodecs ole32)
 
 set(ZENO_ABI_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../target/${ZENO_RUST_PROFILE}")
 
@@ -52,3 +52,8 @@ add_executable(zeno_shader_smoke src/shader_smoke.cpp)
 target_compile_features(zeno_shader_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_shader_smoke PRIVATE zeno_native)
 add_test(NAME zeno_shader_smoke COMMAND zeno_shader_smoke)
+
+add_executable(zeno_texture_smoke src/texture_smoke.cpp)
+target_compile_features(zeno_texture_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_texture_smoke PRIVATE zeno_native)
+add_test(NAME zeno_texture_smoke COMMAND zeno_texture_smoke)

@@ -7,6 +7,8 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <dxgi.h>
+#include <objbase.h>
+#include <wincodec.h>
 #include <wrl/client.h>
 
 #include <array>
@@ -17,6 +19,7 @@
 #include <iterator>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace zeno::native {
 namespace {
@@ -52,9 +55,46 @@ float4 ps_main(PSInput input) : SV_TARGET {
 }
 )";
 
+constexpr char kSpriteShaderSource[] = R"(
+cbuffer SpriteConstants : register(b0) {
+    row_major float4x4 u_world;
+    row_major float4x4 u_view_projection;
+    float4 u_color;
+};
+
+Texture2D u_texture : register(t0);
+SamplerState u_sampler : register(s0);
+
+struct VSInput {
+    float3 position : POSITION;
+    float2 uv : TEXCOORD;
+};
+
+struct PSInput {
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD;
+};
+
+PSInput vs_main(VSInput input) {
+    PSInput output;
+    output.position = mul(mul(float4(input.position, 1.0), u_world), u_view_projection);
+    output.uv = input.uv;
+    return output;
+}
+
+float4 ps_main(PSInput input) : SV_TARGET {
+    return u_texture.Sample(u_sampler, input.uv) * u_color;
+}
+)";
+
 struct TriangleVertex final {
     float position[3];
     float color[4];
+};
+
+struct SpriteVertex final {
+    float position[3];
+    float uv[2];
 };
 
 struct TriangleResource final {
@@ -73,12 +113,26 @@ struct PixelShaderResource final {
     Microsoft::WRL::ComPtr<ID3D11PixelShader> shader;
 };
 
+struct TextureResource final {
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+};
+
 struct TriangleTransformConstants final {
     float world[16];
     float view_projection[16];
 };
 
+struct SpriteConstants final {
+    float world[16];
+    float view_projection[16];
+    float color[4];
+};
+
 static_assert(sizeof(TriangleTransformConstants) == 128);
+static_assert(sizeof(SpriteConstants) == 144);
 
 Matrix4x4 identity_matrix()
 {
@@ -306,6 +360,23 @@ public:
             return false;
         }
 
+        HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        if (SUCCEEDED(result)) {
+            com_initialized_ = true;
+        } else if (result != RPC_E_CHANGED_MODE) {
+            return false;
+        }
+
+        result = CoCreateInstance(
+            CLSID_WICImagingFactory,
+            nullptr,
+            CLSCTX_INPROC_SERVER,
+            IID_PPV_ARGS(wic_factory_.GetAddressOf()));
+        if (FAILED(result)) {
+            shutdown();
+            return false;
+        }
+
         DXGI_SWAP_CHAIN_DESC swap_chain_desc{};
         swap_chain_desc.BufferDesc.Width = 0;
         swap_chain_desc.BufferDesc.Height = 0;
@@ -325,7 +396,7 @@ public:
         };
         D3D_FEATURE_LEVEL created_feature_level{};
 
-        HRESULT result = D3D11CreateDeviceAndSwapChain(
+        result = D3D11CreateDeviceAndSwapChain(
             nullptr,
             D3D_DRIVER_TYPE_HARDWARE,
             nullptr,
@@ -385,6 +456,14 @@ public:
         }
 
         frame_active_ = false;
+        texture_resources_.clear();
+        sprite_blend_state_.Reset();
+        sprite_sampler_state_.Reset();
+        sprite_constant_buffer_.Reset();
+        sprite_vertex_buffer_.Reset();
+        sprite_input_layout_.Reset();
+        sprite_pixel_shader_.Reset();
+        sprite_vertex_shader_.Reset();
         triangle_transform_buffer_.Reset();
         render_target_view_.Reset();
         triangle_resources_.clear();
@@ -393,6 +472,11 @@ public:
         swap_chain_.Reset();
         context_.Reset();
         device_.Reset();
+        wic_factory_.Reset();
+        if (com_initialized_) {
+            CoUninitialize();
+            com_initialized_ = false;
+        }
     }
 
     bool begin_frame()
@@ -734,6 +818,137 @@ public:
         return destroyed;
     }
 
+    bool create_texture_from_memory(const std::uint8_t* image_bytes, std::uint64_t image_byte_count, std::uint64_t& out_handle)
+    {
+        if (device_ == nullptr || context_ == nullptr || wic_factory_ == nullptr || next_texture_handle_ == UINT64_MAX) {
+            return false;
+        }
+
+        if (image_bytes == nullptr || image_byte_count == 0 || image_byte_count > UINT_MAX) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<IWICStream> stream;
+        HRESULT result = wic_factory_->CreateStream(stream.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = stream->InitializeFromMemory(
+            const_cast<BYTE*>(reinterpret_cast<const BYTE*>(image_bytes)),
+            static_cast<DWORD>(image_byte_count));
+        if (FAILED(result)) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
+        result = wic_factory_->CreateDecoderFromStream(
+            stream.Get(),
+            nullptr,
+            WICDecodeMetadataCacheOnLoad,
+            decoder.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<IWICBitmapFrameDecode> frame;
+        result = decoder->GetFrame(0, frame.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        UINT width = 0;
+        UINT height = 0;
+        result = frame->GetSize(&width, &height);
+        if (FAILED(result) || width == 0 || height == 0) {
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
+        result = wic_factory_->CreateFormatConverter(converter.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = converter->Initialize(
+            frame.Get(),
+            GUID_WICPixelFormat32bppRGBA,
+            WICBitmapDitherTypeNone,
+            nullptr,
+            0.0,
+            WICBitmapPaletteTypeCustom);
+        if (FAILED(result)) {
+            return false;
+        }
+
+        if (width > UINT_MAX / 4) {
+            return false;
+        }
+
+        const UINT stride = width * 4;
+        if (height > UINT_MAX / stride) {
+            return false;
+        }
+
+        const UINT byte_count = stride * height;
+        std::vector<std::uint8_t> pixels(byte_count);
+        result = converter->CopyPixels(nullptr, stride, byte_count, pixels.data());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_TEXTURE2D_DESC texture_desc{};
+        texture_desc.Width = width;
+        texture_desc.Height = height;
+        texture_desc.MipLevels = 1;
+        texture_desc.ArraySize = 1;
+        texture_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        texture_desc.SampleDesc.Count = 1;
+        texture_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        texture_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+        D3D11_SUBRESOURCE_DATA initial_data{};
+        initial_data.pSysMem = pixels.data();
+        initial_data.SysMemPitch = stride;
+
+        TextureResource resource{};
+        resource.width = width;
+        resource.height = height;
+        result = device_->CreateTexture2D(&texture_desc, &initial_data, resource.texture.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreateShaderResourceView(resource.texture.Get(), nullptr, resource.shader_resource_view.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        const std::uint64_t handle = next_texture_handle_++;
+        if (handle == 0) {
+            return false;
+        }
+
+        texture_resources_.emplace(handle, std::move(resource));
+        out_handle = handle;
+        std::cerr << "[ZENO][native] texture resource created\n";
+        return true;
+    }
+
+    bool destroy_texture(std::uint64_t handle)
+    {
+        if (handle == 0) {
+            return false;
+        }
+
+        const bool destroyed = texture_resources_.erase(handle) == 1;
+        if (destroyed) {
+            std::cerr << "[ZENO][native] texture resource destroyed\n";
+        }
+
+        return destroyed;
+    }
+
     bool create_triangle_with_shaders(
         std::uint64_t vertex_shader,
         std::uint64_t pixel_shader,
@@ -795,6 +1010,184 @@ public:
         out_handle = handle;
         std::cerr << "[ZENO][native] shader-backed triangle resource created\n";
         return true;
+    }
+
+    bool ensure_sprite_pipeline()
+    {
+        if (sprite_vertex_shader_ != nullptr) {
+            return true;
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> vertex_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> pixel_shader_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+        HRESULT result = D3DCompile(
+            kSpriteShaderSource,
+            sizeof(kSpriteShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "vs_main",
+            "vs_4_0",
+            0,
+            0,
+            vertex_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        error_blob.Reset();
+        result = D3DCompile(
+            kSpriteShaderSource,
+            sizeof(kSpriteShaderSource) - 1,
+            nullptr,
+            nullptr,
+            nullptr,
+            "ps_main",
+            "ps_4_0",
+            0,
+            0,
+            pixel_shader_blob.GetAddressOf(),
+            error_blob.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreateVertexShader(
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            nullptr,
+            sprite_vertex_shader_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        result = device_->CreatePixelShader(
+            pixel_shader_blob->GetBufferPointer(),
+            pixel_shader_blob->GetBufferSize(),
+            nullptr,
+            sprite_pixel_shader_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr D3D11_INPUT_ELEMENT_DESC input_elements[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(SpriteVertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(SpriteVertex, uv), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        result = device_->CreateInputLayout(
+            input_elements,
+            2,
+            vertex_shader_blob->GetBufferPointer(),
+            vertex_shader_blob->GetBufferSize(),
+            sprite_input_layout_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        constexpr SpriteVertex vertices[] = {
+            { { -0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
+            { { 0.5f, 0.5f, 0.0f }, { 1.0f, 0.0f } },
+            { { 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f } },
+            { { -0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
+            { { 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f } },
+            { { -0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f } },
+        };
+        D3D11_BUFFER_DESC vertex_buffer_desc{};
+        vertex_buffer_desc.ByteWidth = sizeof(vertices);
+        vertex_buffer_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        vertex_buffer_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA vertex_initial_data{};
+        vertex_initial_data.pSysMem = vertices;
+        result = device_->CreateBuffer(&vertex_buffer_desc, &vertex_initial_data, sprite_vertex_buffer_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_BUFFER_DESC constant_buffer_desc{};
+        constant_buffer_desc.ByteWidth = sizeof(SpriteConstants);
+        constant_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+        constant_buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        result = device_->CreateBuffer(&constant_buffer_desc, nullptr, sprite_constant_buffer_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_SAMPLER_DESC sampler_desc{};
+        sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampler_desc.MaxLOD = D3D11_FLOAT32_MAX;
+        result = device_->CreateSamplerState(&sampler_desc, sprite_sampler_state_.GetAddressOf());
+        if (FAILED(result)) {
+            return false;
+        }
+
+        D3D11_BLEND_DESC blend_desc{};
+        blend_desc.RenderTarget[0].BlendEnable = TRUE;
+        blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        result = device_->CreateBlendState(&blend_desc, sprite_blend_state_.GetAddressOf());
+        return SUCCEEDED(result);
+    }
+
+    RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc)
+    {
+        const auto found = texture_resources_.find(texture);
+        if (found == texture_resources_.end()) {
+            return RenderCommandResult::missing_resource;
+        }
+
+        if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        if (!ensure_sprite_pipeline()) {
+            return RenderCommandResult::wrong_state;
+        }
+
+        SpriteConstants constants{};
+        for (int i = 0; i < 16; ++i) {
+            constants.world[i] = desc.model_matrix.elements[i];
+            constants.view_projection[i] = view_projection_matrix_.elements[i];
+        }
+        for (int i = 0; i < 4; ++i) {
+            constants.color[i] = desc.color[i];
+        }
+
+        context_->UpdateSubresource(sprite_constant_buffer_.Get(), 0, nullptr, &constants, 0, 0);
+
+        constexpr UINT stride = sizeof(SpriteVertex);
+        constexpr UINT offset = 0;
+        ID3D11Buffer* vertex_buffers[] = { sprite_vertex_buffer_.Get() };
+        ID3D11Buffer* constant_buffers[] = { sprite_constant_buffer_.Get() };
+        ID3D11ShaderResourceView* shader_resource_views[] = { found->second.shader_resource_view.Get() };
+        ID3D11SamplerState* samplers[] = { sprite_sampler_state_.Get() };
+        float blend_factor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+        context_->IASetInputLayout(sprite_input_layout_.Get());
+        context_->IASetVertexBuffers(0, 1, vertex_buffers, &stride, &offset);
+        context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        context_->VSSetShader(sprite_vertex_shader_.Get(), nullptr, 0);
+        context_->VSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShader(sprite_pixel_shader_.Get(), nullptr, 0);
+        context_->PSSetConstantBuffers(0, 1, constant_buffers);
+        context_->PSSetShaderResources(0, 1, shader_resource_views);
+        context_->PSSetSamplers(0, 1, samplers);
+        context_->OMSetBlendState(sprite_blend_state_.Get(), blend_factor, 0xffffffff);
+        context_->Draw(6, 0);
+
+        ID3D11ShaderResourceView* null_srvs[] = { nullptr };
+        context_->PSSetShaderResources(0, 1, null_srvs);
+        context_->OMSetBlendState(nullptr, blend_factor, 0xffffffff);
+        return RenderCommandResult::ok;
     }
 
     RenderCommandResult draw_triangle(std::uint64_t handle)
@@ -862,17 +1255,28 @@ private:
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
     Microsoft::WRL::ComPtr<ID3D11Buffer> triangle_transform_buffer_;
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> sprite_vertex_shader_;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> sprite_pixel_shader_;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> sprite_input_layout_;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> sprite_vertex_buffer_;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> sprite_constant_buffer_;
+    Microsoft::WRL::ComPtr<ID3D11SamplerState> sprite_sampler_state_;
+    Microsoft::WRL::ComPtr<ID3D11BlendState> sprite_blend_state_;
+    Microsoft::WRL::ComPtr<IWICImagingFactory> wic_factory_;
     D3D11_VIEWPORT viewport_{};
     bool frame_active_ = false;
+    bool com_initialized_ = false;
     Matrix4x4 view_projection_matrix_ = identity_matrix();
     std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
     std::unordered_map<std::uint64_t, TriangleResource> triangle_resources_;
     std::unordered_map<std::uint64_t, VertexShaderResource> vertex_shader_resources_;
     std::unordered_map<std::uint64_t, PixelShaderResource> pixel_shader_resources_;
+    std::unordered_map<std::uint64_t, TextureResource> texture_resources_;
     std::uint64_t next_clear_color_handle_ = 1;
     std::uint64_t next_triangle_handle_ = 1;
     std::uint64_t next_vertex_shader_handle_ = 1;
     std::uint64_t next_pixel_shader_handle_ = 1;
+    std::uint64_t next_texture_handle_ = 1;
 };
 
 bool NativeBackend::initialize(const NativeBackendConfig& config)
@@ -1188,6 +1592,28 @@ bool NativeBackend::destroy_vertex_shader(std::uint64_t handle)
 bool NativeBackend::destroy_pixel_shader(std::uint64_t handle)
 {
     return renderer_ != nullptr && renderer_->destroy_pixel_shader(handle);
+}
+
+bool NativeBackend::create_texture_from_memory(
+    const std::uint8_t* image_bytes,
+    std::uint64_t image_byte_count,
+    std::uint64_t& out_handle)
+{
+    return renderer_ != nullptr && renderer_->create_texture_from_memory(image_bytes, image_byte_count, out_handle);
+}
+
+bool NativeBackend::destroy_texture(std::uint64_t handle)
+{
+    return renderer_ != nullptr && renderer_->destroy_texture(handle);
+}
+
+RenderCommandResult NativeBackend::draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc)
+{
+    if (renderer_ == nullptr) {
+        return RenderCommandResult::wrong_state;
+    }
+
+    return renderer_->draw_sprite(texture, desc);
 }
 
 RenderCommandResult NativeBackend::draw_triangle(std::uint64_t handle)
