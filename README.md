@@ -9,6 +9,7 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Rust engine core with runtime lifecycle, frame stepping, frame timing, shutdown state, and error model.
 - Rust C ABI crate that exposes engine creation, stepping, shutdown request, destruction, result codes, and POD frame/config structs.
 - C++ native backend with Win32 window creation and DirectX 11 device/swap-chain/render-target bootstrap.
+- Native DirectX 11 resize baseline for recreating swap-chain render target/depth resources and surfacing device removed/reset as backend errors.
 - Handle-based native backend resources for clear colors, shader resources, textures, sprites, meshes, minimal material/render-state handles, and DirectX 11 draw paths.
 - Keyboard and mouse input snapshot support for a small engine-owned key/button set.
 - Minimal C++ SDK math foundations: vectors, row-major matrices, transforms, orthographic/perspective cameras, and 2D AABB collision helpers.

@@ -121,6 +121,7 @@ cmake --build build\external-game
 | External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZENO::zeno_sdk_cpp`, not in-tree includes. |
 | Dynamic module sample | `.\scripts\run-dynamic-module-sample.ps1` | Builds/runs the headless DLL module sample | Uses `LoadLibraryW`, descriptor version validation, lifecycle callbacks, and unload. |
 | GameApp failed-init cleanup | `build/windows-msvc-debug/bin/Debug/zeno_sdk_failed_init_smoke.exe` | Verifies `on_shutdown` after failed `on_init` | Window-capable smoke; run only when opening local windows is acceptable. |
+| Renderer resize smoke | `build/windows-msvc-debug/bin/Debug/zeno_resize_smoke.exe` | Verifies minimized and nonzero resize path | Window-capable smoke; run only when opening local windows is acceptable. |
 | Package layout | `Test-Path build/package/windows-msvc-debug/bin/zeno_abi.dll` and related sample/template asset paths | Passes | Also check the package does not contain `AGENTS.md`, `docs`, or `goal`. |
 | CI-style baseline | `.\scripts\verify-all.ps1` | Passes | Runs format, ABI, headless test, and package scripts. |
 | Local full validation | `.\scripts\test-all-local.ps1` | Manual window validation | Includes window-capable checks; run manually. |

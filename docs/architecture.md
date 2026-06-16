@@ -63,6 +63,8 @@ Renderer resources such as shaders, textures, materials, sprite state, mesh vert
 
 Audio resources follow the same boundary rule. XAudio2 engine, mastering voice, source voices, WAV parsing, and PCM sample storage are native backend internals. ABI-facing audio data is limited to handles, a small POD descriptor, borrowed WAV bytes, primitive volume values, and result codes.
 
+Window resize is handled inside the native backend. `WM_SIZE` is translated into primitive resize state; minimized or zero-size windows skip swap-chain resizing, and nonzero resize recreates only swap-chain-dependent render target/depth resources and updates the viewport. DirectX 11 device removed/reset is detected and surfaced through the existing backend error result path; full device-loss resource recovery is intentionally out of scope for this baseline.
+
 Vertex and index data cross the ABI as borrowed pointers plus explicit counts and stride. The native backend copies that data into backend-owned GPU buffers during creation. Material choices cross as fixed integer enums and handles. Transform and camera data cross as POD matrices. DirectX buffers, input layouts, blend/rasterizer/depth stencil objects, shader resource views, COM pointers, and Win32 handles remain native-backend private.
 
 Debug draw is an immediate development visualization path, not a general renderer feature set. Debug line and rectangle data cross the native backend ABI as POD descriptors with primitive coordinates and color values only. Collision helpers stay SDK/sample-owned and do not introduce native collision resources.

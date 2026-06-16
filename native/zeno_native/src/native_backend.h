@@ -121,6 +121,7 @@ public:
     void handle_mouse_move(std::int32_t x, std::int32_t y);
     void handle_mouse_button(std::uint32_t button, bool is_down);
     void handle_mouse_wheel(std::int32_t wheel_delta);
+    void handle_window_resize(std::uint32_t width, std::uint32_t height, bool minimized);
     void clear_input_state();
     void notify_window_destroyed(HWND__* window);
     bool initialize_renderer();

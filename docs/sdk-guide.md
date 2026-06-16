@@ -9,6 +9,7 @@
 - A high-level C++ `GameApp` runtime that gathers setup, frame stepping, input, assets, audio, scene data, and module lifecycle into one host API.
 - Explicit `GameApp` failure cleanup semantics: partial `on_init` failure is followed by `on_shutdown` before SDK-owned backend/audio resources are reset.
 - A first Windows dynamic module loader that uses a C-compatible descriptor entry point without exposing SDK classes, STL, Win32, DirectX, or Rust internals across the DLL boundary.
+- A DirectX 11 resize baseline that rebuilds swap-chain render target/depth resources and detects device removed/reset without claiming full recovery.
 - A small sample game module that proves init/update/render/shutdown flow.
 - A separate minimal C++ template game that proves a second game target can reuse the same SDK, `GameApp`, assets/config layout, and CMakePresets workflow.
 - A packaged SDK layout and external CMake example that prove SDK consumption outside the repository sample/template graph.
@@ -64,6 +65,7 @@
 - No asset pipeline.
 - No hot reload, scripting, editor plugins, or generalized plugin ecosystem.
 - Dynamic modules currently receive only an opaque reserved host context; ABI-safe host services are future work.
+- No full DirectX device-lost recovery or resource rehydration system yet; Phase 39 detects device removed/reset and returns backend errors.
 - No project generator or installer; the template game and packaging script are deliberately minimal.
 - No editor.
 - CI covers the headless baseline only; visual sample/template execution remains local/manual.

@@ -410,6 +410,12 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
         case WM_MOUSEWHEEL:
             backend->handle_mouse_wheel(static_cast<std::int16_t>((wparam >> 16) & 0xffff) / WHEEL_DELTA);
             return 0;
+        case WM_SIZE:
+            backend->handle_window_resize(
+                static_cast<std::uint32_t>(LOWORD(lparam)),
+                static_cast<std::uint32_t>(HIWORD(lparam)),
+                wparam == SIZE_MINIMIZED);
+            return 0;
         case WM_KILLFOCUS:
         case WM_CAPTURECHANGED:
             backend->clear_input_state();
@@ -807,45 +813,7 @@ public:
             return false;
         }
 
-        Microsoft::WRL::ComPtr<ID3D11Texture2D> back_buffer;
-        result = swap_chain_->GetBuffer(0, IID_PPV_ARGS(back_buffer.GetAddressOf()));
-        if (FAILED(result)) {
-            shutdown();
-            return false;
-        }
-
-        D3D11_TEXTURE2D_DESC back_buffer_desc{};
-        back_buffer->GetDesc(&back_buffer_desc);
-        viewport_.TopLeftX = 0.0f;
-        viewport_.TopLeftY = 0.0f;
-        viewport_.Width = static_cast<float>(back_buffer_desc.Width);
-        viewport_.Height = static_cast<float>(back_buffer_desc.Height);
-        viewport_.MinDepth = 0.0f;
-        viewport_.MaxDepth = 1.0f;
-
-        result = device_->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view_.GetAddressOf());
-        if (FAILED(result)) {
-            shutdown();
-            return false;
-        }
-
-        D3D11_TEXTURE2D_DESC depth_texture_desc{};
-        depth_texture_desc.Width = back_buffer_desc.Width;
-        depth_texture_desc.Height = back_buffer_desc.Height;
-        depth_texture_desc.MipLevels = 1;
-        depth_texture_desc.ArraySize = 1;
-        depth_texture_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-        depth_texture_desc.SampleDesc.Count = 1;
-        depth_texture_desc.Usage = D3D11_USAGE_DEFAULT;
-        depth_texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-        result = device_->CreateTexture2D(&depth_texture_desc, nullptr, depth_texture_.GetAddressOf());
-        if (FAILED(result)) {
-            shutdown();
-            return false;
-        }
-
-        result = device_->CreateDepthStencilView(depth_texture_.Get(), nullptr, depth_stencil_view_.GetAddressOf());
-        if (FAILED(result)) {
+        if (!create_back_buffer_resources()) {
             shutdown();
             return false;
         }
@@ -932,6 +900,10 @@ public:
 
     bool begin_frame()
     {
+        if (renderer_failed_ || !apply_pending_resize()) {
+            return false;
+        }
+
         if (context_ == nullptr || render_target_view_ == nullptr || depth_stencil_view_ == nullptr || frame_active_) {
             return false;
         }
@@ -2135,12 +2107,122 @@ public:
             return false;
         }
 
-        const bool presented = SUCCEEDED(swap_chain_->Present(1, 0));
+        const HRESULT result = swap_chain_->Present(1, 0);
+        if (result == DXGI_ERROR_DEVICE_REMOVED || result == DXGI_ERROR_DEVICE_RESET) {
+            renderer_failed_ = true;
+        }
+
+        const bool presented = SUCCEEDED(result);
         frame_active_ = false;
         return presented;
     }
 
+    void request_resize(std::uint32_t width, std::uint32_t height, bool minimized)
+    {
+        minimized_ = minimized || width == 0 || height == 0;
+        if (minimized_) {
+            return;
+        }
+
+        pending_width_ = width;
+        pending_height_ = height;
+        resize_pending_ = true;
+    }
+
 private:
+    bool create_back_buffer_resources()
+    {
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> back_buffer;
+        HRESULT result = swap_chain_->GetBuffer(0, IID_PPV_ARGS(back_buffer.GetAddressOf()));
+        if (FAILED(result)) {
+            note_device_removed(result);
+            renderer_failed_ = true;
+            return false;
+        }
+
+        D3D11_TEXTURE2D_DESC back_buffer_desc{};
+        back_buffer->GetDesc(&back_buffer_desc);
+        if (back_buffer_desc.Width == 0 || back_buffer_desc.Height == 0) {
+            return false;
+        }
+
+        viewport_.TopLeftX = 0.0f;
+        viewport_.TopLeftY = 0.0f;
+        viewport_.Width = static_cast<float>(back_buffer_desc.Width);
+        viewport_.Height = static_cast<float>(back_buffer_desc.Height);
+        viewport_.MinDepth = 0.0f;
+        viewport_.MaxDepth = 1.0f;
+
+        result = device_->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view_.GetAddressOf());
+        if (FAILED(result)) {
+            note_device_removed(result);
+            renderer_failed_ = true;
+            return false;
+        }
+
+        D3D11_TEXTURE2D_DESC depth_texture_desc{};
+        depth_texture_desc.Width = back_buffer_desc.Width;
+        depth_texture_desc.Height = back_buffer_desc.Height;
+        depth_texture_desc.MipLevels = 1;
+        depth_texture_desc.ArraySize = 1;
+        depth_texture_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        depth_texture_desc.SampleDesc.Count = 1;
+        depth_texture_desc.Usage = D3D11_USAGE_DEFAULT;
+        depth_texture_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+        result = device_->CreateTexture2D(&depth_texture_desc, nullptr, depth_texture_.GetAddressOf());
+        if (FAILED(result)) {
+            note_device_removed(result);
+            renderer_failed_ = true;
+            return false;
+        }
+
+        result = device_->CreateDepthStencilView(depth_texture_.Get(), nullptr, depth_stencil_view_.GetAddressOf());
+        if (FAILED(result)) {
+            note_device_removed(result);
+            renderer_failed_ = true;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool apply_pending_resize()
+    {
+        if (minimized_ || !resize_pending_) {
+            return true;
+        }
+
+        if (swap_chain_ == nullptr || context_ == nullptr || pending_width_ == 0 || pending_height_ == 0) {
+            return false;
+        }
+
+        context_->OMSetRenderTargets(0, nullptr, nullptr);
+        render_target_view_.Reset();
+        depth_stencil_view_.Reset();
+        depth_texture_.Reset();
+
+        const HRESULT result = swap_chain_->ResizeBuffers(0, pending_width_, pending_height_, DXGI_FORMAT_UNKNOWN, 0);
+        if (FAILED(result)) {
+            note_device_removed(result);
+            renderer_failed_ = true;
+            return false;
+        }
+
+        if (!create_back_buffer_resources()) {
+            return false;
+        }
+
+        resize_pending_ = false;
+        return true;
+    }
+
+    void note_device_removed(HRESULT result)
+    {
+        if (result == DXGI_ERROR_DEVICE_REMOVED || result == DXGI_ERROR_DEVICE_RESET) {
+            renderer_failed_ = true;
+        }
+    }
+
     bool ensure_debug_line_pipeline()
     {
         if (debug_line_vertex_shader_ != nullptr) {
@@ -2318,6 +2400,11 @@ private:
     D3D11_VIEWPORT viewport_{};
     bool frame_active_ = false;
     bool com_initialized_ = false;
+    bool resize_pending_ = false;
+    bool minimized_ = false;
+    bool renderer_failed_ = false;
+    std::uint32_t pending_width_ = 0;
+    std::uint32_t pending_height_ = 0;
     Matrix4x4 view_projection_matrix_ = identity_matrix();
     std::unordered_map<std::uint64_t, std::array<float, 4>> clear_colors_;
     std::unordered_map<std::uint64_t, TriangleResource> triangle_resources_;
@@ -2520,6 +2607,13 @@ void NativeBackend::handle_mouse_button(std::uint32_t button, bool is_down)
 void NativeBackend::handle_mouse_wheel(std::int32_t wheel_delta)
 {
     pending_mouse_wheel_delta_ += wheel_delta;
+}
+
+void NativeBackend::handle_window_resize(std::uint32_t width, std::uint32_t height, bool minimized)
+{
+    if (renderer_ != nullptr) {
+        renderer_->request_resize(width, height, minimized);
+    }
 }
 
 void NativeBackend::clear_input_state()
