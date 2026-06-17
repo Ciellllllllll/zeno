@@ -1,0 +1,29 @@
+# ZENO commit message format:
+# <type>: <日本語の変更内容>
+#
+# Write the actual commit message above these comments.
+#
+# Rules:
+# - Write the summary in Japanese.
+# - Use a half-width colon immediately after type.
+# - Put exactly one half-width space after type:.
+# - Do not put a space between type and colon.
+# - Do not use feat. Use add for new features.
+#
+# Allowed types:
+# fix: バグ修正
+# hotfix: クリティカルなバグ修正
+# add: 新規機能追加
+# update: 機能修正、既存機能の改善、バグではない変更
+# change: 仕様変更
+# clean: 整理、リファクタリング、可読性改善
+# disable: 無効化、コメントアウト、一時停止
+# remove: ファイル削除、不要機能削除
+# upgrade: バージョンアップ、依存関係更新
+# revert: 変更取り消し
+#
+# Good examples:
+# fix: 起動時にクラッシュする問題を修正
+# add: 2D描画APIを追加
+# update: サンプルゲームの描画処理を更新
+# clean: 不要なコメントと重複処理を整理
