@@ -175,6 +175,8 @@ try {
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/sdk-layout.md") -Destination (Join-Path $packageRoot "docs/sdk-layout.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/vs2022.md") -Destination (Join-Path $packageRoot "docs/vs2022.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/vscode-cmake.md") -Destination (Join-Path $packageRoot "docs/vscode-cmake.md")
+    Copy-RequiredDirectory -Source (Join-Path $repoRoot "docs/api") -Destination (Join-Path $packageRoot "docs/api")
+    Copy-RequiredDirectory -Source (Join-Path $repoRoot "docs/tutorials") -Destination (Join-Path $packageRoot "docs/tutorials")
     Copy-RequiredFile -Source (Join-Path $repoRoot "cmake/ZenoEngineConfig.cmake") -Destination (Join-Path $packageRoot "cmake/ZenoEngineConfig.cmake")
     Copy-RequiredFile -Source (Join-Path $repoRoot "cmake/ZenoEngineConfigVersion.cmake") -Destination (Join-Path $packageRoot "cmake/ZenoEngineConfigVersion.cmake")
 
@@ -219,7 +221,7 @@ zeno_add_sdk_feature_sample(zeno_sample_3d_mesh_cpp src/sample_3d_mesh.cpp)
 
 This SDK package contains the public C++ headers, Windows MSVC static libraries, Rust ABI runtime DLL, focused SDK samples, a minimal external project template, documentation, and CMake package configuration for ZENO Engine.
 
-Start with `docs/getting-started.md`.
+Start with `docs/getting-started.md`, then use `docs/tutorials/` for project walkthroughs and `docs/api/` for public SDK concepts.
 
 ## Layout
 
@@ -228,7 +230,7 @@ Start with `docs/getting-started.md`.
 - `bin/Debug/`, `bin/Release/` - runtime DLLs required beside executables.
 - `samples/sdk_feature_samples_cpp/` - Phase43 focused SDK samples.
 - `templates/cpp_empty/` - minimal external CMake project.
-- `docs/` - setup and IDE notes.
+- `docs/` - setup, IDE notes, tutorials, and API concept docs.
 - `cmake/ZenoEngineConfig.cmake` - imported CMake targets.
 
 ## Minimal CMake Use

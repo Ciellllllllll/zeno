@@ -2,6 +2,8 @@
 
 This repository is Windows-first for the current milestone.
 
+For packaged SDK consumption, start with [Getting Started With ZENO SDK](getting-started.md) and [SDK Tutorials](tutorials/index.md). This page is the repository maintainer build and regression guide.
+
 ## Requirements
 
 - Windows 10 or Windows 11.

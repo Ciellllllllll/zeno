@@ -141,10 +141,11 @@ Package the SDK and verify external consumption:
 
 ```powershell
 .\scripts\package-sdk.ps1
-.\scripts\verify-external-game.ps1
+.\scripts\verify-external-game.ps1 -Configuration Debug
+.\scripts\verify-external-game.ps1 -Configuration Release
 ```
 
-The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It contains public headers, Debug/Release libraries, Debug/Release `zeno_abi.dll` runtime copies, Phase43 SDK samples, `templates/cpp_empty`, SDK docs, and `cmake/ZenoEngineConfig.cmake`. The package config exposes `ZenoEngine::zeno_sdk_cpp` and `ZenoEngine_VERSION` as `0.1.0-dev`; compatibility `ZENO::` targets are also provided.
+The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It contains public headers, Debug/Release libraries, Debug/Release `zeno_abi.dll` runtime copies, focused SDK samples, `templates/cpp_empty`, SDK docs, and `cmake/ZenoEngineConfig.cmake`. The package config exposes `ZenoEngine::zeno_sdk_cpp` and `ZenoEngine_VERSION` as `0.1.0-dev`; compatibility `ZENO::` targets are also provided.
 
 Minimal static-linked game host:
 
@@ -203,11 +204,14 @@ zeno/
 
 ## Documentation
 
+- [docs/index.md](docs/index.md) is the documentation home for SDK users and repository contributors.
 - [docs/architecture.md](docs/architecture.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
 - [docs/sdk-guide.md](docs/sdk-guide.md) explains the current C++ SDK surface for sample/template games.
 - [docs/build-guide.md](docs/build-guide.md) documents setup, build/run/package commands, and the regression command matrix.
 - [docs/getting-started.md](docs/getting-started.md) explains packaged SDK consumption.
 - [docs/sdk-layout.md](docs/sdk-layout.md) documents the SDK ZIP layout.
+- [docs/api/index.md](docs/api/index.md) maps the public SDK API concept docs.
+- [docs/tutorials/index.md](docs/tutorials/index.md) links task-based SDK tutorials.
 - [docs/vs2022.md](docs/vs2022.md) documents Visual Studio 2022 SDK use.
 - [docs/vscode-cmake.md](docs/vscode-cmake.md) documents VS Code + CMake SDK use.
 - [docs/roadmap.md](docs/roadmap.md) defines the v0 baseline and likely next steps.

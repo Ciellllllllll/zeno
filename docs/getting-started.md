@@ -30,7 +30,7 @@ Use `-Configuration Debug` or `-Configuration Release` to create only one config
 
 ```powershell
 $sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev).Path
-cmake -S templates\cpp_empty -B build\cpp-empty-from-sdk -DZenoEngine_DIR="$sdkRoot\cmake"
+cmake -S "$sdkRoot\templates\cpp_empty" -B build\cpp-empty-from-sdk -DZenoEngine_DIR="$sdkRoot\cmake"
 cmake --build build\cpp-empty-from-sdk --config Debug
 .\build\cpp-empty-from-sdk\Debug\zeno_cpp_empty.exe
 ```
@@ -89,3 +89,9 @@ The sample executables are windowed. Run them only when opening local windows is
 ```
 
 This packages the SDK, configures `examples/external-game` against the package config, builds it, and runs one headless frame.
+
+## Next Steps
+
+- [SDK API Reference](api/index.md) explains public SDK concepts.
+- [SDK Tutorials](tutorials/index.md) walks through the packaged template and focused samples.
+- [SDK Layout](sdk-layout.md) lists the files included in the package and ZIP.

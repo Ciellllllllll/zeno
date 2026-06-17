@@ -1,6 +1,6 @@
 # SDK Layout
 
-The Phase44 SDK package is generated under:
+The SDK package is generated under:
 
 ```text
 build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/
@@ -31,6 +31,8 @@ ZenoEngine-SDK-v0.1.0-dev/
     sdk-layout.md
     vs2022.md
     vscode-cmake.md
+    api/
+    tutorials/
   cmake/
     ZenoEngineConfig.cmake
   README.md
@@ -77,7 +79,7 @@ Compatibility `ZENO::` targets are also defined for older local examples.
 
 ## Samples And Templates
 
-`samples/sdk_feature_samples_cpp/` contains the Phase43 focused SDK samples. In the SDK package, their `CMakeLists.txt` consumes the packaged SDK with `find_package(ZenoEngine CONFIG REQUIRED)`.
+`samples/sdk_feature_samples_cpp/` contains the focused SDK samples. In the SDK package, their `CMakeLists.txt` consumes the packaged SDK with `find_package(ZenoEngine CONFIG REQUIRED)`.
 
 `templates/cpp_empty/` is the minimal external CMake template. It runs one headless engine frame and copies `zeno_abi.dll` beside the executable.
 

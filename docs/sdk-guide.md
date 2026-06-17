@@ -2,6 +2,8 @@
 
 This document describes the current C++ SDK surface for building small ZENO sample games. The SDK is a convenience layer over the Rust engine ABI and C++ native backend; it is not itself part of the C ABI.
 
+For task-based packaged SDK usage, see [SDK Tutorials](tutorials/index.md). For focused API concept pages, see [SDK API Reference](api/index.md).
+
 ## Boundaries
 
 - Game code uses C++ SDK types such as `zeno::GameApp`, `zeno::GameModule`, `zeno::NativeBackend`, `zeno::Scene`, and `zeno::ResourceManager`.
