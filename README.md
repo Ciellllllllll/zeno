@@ -56,7 +56,7 @@ If module `on_init` fails after `GameApp` has created the runtime context, `Game
 Supported local environment:
 
 - Windows 10 or Windows 11
-- Visual Studio 2022 with MSVC v143 and a Windows SDK
+- Visual Studio 2022 17.7 or newer with MSVC v143 and a Windows SDK
 - CMake on `PATH`
 - Rust stable with Cargo
 - VS Code with rust-analyzer and CMake Tools is the intended lightweight editor workflow

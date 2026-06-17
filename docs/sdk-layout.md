@@ -22,8 +22,10 @@ ZenoEngine-SDK-v0.1.0-dev/
     Release/
   samples/
     sdk_feature_samples_cpp/
+      CMakePresets.json
   templates/
     cpp_empty/
+      CMakePresets.json
   docs/
     getting-started.md
     sdk-layout.md
@@ -78,3 +80,5 @@ Compatibility `ZENO::` targets are also defined for older local examples.
 `samples/sdk_feature_samples_cpp/` contains the Phase43 focused SDK samples. In the SDK package, their `CMakeLists.txt` consumes the packaged SDK with `find_package(ZenoEngine CONFIG REQUIRED)`.
 
 `templates/cpp_empty/` is the minimal external CMake template. It runs one headless engine frame and copies `zeno_abi.dll` beside the executable.
+
+Both packaged roots include `windows-msvc-debug` and `windows-msvc-release` CMake presets. These presets set `ZenoEngine_DIR` to the SDK `cmake` directory, so CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools use the same package graph.

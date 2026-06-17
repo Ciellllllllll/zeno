@@ -10,9 +10,12 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
     $preset = if ($Configuration -eq "Release") { "windows-msvc-release" } else { "windows-msvc-debug" }
-    $cargoProfileArgs = if ($Configuration -eq "Release") { @("--release") } else { @() }
 
-    cargo build -p zeno_abi @cargoProfileArgs
+    if ($Configuration -eq "Release") {
+        cargo build -p zeno_abi --release
+    } else {
+        cargo build -p zeno_abi
+    }
     cargo test --workspace
 
     cmake --preset $preset

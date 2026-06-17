@@ -2,6 +2,7 @@ param(
     [ValidateSet("Debug", "Release", "All")]
     [string]$Configuration = "All",
     [string]$PackageVersion = "0.1.0-dev",
+    [string]$CMakeExe = "cmake",
     [switch]$NoZip
 )
 
@@ -54,6 +55,67 @@ function Copy-DirectoryContents {
     Copy-Item -Path (Join-Path $Source "*") -Destination $Destination -Recurse -Force
 }
 
+function Write-PackagedCMakePresets {
+    param(
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    $presets = @'
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/windows-msvc-debug",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "ZenoEngine_DIR": "${sourceDir}/../../cmake"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/windows-msvc-release",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "ZenoEngine_DIR": "${sourceDir}/../../cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Build Windows MSVC Debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Build Windows MSVC Release",
+      "configurePreset": "windows-msvc-release",
+      "configuration": "Release"
+    }
+  ]
+}
+'@
+
+    Set-Content -LiteralPath $Destination -Value $presets -Encoding ascii
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -93,8 +155,8 @@ try {
         } else {
             cargo build -p zeno_abi
         }
-        cmake --preset $preset
-        cmake --build --preset $preset --target zeno_sdk_cpp zeno_native zeno_sample_2d_input_audio_cpp zeno_sample_3d_mesh_cpp
+        & $CMakeExe --preset $preset
+        & $CMakeExe --build --preset $preset --target zeno_sdk_cpp zeno_native zeno_sample_2d_input_audio_cpp zeno_sample_3d_mesh_cpp
 
         Copy-RequiredFile -Source (Join-Path $buildDir "lib/$config/zeno_sdk_cpp.lib") -Destination (Join-Path $packageRoot "lib/$config/zeno_sdk_cpp.lib")
         Copy-RequiredFile -Source (Join-Path $buildDir "lib/$config/zeno_native.lib") -Destination (Join-Path $packageRoot "lib/$config/zeno_native.lib")
@@ -107,6 +169,7 @@ try {
     Copy-DirectoryContents -Source (Join-Path $repoRoot "samples/sample_game_cpp/assets") -Destination (Join-Path $packagedFeatureSampleDir "assets")
     Copy-DirectoryContents -Source (Join-Path $repoRoot "samples/sdk_feature_samples_cpp/assets") -Destination (Join-Path $packagedFeatureSampleDir "assets")
     Copy-RequiredDirectory -Source (Join-Path $repoRoot "templates/cpp_empty") -Destination (Join-Path $packageRoot "templates/cpp_empty")
+    Write-PackagedCMakePresets -Destination (Join-Path $packageRoot "templates/cpp_empty/CMakePresets.json")
 
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/getting-started.md") -Destination (Join-Path $packageRoot "docs/getting-started.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/sdk-layout.md") -Destination (Join-Path $packageRoot "docs/sdk-layout.md")
@@ -149,6 +212,7 @@ zeno_add_sdk_feature_sample(zeno_sample_2d_input_audio_cpp src/sample_2d_input_a
 zeno_add_sdk_feature_sample(zeno_sample_3d_mesh_cpp src/sample_3d_mesh.cpp)
 '@
     Set-Content -LiteralPath (Join-Path $packageRoot "samples/sdk_feature_samples_cpp/CMakeLists.txt") -Value $sampleCMake -Encoding ascii
+    Write-PackagedCMakePresets -Destination (Join-Path $packageRoot "samples/sdk_feature_samples_cpp/CMakePresets.json")
 
     $readmeTemplate = @'
 # ZENO Engine SDK {{PACKAGE_VERSION}}
@@ -180,6 +244,8 @@ Configure with:
 cmake -S . -B build -DZenoEngine_DIR="<sdk-root>/cmake"
 cmake --build build --config Debug
 ```
+
+Packaged `templates/cpp_empty` and `samples/sdk_feature_samples_cpp` also include `windows-msvc-debug` and `windows-msvc-release` CMake presets for CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 '@
     $readme = $readmeTemplate.Replace("{{PACKAGE_VERSION}}", $PackageVersion)
     Set-Content -LiteralPath (Join-Path $packageRoot "README.md") -Value $readme -Encoding ascii

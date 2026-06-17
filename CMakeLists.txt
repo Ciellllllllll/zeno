@@ -32,8 +32,8 @@ endif()
 find_program(ZENO_POWERSHELL powershell)
 if(ZENO_POWERSHELL)
     add_custom_target(zeno_package_sdk
-        COMMAND "${ZENO_POWERSHELL}" -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/scripts/package-sdk.ps1" -Configuration "$<CONFIG>"
+        COMMAND "${ZENO_POWERSHELL}" -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/scripts/package-sdk.ps1" -Configuration All -CMakeExe "${CMAKE_COMMAND}"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        COMMENT "Packaging ZENO SDK for $<CONFIG>"
+        COMMENT "Packaging ZENO SDK for Debug and Release"
     )
 endif()

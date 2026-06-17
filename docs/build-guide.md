@@ -5,7 +5,7 @@ This repository is Windows-first for the current milestone.
 ## Requirements
 
 - Windows 10 or Windows 11.
-- Visual Studio 2022 with MSVC v143 and a Windows SDK.
+- Visual Studio 2022 17.7 or newer with MSVC v143 and a Windows SDK.
 - CMake 3.24 or newer on `PATH`.
 - Rust stable with Cargo on `PATH`.
 - VS Code with rust-analyzer and CMake Tools is optional.
@@ -46,6 +46,9 @@ cargo test --workspace
 cmake --preset windows-msvc-debug
 cmake --build --preset windows-msvc-debug
 ctest --preset windows-msvc-debug
+cmake --preset windows-msvc-release
+cmake --build --preset windows-msvc-release
+ctest --preset windows-msvc-release
 ```
 
 `ctest --preset windows-msvc-debug` includes smoke executables that may open a window. Run it from an environment where window creation is acceptable. CI uses `ctest --preset windows-msvc-debug -E "window|sample|manual"`.
@@ -79,7 +82,8 @@ Runtime packaging is for running the in-repository sample/template executables.
 
 ```powershell
 .\scripts\package-sdk.ps1
-.\scripts\verify-external-game.ps1
+.\scripts\verify-external-game.ps1 -Configuration Debug
+.\scripts\verify-external-game.ps1 -Configuration Release
 ```
 
 SDK packaging is for external CMake projects. It creates `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip` with:
@@ -101,6 +105,7 @@ External projects can consume it with:
 $zenoDir = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev\cmake).Path
 cmake -S examples\external-game -B build\external-game -DZenoEngine_DIR="$zenoDir"
 cmake --build build\external-game --config Debug
+cmake --build build\external-game --config Release
 ```
 
 ## Regression Matrix
@@ -121,7 +126,10 @@ cmake --build build\external-game --config Debug
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
 | SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout and ZIP | Includes headers, Debug/Release static libs, ABI import lib/DLL, samples, templates, docs, and CMake config files. |
-| External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
+| External game Debug package check | `.\scripts\verify-external-game.ps1 -Configuration Debug` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
+| External game Release package check | `.\scripts\verify-external-game.ps1 -Configuration Release` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
+| Packaged template presets | `cmake --preset windows-msvc-debug -S "$sdkRoot\templates\cpp_empty"` and `cmake --preset windows-msvc-release -S "$sdkRoot\templates\cpp_empty"` | Configures the packaged template through SDK presets | The same preset names are available to VS2022 Open Folder and VS Code CMake Tools. |
+| Packaged sample presets | `cmake --preset windows-msvc-debug -S "$sdkRoot\samples\sdk_feature_samples_cpp"` and `cmake --preset windows-msvc-release -S "$sdkRoot\samples\sdk_feature_samples_cpp"` | Configures packaged samples through SDK presets | Build-only validation is headless; running samples is a GUI check. |
 | Dynamic module sample | `.\scripts\run-dynamic-module-sample.ps1` | Builds/runs the headless DLL module sample | Uses `LoadLibraryW`, descriptor version validation, lifecycle callbacks, and unload. |
 | GameApp failed-init cleanup | `build/windows-msvc-debug/bin/Debug/zeno_sdk_failed_init_smoke.exe` | Verifies `on_shutdown` after failed `on_init` | Window-capable smoke; run only when opening local windows is acceptable. |
 | Renderer resize smoke | `build/windows-msvc-debug/bin/Debug/zeno_resize_smoke.exe` | Verifies minimized and nonzero resize path | Window-capable smoke; run only when opening local windows is acceptable. |

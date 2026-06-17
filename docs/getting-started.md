@@ -5,7 +5,7 @@ This guide starts from a packaged SDK, not from the engine repository internals.
 ## Requirements
 
 - Windows 10 or Windows 11.
-- Visual Studio 2022 with MSVC v143 and a Windows SDK.
+- Visual Studio 2022 17.7 or newer with MSVC v143 and a Windows SDK.
 - CMake 3.24 or newer on `PATH`.
 - Rust is required to build the SDK package from the repository. SDK consumers only need the packaged headers, libraries, DLL, and CMake config.
 
@@ -35,6 +35,17 @@ cmake --build build\cpp-empty-from-sdk --config Debug
 .\build\cpp-empty-from-sdk\Debug\zeno_cpp_empty.exe
 ```
 
+The packaged template also includes Debug and Release presets:
+
+```powershell
+cmake --preset windows-msvc-debug -S "$sdkRoot\templates\cpp_empty"
+cmake --build "$sdkRoot\templates\cpp_empty\build\windows-msvc-debug" --config Debug
+& "$sdkRoot\templates\cpp_empty\build\windows-msvc-debug\Debug\zeno_cpp_empty.exe"
+cmake --preset windows-msvc-release -S "$sdkRoot\templates\cpp_empty"
+cmake --build "$sdkRoot\templates\cpp_empty\build\windows-msvc-release" --config Release
+& "$sdkRoot\templates\cpp_empty\build\windows-msvc-release\Release\zeno_cpp_empty.exe"
+```
+
 External CMake projects should use:
 
 ```cmake
@@ -54,6 +65,15 @@ cmake -S "$sdkRoot\samples\sdk_feature_samples_cpp" -B build\sdk-feature-samples
 cmake --build build\sdk-feature-samples --config Debug
 ```
 
+Or use the packaged presets:
+
+```powershell
+cmake --preset windows-msvc-debug -S "$sdkRoot\samples\sdk_feature_samples_cpp"
+cmake --build "$sdkRoot\samples\sdk_feature_samples_cpp\build\windows-msvc-debug" --config Debug
+cmake --preset windows-msvc-release -S "$sdkRoot\samples\sdk_feature_samples_cpp"
+cmake --build "$sdkRoot\samples\sdk_feature_samples_cpp\build\windows-msvc-release" --config Release
+```
+
 The sample executables are windowed. Run them only when opening local windows is acceptable:
 
 ```powershell
@@ -65,6 +85,7 @@ The sample executables are windowed. Run them only when opening local windows is
 
 ```powershell
 .\scripts\verify-external-game.ps1 -Configuration Debug
+.\scripts\verify-external-game.ps1 -Configuration Release
 ```
 
 This packages the SDK, configures `examples/external-game` against the package config, builds it, and runs one headless frame.

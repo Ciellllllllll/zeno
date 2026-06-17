@@ -12,7 +12,7 @@ try {
     $packageDir = Join-Path $repoRoot "build/package-sdk/ZenoEngine-SDK-v0.1.0-dev"
     $externalBuildDir = Join-Path $repoRoot "build/external-game"
 
-    & (Join-Path $PSScriptRoot "package-sdk.ps1") -Configuration $Configuration
+    & (Join-Path $PSScriptRoot "package-sdk.ps1") -Configuration All
 
     if (Test-Path $externalBuildDir) {
         Remove-Item -LiteralPath $externalBuildDir -Recurse -Force
