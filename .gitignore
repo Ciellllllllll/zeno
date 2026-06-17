@@ -2,10 +2,8 @@
 target/
 
 # Local Codex/spec materials
-.codex/*
-!.codex/docs/
-.codex/docs/*
-!.codex/docs/commit-message-rules.md
+.codex/
+AGENTS.md
 
 # Visual Studio / MSVC
 .vs/
