@@ -41,7 +41,7 @@ zeno::GameModule create_sample_game_module()
 }
 ```
 
-The template under `templates/game-cpp/` is the smallest current example. The sample under `samples/sample_game_cpp/` demonstrates project/scene loading, resource creation, scene rendering, input, debug drawing, overlay diagnostics, collision helpers, and audio playback.
+The template under `templates/game-cpp/` is the smallest current example. The focused samples under `samples/sdk_feature_samples_cpp/` show public SDK 2D/input/audio and 3D/mesh paths. The sample under `samples/sample_game_cpp/` demonstrates the broader repository sample path with project/scene loading, resource creation, scene rendering, input, debug drawing, overlay diagnostics, collision helpers, and audio playback.
 
 ## Resources And Scene
 
@@ -50,6 +50,21 @@ The template under `templates/game-cpp/` is the smallest current example. The sa
 `zeno::Scene` stores object IDs, transforms, and render components. Render components store SDK resource IDs, and `Scene::render` resolves those IDs through `ResourceManager` before calling backend draw APIs. Invalid, stale, missing, or wrong resource IDs return `ZEN_RESULT_INVALID_ARGUMENT`.
 
 The older direct wrapper APIs on `zeno::NativeBackend` remain available for focused tests and simple code paths. Prefer `ResourceManager` for scene-owned resources.
+
+## Public 2D Workflow
+
+The focused 2D SDK sample uses only public headers and this setup:
+
+1. `GameApp` creates `GameContext`, loads executable-relative assets, and provides project and scene descriptions.
+2. The module finds the scene sprite description named `player`.
+3. `ResourceManager` loads the sprite texture from `SceneObjectDesc::reference`.
+4. `ResourceManager` creates a `MaterialKind::sprite_texture` material with alpha blending, depth disabled, and culling disabled.
+5. The module creates a runtime `Scene` object, copies the transform, and attaches `SpriteRenderer`.
+6. `on_update` reads `InputSnapshot` for movement and sound trigger input.
+7. `on_render` begins the backend frame, clears, sets an orthographic camera, renders the runtime scene, draws debug rectangle/text helpers, and presents.
+8. Short PCM WAV effects are loaded through `ResourceManager::load_sound` and played through `Sound::play`.
+
+This is a small sample workflow, not an editor pipeline or automatic scene instantiation system.
 
 ## Diagnostics And Overlay
 
@@ -62,6 +77,8 @@ The SDK provides a lightweight diagnostic sink:
 
 The sample draws a minimal debug overlay through `NativeBackend::draw_debug_text`. This uses an embedded 5x7 ASCII line font in the native backend and is intended for FPS, frame index, score, state, and diagnostic display. It is not a general font renderer or UI system.
 
+Asset, scene, texture, sprite material, native backend draw, audio, and ResourceManager ID failures feed the SDK diagnostic channel. Game module callbacks should return failed `zeno::Result` values instead of swallowing them so `GameApp` can stop cleanly and callers can inspect `Result::message()` and `zeno::last_diagnostic()`.
+
 ## Packaging
 
 Use:
@@ -72,3 +89,5 @@ Use:
 ```
 
 The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and also as `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It exposes imported CMake targets, including `ZenoEngine::zeno_sdk_cpp`. The external example under `examples/external-game/` consumes that package without repo-relative include paths.
+
+The current package is Windows/MSVC-focused and uses the Win32, DirectX 11, and XAudio2 backend path. Current project and scene files are small strict text formats, and audio support is short PCM WAV effects.

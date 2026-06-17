@@ -466,6 +466,7 @@ Result NativeBackend::input_snapshot(InputSnapshot& out_snapshot)
 
     const ZenResultCode result = zen_native_backend_get_input_snapshot(handle_, &snapshot);
     if (result != ZEN_RESULT_OK) {
+        log_result_failure("native", "zen_native_backend_get_input_snapshot", result);
         return Result(result);
     }
 
@@ -604,7 +605,12 @@ Result NativeBackend::create_texture(
         bytes.size(),
         &handle);
     if (native_result != ZEN_RESULT_OK) {
-        log_result_failure("native", "zen_native_backend_create_texture_from_memory", native_result);
+        std::ostringstream message;
+        message << "texture: texture create failed for " << std::string(relative_path_utf8)
+                << " (" << bytes.size() << " bytes): "
+                << zen_result_to_string(static_cast<std::uint32_t>(native_result))
+                << " (" << static_cast<std::uint32_t>(native_result) << ")";
+        log_message(LogLevel::error, "texture", message.str());
         return Result(native_result);
     }
 
@@ -654,7 +660,16 @@ Result NativeBackend::create_sprite_material(
     ZenMaterialHandle handle{};
     const ZenResultCode result = zen_native_backend_create_material(handle_, &native_desc, &handle);
     if (result != ZEN_RESULT_OK) {
-        log_result_failure("native", "zen_native_backend_create_material(sprite)", result);
+        std::ostringstream message;
+        message << "material: sprite material create failed"
+                << " texture_valid=" << (texture.valid() ? "true" : "false")
+                << " kind=" << static_cast<std::uint32_t>(desc.kind)
+                << " blend=" << static_cast<std::uint32_t>(desc.blend_mode)
+                << " depth=" << static_cast<std::uint32_t>(desc.depth_mode)
+                << " cull=" << static_cast<std::uint32_t>(desc.cull_mode)
+                << ": " << zen_result_to_string(static_cast<std::uint32_t>(result))
+                << " (" << static_cast<std::uint32_t>(result) << ")";
+        log_message(LogLevel::error, "material", message.str());
         return Result(result);
     }
 
@@ -714,7 +729,9 @@ Result NativeBackend::create_triangle(
 Result NativeBackend::set_camera_matrix(const Mat4& camera_matrix)
 {
     const ZenMatrix4x4 native_camera_matrix = to_native_matrix(camera_matrix);
-    return Result(zen_native_backend_set_camera_matrix(handle_, &native_camera_matrix));
+    const ZenResultCode result = zen_native_backend_set_camera_matrix(handle_, &native_camera_matrix);
+    log_result_failure("native", "zen_native_backend_set_camera_matrix", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_triangle(const RenderTriangle& triangle)
@@ -736,13 +753,17 @@ Result NativeBackend::draw_triangle(const RenderTriangle& triangle, const Transf
 Result NativeBackend::draw_sprite(const Texture& texture, const SpriteDrawDesc& desc)
 {
     const ZenSpriteDrawDesc native_desc = make_native_sprite_draw_desc(desc);
-    return Result(zen_native_backend_draw_sprite(handle_, texture.handle_, &native_desc));
+    const ZenResultCode result = zen_native_backend_draw_sprite(handle_, texture.handle_, &native_desc);
+    log_result_failure("native", "zen_native_backend_draw_sprite", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_sprite(const Material& material, const SpriteDrawDesc& desc)
 {
     const ZenSpriteDrawDesc native_desc = make_native_sprite_draw_desc(desc);
-    return Result(zen_native_backend_draw_sprite_with_material(handle_, material.handle_, &native_desc));
+    const ZenResultCode result = zen_native_backend_draw_sprite_with_material(handle_, material.handle_, &native_desc);
+    log_result_failure("native", "zen_native_backend_draw_sprite_with_material", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Mat4& model_matrix)
@@ -776,13 +797,17 @@ Result NativeBackend::draw_debug_line(const Vec3& start, const Vec3& end, const 
 Result NativeBackend::draw_debug_rect_2d(const Aabb2& bounds, float z, const Color& color)
 {
     const ZenDebugRectDesc desc = make_native_debug_rect_desc(bounds, z, color);
-    return Result(zen_native_backend_draw_debug_rect(handle_, &desc));
+    const ZenResultCode result = zen_native_backend_draw_debug_rect(handle_, &desc);
+    log_result_failure("native", "zen_native_backend_draw_debug_rect", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_debug_text(const DebugTextDesc& source)
 {
     const ZenDebugTextDesc desc = make_native_debug_text_desc(source);
-    return Result(zen_native_backend_draw_debug_text(handle_, &desc));
+    const ZenResultCode result = zen_native_backend_draw_debug_text(handle_, &desc);
+    log_result_failure("native", "zen_native_backend_draw_debug_text", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_debug_text(std::string_view text, const Vec3& origin, float scale, const Color& color)
@@ -1090,7 +1115,12 @@ Result AudioEngine::load_sound(const AssetRoot& assets, std::string_view relativ
         bytes.size(),
         &handle);
     if (native_result != ZEN_RESULT_OK) {
-        log_result_failure("native", "zen_native_backend_create_sound_from_wav_memory", native_result);
+        std::ostringstream message;
+        message << "audio: sound create failed for " << std::string(relative_path_utf8)
+                << " (" << bytes.size() << " bytes): "
+                << zen_result_to_string(static_cast<std::uint32_t>(native_result))
+                << " (" << static_cast<std::uint32_t>(native_result) << ")";
+        log_message(LogLevel::error, "audio", message.str());
         return Result(native_result);
     }
 
@@ -1142,17 +1172,23 @@ Sound& Sound::operator=(Sound&& other) noexcept
 
 Result Sound::play() const
 {
-    return Result(zen_native_backend_play_sound(backend_, audio_, handle_));
+    const ZenResultCode result = zen_native_backend_play_sound(backend_, audio_, handle_);
+    log_result_failure("native", "zen_native_backend_play_sound", result);
+    return Result(result);
 }
 
 Result Sound::stop() const
 {
-    return Result(zen_native_backend_stop_sound(backend_, audio_, handle_));
+    const ZenResultCode result = zen_native_backend_stop_sound(backend_, audio_, handle_);
+    log_result_failure("native", "zen_native_backend_stop_sound", result);
+    return Result(result);
 }
 
 Result Sound::set_volume(float volume) const
 {
-    return Result(zen_native_backend_set_sound_volume(backend_, audio_, handle_, volume));
+    const ZenResultCode result = zen_native_backend_set_sound_volume(backend_, audio_, handle_, volume);
+    log_result_failure("native", "zen_native_backend_set_sound_volume", result);
+    return Result(result);
 }
 
 void Sound::reset()

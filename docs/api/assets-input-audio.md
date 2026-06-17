@@ -4,7 +4,7 @@ The SDK samples use executable-relative assets, frame-local input snapshots, and
 
 ## Asset Root
 
-`zeno::AssetRoot` resolves paths relative to the executable asset directory. `GameApp` loads the project file named by `zeno::GameAppConfig::project_path`, then uses the project asset root and initial scene path.
+`zeno::AssetRoot` resolves paths relative to the executable asset directory, not the shell working directory. `GameApp` loads the project file named by `zeno::GameAppConfig::project_path`, then uses the project asset root and initial scene path.
 
 The startup order is:
 
@@ -46,6 +46,17 @@ assets/
     sample_sprite_2x2.bmp
 ```
 
+For packaged Debug builds, the copied runtime directory is:
+
+```text
+samples/sdk_feature_samples_cpp/build/windows-msvc-debug/Debug/
+  zeno_sample_2d_input_audio_cpp.exe
+  zeno_abi.dll
+  assets/
+```
+
+Repository-root sample builds copy the shared sample assets plus focused SDK project/scene assets into `build/windows-msvc-debug/bin/Debug/assets/`. Packaged SDK sample builds copy the already-merged package `assets/` directory.
+
 ## Project And Scene Data
 
 `zeno::ProjectConfig` provides window size, asset root, and initial scene. `zeno::SceneDescription` provides simple object descriptions with names, transforms, colors, renderable kinds, and references.
@@ -75,6 +86,8 @@ context.input.mouse_wheel_delta;
 
 The focused 2D sample uses WASD/arrows for movement, Space or left mouse for sound playback, and Escape to exit.
 
+Input is exposed as a frame-local snapshot through the public `zeno::Key` and `zeno::MouseButton` enums. It is not an event queue or remapping system.
+
 ## Audio
 
 Create an audio engine through `GameApp` or `NativeBackend::create_audio_engine`, then load sounds through `ResourceManager` or `AudioEngine`.
@@ -89,3 +102,5 @@ sound->play();
 ```
 
 Audio is currently for short PCM WAV effects. It is not a streaming music system.
+
+When debugging asset, input, or audio setup, check the returned `zeno::Result`, `zeno::Result::message()`, `zeno::last_diagnostic()`, or install a `zeno::set_log_sink` callback. Missing assets report the requested relative path, active root, and resolved filesystem path. Unsupported texture and WAV data reports the asset path and byte count when creation fails.

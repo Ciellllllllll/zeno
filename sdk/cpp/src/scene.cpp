@@ -29,6 +29,7 @@ Result Scene::destroy_object(ObjectId id)
 {
     ObjectState* state = find_object(id);
     if (state == nullptr) {
+        log_scene_error("scene: destroy target object is missing");
         return invalid_argument();
     }
 
@@ -54,6 +55,7 @@ Result Scene::set_transform(ObjectId id, const Transform& transform)
 {
     ObjectState* state = find_object(id);
     if (state == nullptr) {
+        log_scene_error("scene: transform target object is missing");
         return invalid_argument();
     }
 
@@ -145,6 +147,7 @@ Result Scene::clear_renderer(ObjectId id)
 {
     ObjectState* state = find_object(id);
     if (state == nullptr) {
+        log_scene_error("scene: renderer clear target object is missing");
         return invalid_argument();
     }
 
@@ -192,6 +195,7 @@ Result Scene::render(NativeBackend& backend) const
 Result Scene::render(NativeBackend& backend, const ResourceManager& resources) const
 {
     if (!backend.valid()) {
+        log_scene_error("scene: render requires a valid native backend");
         return invalid_argument();
     }
 
