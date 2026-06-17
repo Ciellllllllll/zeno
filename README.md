@@ -81,6 +81,12 @@ Recommended CI-style local verification:
 .\scripts\verify-all.ps1
 ```
 
+Full packaged SDK consumption QA:
+
+```powershell
+.\scripts\verify-sdk-package-consumption.ps1
+```
+
 Window-capable local validation:
 
 ```powershell

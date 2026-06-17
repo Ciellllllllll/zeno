@@ -90,6 +90,12 @@ The sample executables are windowed. Run them only when opening local windows is
 
 This packages the SDK, configures `examples/external-game` against the package config, builds it, and runs one headless frame.
 
+For full SDK package consumption QA, including ZIP extraction, packaged template Debug/Release run, packaged sample Debug/Release build, external-game Debug/Release run, DLL placement, asset placement, and private header checks:
+
+```powershell
+.\scripts\verify-sdk-package-consumption.ps1
+```
+
 ## Next Steps
 
 - [SDK API Reference](api/index.md) explains public SDK concepts.

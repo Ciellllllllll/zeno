@@ -21,6 +21,8 @@ Start here if you are building or validating the engine repository:
 - [Architecture](architecture.md)
 - [CI And Testing](quality/ci-and-testing.md)
 
+The full packaged SDK consumption QA command is documented in [Building ZENO](build-guide.md).
+
 ## Planning
 
 - [Roadmap](roadmap.md)
