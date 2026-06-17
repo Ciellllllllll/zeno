@@ -1,0 +1,54 @@
+name: SDK RC Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: SDK package label to build
+        required: true
+        default: 0.1.0-rc.1
+
+permissions:
+  contents: read
+
+jobs:
+  build-sdk-rc-artifact:
+    name: Build SDK RC artifact
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Debug headless tests
+        shell: pwsh
+        run: .\scripts\test-headless.ps1 -Configuration Debug
+
+      - name: Release headless tests
+        shell: pwsh
+        run: .\scripts\test-headless.ps1 -Configuration Release
+
+      - name: SDK package consumption QA
+        shell: pwsh
+        run: .\scripts\verify-sdk-package-consumption.ps1 -PackageVersion '${{ inputs.package_version }}'
+
+      - name: Verify SDK ZIP artifact exists
+        id: sdk_zip
+        shell: pwsh
+        run: |
+          $zipPath = "build/package-sdk/ZenoEngine-SDK-v${{ inputs.package_version }}.zip"
+          if (-not (Test-Path -LiteralPath $zipPath)) {
+            throw "Expected SDK ZIP was not generated: $zipPath"
+          }
+          "path=$zipPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload SDK RC ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZenoEngine-SDK-v${{ inputs.package_version }}
+          path: ${{ steps.sdk_zip.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14

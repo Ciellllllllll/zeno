@@ -39,6 +39,8 @@ The source-of-truth build files are `Cargo.toml`, `CMakeLists.txt`, and `CMakePr
 
 For SDK v0.1.0 release candidates, this package consumption QA path is the release gate. A release candidate is not ready unless Debug headless tests, Release headless tests, and `verify-sdk-package-consumption.ps1` all pass.
 
+The manual GitHub Actions workflow `SDK RC Artifact` runs the same release gate and uploads `ZenoEngine-SDK-v0.1.0-rc.1.zip` as a workflow artifact. It does not publish a GitHub Release, create a git tag, sign artifacts, or commit generated outputs.
+
 ```powershell
 .\scripts\test-all-local.ps1
 ```

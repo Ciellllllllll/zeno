@@ -25,6 +25,26 @@ Run from the repository root:
 
 The release gate passes only when all three commands pass.
 
+## GitHub Actions Artifact Workflow
+
+The manual workflow `.github/workflows/sdk-rc-artifact.yml` runs the same release gate before uploading an SDK ZIP artifact.
+
+To run it:
+
+1. Open the repository Actions tab.
+2. Select `SDK RC Artifact`.
+3. Use `Run workflow`.
+4. Keep `package_version` as `0.1.0-rc.1` unless preparing a later RC label.
+5. Wait for `Debug headless tests`, `Release headless tests`, and `SDK package consumption QA` to pass.
+
+To retrieve the artifact:
+
+1. Open the completed workflow run.
+2. Download the artifact named `ZenoEngine-SDK-v0.1.0-rc.1`.
+3. Extract the downloaded artifact archive to get `ZenoEngine-SDK-v0.1.0-rc.1.zip`.
+
+The workflow does not publish a GitHub Release, create a git tag, sign artifacts, or commit generated package outputs.
+
 ## Package Audit
 
 - Confirm the package root is under `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/`.

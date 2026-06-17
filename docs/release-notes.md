@@ -18,6 +18,12 @@ The SDK package consumption QA path is the release gate for this release candida
 
 The gate must pass before publishing any release artifact. This phase does not publish a GitHub Release and does not create a git tag.
 
+### CI Artifact
+
+The manual GitHub Actions workflow `SDK RC Artifact` builds the same `ZenoEngine-SDK-v0.1.0-rc.1.zip` package after running the release gate. The uploaded Actions artifact is named `ZenoEngine-SDK-v0.1.0-rc.1`.
+
+The workflow is artifact-only. It does not publish a GitHub Release, create a git tag, sign artifacts, or commit generated SDK ZIPs/build outputs.
+
 ### Included SDK Scope
 
 - Public C++ SDK headers and C ABI headers under `include/zeno/`.
