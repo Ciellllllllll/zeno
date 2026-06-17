@@ -769,7 +769,9 @@ Result NativeBackend::draw_sprite(const Material& material, const SpriteDrawDesc
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Mat4& model_matrix)
 {
     const ZenMatrix4x4 native_model_matrix = to_native_matrix(model_matrix);
-    return Result(zen_native_backend_draw_mesh(handle_, mesh.handle_, &native_model_matrix));
+    const ZenResultCode result = zen_native_backend_draw_mesh(handle_, mesh.handle_, &native_model_matrix);
+    log_result_failure("native", "zen_native_backend_draw_mesh", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Transform& transform)
@@ -780,7 +782,13 @@ Result NativeBackend::draw_mesh(const Mesh& mesh, const Transform& transform)
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, const Mat4& model_matrix)
 {
     const ZenMatrix4x4 native_model_matrix = to_native_matrix(model_matrix);
-    return Result(zen_native_backend_draw_mesh_with_material(handle_, mesh.handle_, material.handle_, &native_model_matrix));
+    const ZenResultCode result = zen_native_backend_draw_mesh_with_material(
+        handle_,
+        mesh.handle_,
+        material.handle_,
+        &native_model_matrix);
+    log_result_failure("native", "zen_native_backend_draw_mesh_with_material", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, const Transform& transform)
@@ -791,7 +799,9 @@ Result NativeBackend::draw_mesh(const Mesh& mesh, const Material& material, cons
 Result NativeBackend::draw_debug_line(const Vec3& start, const Vec3& end, const Color& color)
 {
     const ZenDebugLineDesc desc = make_native_debug_line_desc(start, end, color);
-    return Result(zen_native_backend_draw_debug_line(handle_, &desc));
+    const ZenResultCode result = zen_native_backend_draw_debug_line(handle_, &desc);
+    log_result_failure("native", "zen_native_backend_draw_debug_line", result);
+    return Result(result);
 }
 
 Result NativeBackend::draw_debug_rect_2d(const Aabb2& bounds, float z, const Color& color)

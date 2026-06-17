@@ -45,3 +45,10 @@ The 2D sample requires:
 - `assets/sample_manifest.txt`
 
 The 2D sample opens a 640x360 window, moves one texture-backed sprite with WASD/arrows, plays a short WAV with Space or left mouse, draws debug text/rect helpers, and auto-closes after about 12 seconds. It does not use private engine headers or private native-backend APIs. On failure, the executable prints `2D SDK sample failed: <Result::message()>`; deeper detail is available through SDK diagnostics such as `zeno::last_diagnostic()` and `zeno::set_log_sink`.
+
+The 3D sample requires:
+
+- `assets/projects/3d_mesh.zproj`
+- `assets/scenes/3d_mesh.zscene`
+
+The 3D sample opens a 640x360 window, creates a hardcoded color cube mesh through `ResourceManager::create_mesh`, creates a `MaterialKind::mesh_color` material, attaches both IDs to a runtime scene object, renders it with a perspective camera, draws debug line/text helpers, and auto-closes after about 12 seconds. The scene reference is intentionally `builtin:cube`; there is no mesh file importer, animation, editor tooling, lighting redesign, or gameplay sample in this target. On failure, the executable prints `3D SDK sample failed: <Result::message()>`; deeper detail is available through SDK diagnostics such as `zeno::last_diagnostic()` and `zeno::set_log_sink`.

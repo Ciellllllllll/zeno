@@ -66,6 +66,19 @@ The focused 2D SDK sample uses only public headers and this setup:
 
 This is a small sample workflow, not an editor pipeline or automatic scene instantiation system.
 
+## Public 3D Workflow
+
+The focused 3D SDK sample uses only public headers and this setup:
+
+1. `GameApp` creates `GameContext`, loads executable-relative project and scene descriptions, and initializes the DirectX 11 renderer.
+2. The module finds the scene mesh description named `cube` with reference `builtin:cube`.
+3. `ResourceManager` creates a hardcoded indexed `MeshVertex` cube and a `MaterialKind::mesh_color` material.
+4. The module creates a runtime `Scene` object, copies the transform, and attaches `MeshRenderer`.
+5. `on_update` rotates and scales the runtime scene object.
+6. `on_render` begins the backend frame, clears, sets a perspective camera, renders the runtime scene, draws debug line/text helpers, and presents.
+
+This path keeps mesh data code-defined and backend-owned after creation. It does not include mesh file import, animation, lighting redesign, editor tooling, or automatic scene-to-resource instantiation.
+
 ## Diagnostics And Overlay
 
 The SDK provides a lightweight diagnostic sink:
@@ -77,7 +90,7 @@ The SDK provides a lightweight diagnostic sink:
 
 The sample draws a minimal debug overlay through `NativeBackend::draw_debug_text`. This uses an embedded 5x7 ASCII line font in the native backend and is intended for FPS, frame index, score, state, and diagnostic display. It is not a general font renderer or UI system.
 
-Asset, scene, texture, sprite material, native backend draw, audio, and ResourceManager ID failures feed the SDK diagnostic channel. Game module callbacks should return failed `zeno::Result` values instead of swallowing them so `GameApp` can stop cleanly and callers can inspect `Result::message()` and `zeno::last_diagnostic()`.
+Asset, scene, texture, mesh, material, native backend draw, audio, and ResourceManager ID failures feed the SDK diagnostic channel. Game module callbacks should return failed `zeno::Result` values instead of swallowing them so `GameApp` can stop cleanly and callers can inspect `Result::message()` and `zeno::last_diagnostic()`.
 
 ## Packaging
 
