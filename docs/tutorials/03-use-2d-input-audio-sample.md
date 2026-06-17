@@ -5,7 +5,7 @@ The packaged 2D sample demonstrates the existing SDK path for a windowed static 
 ## Build From The Packaged SDK
 
 ```powershell
-$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev).Path
+$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-rc.1).Path
 cmake --preset windows-msvc-debug -S "$sdkRoot\samples\sdk_feature_samples_cpp"
 cmake --build "$sdkRoot\samples\sdk_feature_samples_cpp\build\windows-msvc-debug" --config Debug --target zeno_sample_2d_input_audio_cpp
 ```

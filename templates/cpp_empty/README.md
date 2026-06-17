@@ -3,7 +3,7 @@
 This is a minimal external CMake project for consuming a packaged ZENO SDK.
 
 ```powershell
-$sdkRoot = Resolve-Path ..\ZenoEngine-SDK-v0.1.0-dev
+$sdkRoot = Resolve-Path ..\ZenoEngine-SDK-v0.1.0-rc.1
 cmake -S . -B build -DZenoEngine_DIR="$sdkRoot\cmake"
 cmake --build build --config Debug
 .\build\Debug\zeno_cpp_empty.exe

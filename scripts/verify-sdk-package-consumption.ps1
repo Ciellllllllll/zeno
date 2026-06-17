@@ -1,5 +1,5 @@
 param(
-    [string]$PackageVersion = "0.1.0-dev",
+    [string]$PackageVersion = "0.1.0-rc.1",
     [string]$ValidationDir = "build/sdk-package-consumption-qa",
     [string]$CMakeExe = "cmake"
 )

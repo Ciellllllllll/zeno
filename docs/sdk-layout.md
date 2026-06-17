@@ -3,7 +3,7 @@
 The SDK package is generated under:
 
 ```text
-build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/
+build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/
 ```
 
 The ZIP uses the same top-level directory name.
@@ -11,7 +11,7 @@ The ZIP uses the same top-level directory name.
 ## Directory Layout
 
 ```text
-ZenoEngine-SDK-v0.1.0-dev/
+ZenoEngine-SDK-v0.1.0-rc.1/
   include/
     zeno/
   lib/
@@ -45,6 +45,8 @@ ZenoEngine-SDK-v0.1.0-dev/
   docs/
     getting-started.md
     sdk-layout.md
+    release-notes.md
+    release-checklist.md
     vs2022.md
     vscode-cmake.md
     api/

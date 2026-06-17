@@ -151,7 +151,7 @@ Package the SDK and verify external consumption:
 .\scripts\verify-external-game.ps1 -Configuration Release
 ```
 
-The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It contains public headers, Debug/Release libraries, Debug/Release `zeno_abi.dll` runtime copies, focused SDK samples, `templates/cpp_empty`, SDK docs, and `cmake/ZenoEngineConfig.cmake`. The package config exposes `ZenoEngine::zeno_sdk_cpp` and `ZenoEngine_VERSION` as `0.1.0-dev`; compatibility `ZENO::` targets are also provided.
+The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1.zip`. It contains public headers, Debug/Release libraries, Debug/Release `zeno_abi.dll` runtime copies, focused SDK samples, `templates/cpp_empty`, SDK docs, and `cmake/ZenoEngineConfig.cmake`. The package config exposes `ZenoEngine::zeno_sdk_cpp`, numeric `ZenoEngine_VERSION` as `0.1.0`, and `ZenoEngine_RELEASE_LABEL` as `0.1.0-rc.1`; compatibility `ZENO::` targets are also provided.
 
 Minimal static-linked game host:
 
@@ -216,6 +216,8 @@ zeno/
 - [docs/build-guide.md](docs/build-guide.md) documents setup, build/run/package commands, and the regression command matrix.
 - [docs/getting-started.md](docs/getting-started.md) explains packaged SDK consumption.
 - [docs/sdk-layout.md](docs/sdk-layout.md) documents the SDK ZIP layout.
+- [docs/release-notes.md](docs/release-notes.md) records SDK release candidate notes, known limitations, and blockers.
+- [docs/release-checklist.md](docs/release-checklist.md) defines the repeatable SDK release candidate checklist.
 - [docs/api/index.md](docs/api/index.md) maps the public SDK API concept docs.
 - [docs/tutorials/index.md](docs/tutorials/index.md) links task-based SDK tutorials.
 - [docs/vs2022.md](docs/vs2022.md) documents Visual Studio 2022 SDK use.

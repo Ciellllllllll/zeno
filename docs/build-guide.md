@@ -37,6 +37,8 @@ The source-of-truth build files are `Cargo.toml`, `CMakeLists.txt`, and `CMakePr
 
 `verify-sdk-package-consumption.ps1` is the full SDK package consumption QA path. It creates the SDK package and ZIP, extracts the ZIP into an ignored validation directory, validates Debug/Release packaged template and sample builds, validates the external headless example through `find_package`, checks package artifact integrity, and validates packaged sample asset integrity in the extracted SDK and runtime output directories.
 
+For SDK v0.1.0 release candidates, this package consumption QA path is the release gate. A release candidate is not ready unless Debug headless tests, Release headless tests, and `verify-sdk-package-consumption.ps1` all pass.
+
 ```powershell
 .\scripts\test-all-local.ps1
 ```
@@ -91,7 +93,7 @@ Runtime packaging is for running the in-repository sample/template executables.
 .\scripts\verify-external-game.ps1 -Configuration Release
 ```
 
-SDK packaging is for external CMake projects. It creates `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip` with:
+SDK packaging is for external CMake projects. It creates `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1.zip` with:
 
 - `include/zeno/`
 - `lib/Debug/` and `lib/Release/`
@@ -102,12 +104,14 @@ SDK packaging is for external CMake projects. It creates `build/package-sdk/Zeno
 - `cmake/ZenoEngineConfig.cmake`
 - `cmake/ZenoEngineConfigVersion.cmake`
 
-`ZenoEngineConfig.cmake` exposes imported CMake targets `ZenoEngine::zeno_sdk_cpp`, `ZenoEngine::zeno_native`, and `ZenoEngine::zeno_abi_rust`. It also defines `ZenoEngine_VERSION` as `0.1.0-dev`.
+`ZenoEngineConfig.cmake` exposes imported CMake targets `ZenoEngine::zeno_sdk_cpp`, `ZenoEngine::zeno_native`, and `ZenoEngine::zeno_abi_rust`. It also defines numeric `ZenoEngine_VERSION` as `0.1.0` and `ZenoEngine_RELEASE_LABEL` as `0.1.0-rc.1`.
+
+`0.1.0-rc.1` is the SDK package label. The CMake package version remains numeric `0.1.0` for normal `find_package` version comparison.
 
 External projects can consume it with:
 
 ```powershell
-$zenoDir = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev\cmake).Path
+$zenoDir = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-rc.1\cmake).Path
 cmake -S examples\external-game -B build\external-game -DZenoEngine_DIR="$zenoDir"
 cmake --build build\external-game --config Debug
 cmake --build build\external-game --config Release

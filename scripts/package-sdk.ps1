@@ -1,7 +1,7 @@
 param(
     [ValidateSet("Debug", "Release", "All")]
     [string]$Configuration = "All",
-    [string]$PackageVersion = "0.1.0-dev",
+    [string]$PackageVersion = "0.1.0-rc.1",
     [string]$CMakeExe = "cmake",
     [switch]$NoZip
 )
@@ -240,6 +240,8 @@ try {
 
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/getting-started.md") -Destination (Join-Path $packageRoot "docs/getting-started.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/sdk-layout.md") -Destination (Join-Path $packageRoot "docs/sdk-layout.md")
+    Copy-RequiredFile -Source (Join-Path $repoRoot "docs/release-notes.md") -Destination (Join-Path $packageRoot "docs/release-notes.md")
+    Copy-RequiredFile -Source (Join-Path $repoRoot "docs/release-checklist.md") -Destination (Join-Path $packageRoot "docs/release-checklist.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/vs2022.md") -Destination (Join-Path $packageRoot "docs/vs2022.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/vscode-cmake.md") -Destination (Join-Path $packageRoot "docs/vscode-cmake.md")
     Copy-RequiredDirectory -Source (Join-Path $repoRoot "docs/api") -Destination (Join-Path $packageRoot "docs/api")

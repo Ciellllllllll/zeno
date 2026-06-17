@@ -101,6 +101,6 @@ Use:
 .\scripts\verify-external-game.ps1
 ```
 
-The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and also as `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It exposes imported CMake targets, including `ZenoEngine::zeno_sdk_cpp`. The external example under `examples/external-game/` consumes that package without repo-relative include paths.
+The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/` and also as `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1.zip`. It exposes imported CMake targets, including `ZenoEngine::zeno_sdk_cpp`. The external example under `examples/external-game/` consumes that package without repo-relative include paths.
 
 The current package is Windows/MSVC-focused and uses the Win32, DirectX 11, and XAudio2 backend path. Current project and scene files are small strict text formats, and audio support is short PCM WAV effects.

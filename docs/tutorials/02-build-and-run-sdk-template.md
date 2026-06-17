@@ -7,7 +7,7 @@ This tutorial validates the packaged SDK template in Debug and Release using the
 From the repository root after packaging:
 
 ```powershell
-$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev).Path
+$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-rc.1).Path
 ```
 
 If you extracted the ZIP elsewhere, set `$sdkRoot` to that extracted SDK directory instead.

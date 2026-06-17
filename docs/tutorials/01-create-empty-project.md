@@ -13,11 +13,11 @@ From the repository root:
 This creates:
 
 ```text
-build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/
-build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip
+build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/
+build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1.zip
 ```
 
-For a ZIP-only workflow, extract the ZIP and use the extracted `ZenoEngine-SDK-v0.1.0-dev/` directory as the SDK root.
+For a ZIP-only workflow, extract the ZIP and use the extracted `ZenoEngine-SDK-v0.1.0-rc.1/` directory as the SDK root.
 
 ## Start From The Template
 

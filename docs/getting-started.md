@@ -20,8 +20,8 @@ From the repository root:
 This creates:
 
 ```text
-build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/
-build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip
+build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/
+build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1.zip
 ```
 
 Use `-Configuration Debug` or `-Configuration Release` to create only one configuration during local verification.
@@ -29,7 +29,7 @@ Use `-Configuration Debug` or `-Configuration Release` to create only one config
 ## Use The SDK From CMake
 
 ```powershell
-$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev).Path
+$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-rc.1).Path
 cmake -S "$sdkRoot\templates\cpp_empty" -B build\cpp-empty-from-sdk -DZenoEngine_DIR="$sdkRoot\cmake"
 cmake --build build\cpp-empty-from-sdk --config Debug
 .\build\cpp-empty-from-sdk\Debug\zeno_cpp_empty.exe
@@ -60,7 +60,7 @@ Copy `zeno_abi.dll` beside the executable before running. The packaged template 
 After packaging:
 
 ```powershell
-$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev).Path
+$sdkRoot = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-rc.1).Path
 cmake -S "$sdkRoot\samples\sdk_feature_samples_cpp" -B build\sdk-feature-samples -DZenoEngine_DIR="$sdkRoot\cmake"
 cmake --build build\sdk-feature-samples --config Debug
 ```

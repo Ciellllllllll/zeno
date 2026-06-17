@@ -8,6 +8,8 @@ Start here if you want to consume the packaged SDK from an external C++ project:
 
 - [Getting Started With ZENO SDK](getting-started.md)
 - [SDK Layout](sdk-layout.md)
+- [SDK Release Notes](release-notes.md)
+- [SDK Release Checklist](release-checklist.md)
 - [SDK API Reference](api/index.md)
 - [SDK Tutorials](tutorials/index.md)
 - [Visual Studio 2022 SDK Use](vs2022.md)
