@@ -28,8 +28,8 @@ The first milestone uses Rust for engine runtime state, C++ for the native backe
 - Runnable sample game whose C++ host loads project/scene data, drives the current loop, calls the static-linked module lifecycle, clears with a changing DirectX 11 color, uses simple AABB collision, score/goal/restart gameplay, short WAV effects, and renders a scene-managed triangle goal, material-driven texture-backed player sprite, material-driven obstacle mesh, and debug collision rectangles before shutting down cleanly.
 - Minimal C++ template game under `templates/game-cpp/` that builds through the same SDK, `GameApp`, and CMake preset graph as the sample.
 - Runtime packaging script that installs the sample, template game, copied assets, startup config, and `zeno_abi.dll` into a local package layout.
-- SDK packaging script that creates an external-consumption layout with `include/`, `lib/`, `bin/`, and `cmake/` directories plus imported CMake target `ZENO::zeno_sdk_cpp`.
-- External C++ game example under `examples/external-game/` that consumes only the packaged SDK through `find_package(ZENO CONFIG REQUIRED)`.
+- SDK packaging script that creates a versioned external-consumption layout and ZIP with `include/`, `lib/`, `bin/`, `samples/`, `templates/`, `docs/`, and `cmake/` directories plus imported CMake target `ZenoEngine::zeno_sdk_cpp`.
+- External C++ game example under `examples/external-game/` that consumes only the packaged SDK through `find_package(ZenoEngine CONFIG REQUIRED)`.
 - Canonical Cargo and CMakePresets build graph shared by CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 - Windows helper scripts for format checks, headless tests, local window-capable tests, package verification, run, and cleanup.
 - Windows GitHub Actions baseline for format, ABI scan, headless tests, and package creation.
@@ -144,7 +144,7 @@ Package the SDK and verify external consumption:
 .\scripts\verify-external-game.ps1
 ```
 
-The SDK package is written under `build/package-sdk/windows-msvc-debug/` with public headers, `zeno_sdk_cpp.lib`, `zeno_native.lib`, `zeno_abi.dll.lib`, `zeno_abi.dll`, `cmake/ZENOConfig.cmake`, and `cmake/ZENOConfigVersion.cmake`. The package config exposes `ZENO::zeno_sdk_cpp` and `ZENO_VERSION` as `0.1.0`.
+The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It contains public headers, Debug/Release libraries, Debug/Release `zeno_abi.dll` runtime copies, Phase43 SDK samples, `templates/cpp_empty`, SDK docs, and `cmake/ZenoEngineConfig.cmake`. The package config exposes `ZenoEngine::zeno_sdk_cpp` and `ZenoEngine_VERSION` as `0.1.0-dev`; compatibility `ZENO::` targets are also provided.
 
 Minimal static-linked game host:
 
@@ -186,10 +186,13 @@ zeno/
     cpp/                C++ Game SDK wrappers over the ABI/backend APIs
   samples/
     sample_game_cpp/    Sample C++ game using the SDK/module path
+    sdk_feature_samples_cpp/
+                        Focused SDK samples for 2D/input/audio and 3D/mesh use
       assets/           Source sample assets copied to the runtime output
     dynamic_module_cpp/  Headless DLL-based game module loading sample
   templates/
     game-cpp/           Minimal C++ game template using GameApp and SDK targets
+    cpp_empty/          Minimal external CMake template for packaged SDK use
   examples/
     external-game/      CMake project consuming a packaged ZENO SDK
   scripts/              Local Windows build/run helpers
@@ -203,6 +206,10 @@ zeno/
 - [docs/architecture.md](docs/architecture.md) explains runtime ownership, native backend ownership, SDK/game-module roles, and the ABI handle/result model.
 - [docs/sdk-guide.md](docs/sdk-guide.md) explains the current C++ SDK surface for sample/template games.
 - [docs/build-guide.md](docs/build-guide.md) documents setup, build/run/package commands, and the regression command matrix.
+- [docs/getting-started.md](docs/getting-started.md) explains packaged SDK consumption.
+- [docs/sdk-layout.md](docs/sdk-layout.md) documents the SDK ZIP layout.
+- [docs/vs2022.md](docs/vs2022.md) documents Visual Studio 2022 SDK use.
+- [docs/vscode-cmake.md](docs/vscode-cmake.md) documents VS Code + CMake SDK use.
 - [docs/roadmap.md](docs/roadmap.md) defines the v0 baseline and likely next steps.
 - [samples/sample_game_cpp/README.md](samples/sample_game_cpp/README.md) gives sample-specific build and run notes.
 - [templates/game-cpp/README.md](templates/game-cpp/README.md) explains the minimal template game and package layout.

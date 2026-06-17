@@ -9,8 +9,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
-    $preset = if ($Configuration -eq "Release") { "windows-msvc-release" } else { "windows-msvc-debug" }
-    $packageDir = Join-Path $repoRoot "build/package-sdk/$preset"
+    $packageDir = Join-Path $repoRoot "build/package-sdk/ZenoEngine-SDK-v0.1.0-dev"
     $externalBuildDir = Join-Path $repoRoot "build/external-game"
 
     & (Join-Path $PSScriptRoot "package-sdk.ps1") -Configuration $Configuration
@@ -19,7 +18,7 @@ try {
         Remove-Item -LiteralPath $externalBuildDir -Recurse -Force
     }
 
-    cmake -S examples/external-game -B $externalBuildDir -DZENO_DIR="$packageDir/cmake"
+    cmake -S examples/external-game -B $externalBuildDir -DZenoEngine_DIR="$packageDir/cmake"
     cmake --build $externalBuildDir --config $Configuration
 
     $externalExe = Join-Path $externalBuildDir "$Configuration/zeno_external_game.exe"

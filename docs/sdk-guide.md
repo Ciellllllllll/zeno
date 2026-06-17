@@ -69,4 +69,4 @@ Use:
 .\scripts\verify-external-game.ps1
 ```
 
-The SDK package is written under `build/package-sdk/windows-msvc-debug/` and exposes imported CMake targets, including `ZENO::zeno_sdk_cpp`. The external example under `examples/external-game/` consumes that package without repo-relative include paths.
+The SDK package is written under `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and also as `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip`. It exposes imported CMake targets, including `ZenoEngine::zeno_sdk_cpp`. The external example under `examples/external-game/` consumes that package without repo-relative include paths.

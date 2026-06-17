@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  rust-checks:
+    name: Rust checks
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Detect Rust workspace
+        id: cargo
+        shell: pwsh
+        run: |
+          if (Test-Path Cargo.toml) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "Cargo.toml was not found; skipping Rust checks."
+          }
+
+      - name: Install Rust stable
+        if: ${{ steps.cargo.outputs.exists == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check Rust formatting
+        if: ${{ steps.cargo.outputs.exists == 'true' }}
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        if: ${{ steps.cargo.outputs.exists == 'true' }}
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run Rust tests
+        if: ${{ steps.cargo.outputs.exists == 'true' }}
+        run: cargo test --all-targets --all-features
+
+  windows-msvc:
+    name: Windows MSVC CMake
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Detect Rust workspace
+        id: cargo
+        shell: pwsh
+        run: |
+          if (Test-Path Cargo.toml) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "Cargo.toml was not found; skipping Rust ABI artifact build."
+          }
+
+      - name: Install Rust stable
+        if: ${{ steps.cargo.outputs.exists == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust ABI artifact
+        if: ${{ steps.cargo.outputs.exists == 'true' }}
+        run: cargo build -p zeno_abi
+
+      - name: Configure CMake
+        run: cmake --preset windows-msvc-debug
+
+      - name: Build CMake
+        run: cmake --build --preset windows-msvc-debug
+
+      - name: Run CTest
+        run: ctest --preset windows-msvc-debug-test

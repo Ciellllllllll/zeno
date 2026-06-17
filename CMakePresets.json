@@ -62,6 +62,20 @@
       }
     },
     {
+      "name": "windows-msvc-debug-test",
+      "displayName": "Test Windows MSVC Debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug",
+      "filter": {
+        "exclude": {
+          "name": "window|sample|manual"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
       "name": "windows-msvc-release",
       "displayName": "Test Windows MSVC Release",
       "configurePreset": "windows-msvc-release",

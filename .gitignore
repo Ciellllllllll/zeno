@@ -3,6 +3,7 @@ target/
 
 # Local Codex/spec materials
 .codex/
+AGENTS.md
 
 # Visual Studio / MSVC
 .vs/

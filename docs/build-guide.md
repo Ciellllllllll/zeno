@@ -82,24 +82,25 @@ Runtime packaging is for running the in-repository sample/template executables.
 .\scripts\verify-external-game.ps1
 ```
 
-SDK packaging is for external CMake projects. It creates `build/package-sdk/windows-msvc-debug/` with:
+SDK packaging is for external CMake projects. It creates `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip` with:
 
 - `include/zeno/`
-- `lib/zeno_sdk_cpp.lib`
-- `lib/zeno_native.lib`
-- `lib/zeno_abi.dll.lib`
-- `bin/zeno_abi.dll`
-- `cmake/ZENOConfig.cmake`
-- `cmake/ZENOConfigVersion.cmake`
+- `lib/Debug/` and `lib/Release/`
+- `bin/Debug/` and `bin/Release/`
+- `samples/sdk_feature_samples_cpp/`
+- `templates/cpp_empty/`
+- `docs/`
+- `cmake/ZenoEngineConfig.cmake`
+- `cmake/ZenoEngineConfigVersion.cmake`
 
-`ZENOConfig.cmake` exposes imported CMake targets `ZENO::zeno_sdk_cpp`, `ZENO::zeno_native`, and `ZENO::zeno_abi_rust`. It also defines `ZENO_VERSION` as `0.1.0`.
+`ZenoEngineConfig.cmake` exposes imported CMake targets `ZenoEngine::zeno_sdk_cpp`, `ZenoEngine::zeno_native`, and `ZenoEngine::zeno_abi_rust`. It also defines `ZenoEngine_VERSION` as `0.1.0-dev`.
 
 External projects can consume it with:
 
 ```powershell
-$zenoDir = (Resolve-Path .\build\package-sdk\windows-msvc-debug\cmake).Path
-cmake -S examples\external-game -B build\external-game -DZENO_DIR="$zenoDir"
-cmake --build build\external-game
+$zenoDir = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev\cmake).Path
+cmake -S examples\external-game -B build\external-game -DZenoEngine_DIR="$zenoDir"
+cmake --build build\external-game --config Debug
 ```
 
 ## Regression Matrix
@@ -119,8 +120,8 @@ cmake --build build\external-game
 | Sample game | `.\scripts\run-sample.ps1` | Opens sample window and exits cleanly with debug overlay visible | Window run. |
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
-| SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout | Includes headers, static libs, ABI import lib/DLL, and CMake config files. |
-| External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZENO::zeno_sdk_cpp`, not in-tree includes. |
+| SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout and ZIP | Includes headers, Debug/Release static libs, ABI import lib/DLL, samples, templates, docs, and CMake config files. |
+| External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
 | Dynamic module sample | `.\scripts\run-dynamic-module-sample.ps1` | Builds/runs the headless DLL module sample | Uses `LoadLibraryW`, descriptor version validation, lifecycle callbacks, and unload. |
 | GameApp failed-init cleanup | `build/windows-msvc-debug/bin/Debug/zeno_sdk_failed_init_smoke.exe` | Verifies `on_shutdown` after failed `on_init` | Window-capable smoke; run only when opening local windows is acceptable. |
 | Renderer resize smoke | `build/windows-msvc-debug/bin/Debug/zeno_resize_smoke.exe` | Verifies minimized and nonzero resize path | Window-capable smoke; run only when opening local windows is acceptable. |
