@@ -23,6 +23,22 @@ ZenoEngine-SDK-v0.1.0-dev/
   samples/
     sdk_feature_samples_cpp/
       CMakePresets.json
+      assets/
+        sample_manifest.txt
+        project.zproj
+        projects/
+          2d_input_audio.zproj
+          3d_mesh.zproj
+        scenes/
+          sample_scene.zscene
+          2d_input_audio.zscene
+          3d_mesh.zscene
+        shaders/
+          sample_triangle.hlsl
+        audio/
+          sample_click.wav
+        textures/
+          sample_sprite_2x2.bmp
   templates/
     cpp_empty/
       CMakePresets.json
@@ -80,6 +96,23 @@ Compatibility `ZENO::` targets are also defined for older local examples.
 ## Samples And Templates
 
 `samples/sdk_feature_samples_cpp/` contains the focused SDK samples. In the SDK package, their `CMakeLists.txt` consumes the packaged SDK with `find_package(ZenoEngine CONFIG REQUIRED)`.
+
+The packaged sample asset directory is a merged, source-controlled asset set:
+
+- Shared sample fixtures from `samples/sample_game_cpp/assets/`.
+- Focused SDK sample project and scene files from `samples/sdk_feature_samples_cpp/assets/`.
+
+Packaged sample builds copy this directory beside each sample executable as `assets/`. Runtime paths are therefore executable-relative:
+
+- `projects/2d_input_audio.zproj`
+- `projects/3d_mesh.zproj`
+- `scenes/2d_input_audio.zscene`
+- `scenes/3d_mesh.zscene`
+- `sample_manifest.txt`
+- `audio/sample_click.wav`
+- `textures/sample_sprite_2x2.bmp`
+
+The package consumption QA validates this asset inventory in the extracted SDK and again in each Debug/Release sample runtime output directory.
 
 `templates/cpp_empty/` is the minimal external CMake template. It runs one headless engine frame and copies `zeno_abi.dll` beside the executable.
 

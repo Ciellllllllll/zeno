@@ -25,6 +25,19 @@ Run only from a local desktop session where opening a Win32 window is acceptable
 & "$sdkRoot\samples\sdk_feature_samples_cpp\build\windows-msvc-debug\Debug\zeno_sample_2d_input_audio_cpp.exe"
 ```
 
+The build copies `zeno_abi.dll` and `assets/` beside the executable. Do not run the executable from a directory where that copied `assets/` directory is missing.
+
+## Asset Layout
+
+The sample uses executable-relative assets:
+
+- `GameAppConfig::project_path = "projects/2d_input_audio.zproj"`.
+- The project uses `asset_root=.`.
+- The project loads `initial_scene=scenes/2d_input_audio.zscene`.
+- The scene sprite reference is `textures/sample_sprite_2x2.bmp`.
+- The sample reads `sample_manifest.txt`.
+- The sample loads `audio/sample_click.wav`.
+
 Controls:
 
 - WASD or arrow keys move the sprite.

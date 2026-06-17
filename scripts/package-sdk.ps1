@@ -55,6 +55,69 @@ function Copy-DirectoryContents {
     Copy-Item -Path (Join-Path $Source "*") -Destination $Destination -Recurse -Force
 }
 
+function Get-ExpectedSdkSampleAssetPaths {
+    @(
+        "sample_manifest.txt",
+        "project.zproj",
+        "projects/2d_input_audio.zproj",
+        "projects/3d_mesh.zproj",
+        "scenes/sample_scene.zscene",
+        "scenes/2d_input_audio.zscene",
+        "scenes/3d_mesh.zscene",
+        "shaders/sample_triangle.hlsl",
+        "audio/sample_click.wav",
+        "textures/sample_sprite_2x2.bmp"
+    )
+}
+
+function Assert-FileNonEmpty {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Missing ${Description}: $Path"
+    }
+
+    $item = Get-Item -LiteralPath $Path
+    if ($item.Length -le 0) {
+        throw "${Description} is empty: $Path"
+    }
+}
+
+function Get-RelativeAssetFilePaths {
+    param([Parameter(Mandatory = $true)][string]$AssetRoot)
+
+    $fullRoot = [System.IO.Path]::GetFullPath($AssetRoot)
+    $prefix = $fullRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    Get-ChildItem -LiteralPath $fullRoot -Recurse -File | ForEach-Object {
+        [System.IO.Path]::GetFullPath($_.FullName).Substring($prefix.Length).Replace("\", "/")
+    }
+}
+
+function Assert-NoAssetFileCollisions {
+    param(
+        [Parameter(Mandatory = $true)][string]$FirstAssetRoot,
+        [Parameter(Mandatory = $true)][string]$SecondAssetRoot
+    )
+
+    $firstFiles = @(Get-RelativeAssetFilePaths -AssetRoot $FirstAssetRoot)
+    $secondFiles = @(Get-RelativeAssetFilePaths -AssetRoot $SecondAssetRoot)
+    $collisions = $firstFiles | Where-Object { $_ -in $secondFiles }
+    if ($collisions) {
+        throw "SDK sample asset source trees contain colliding relative files: $($collisions -join ', ')"
+    }
+}
+
+function Assert-RequiredSdkSampleAssets {
+    param([Parameter(Mandatory = $true)][string]$AssetRoot)
+
+    foreach ($relativePath in Get-ExpectedSdkSampleAssetPaths) {
+        Assert-FileNonEmpty -Path (Join-Path $AssetRoot $relativePath) -Description "SDK sample asset $relativePath"
+    }
+}
+
 function Write-PackagedCMakePresets {
     param(
         [Parameter(Mandatory = $true)][string]$Destination
@@ -166,8 +229,12 @@ try {
 
     $packagedFeatureSampleDir = Join-Path $packageRoot "samples/sdk_feature_samples_cpp"
     Copy-RequiredDirectory -Source (Join-Path $repoRoot "samples/sdk_feature_samples_cpp") -Destination $packagedFeatureSampleDir
+    Assert-NoAssetFileCollisions `
+        -FirstAssetRoot (Join-Path $repoRoot "samples/sample_game_cpp/assets") `
+        -SecondAssetRoot (Join-Path $repoRoot "samples/sdk_feature_samples_cpp/assets")
     Copy-DirectoryContents -Source (Join-Path $repoRoot "samples/sample_game_cpp/assets") -Destination (Join-Path $packagedFeatureSampleDir "assets")
     Copy-DirectoryContents -Source (Join-Path $repoRoot "samples/sdk_feature_samples_cpp/assets") -Destination (Join-Path $packagedFeatureSampleDir "assets")
+    Assert-RequiredSdkSampleAssets -AssetRoot (Join-Path $packagedFeatureSampleDir "assets")
     Copy-RequiredDirectory -Source (Join-Path $repoRoot "templates/cpp_empty") -Destination (Join-Path $packageRoot "templates/cpp_empty")
     Write-PackagedCMakePresets -Destination (Join-Path $packageRoot "templates/cpp_empty/CMakePresets.json")
 

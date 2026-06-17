@@ -27,6 +27,19 @@ Run only from a local desktop session where opening a Win32 window is acceptable
 
 Escape exits. The sample also exits after its fixed sample duration.
 
+The build copies `zeno_abi.dll` and `assets/` beside the executable. Do not run the executable from a directory where that copied `assets/` directory is missing.
+
+## Asset Layout
+
+The sample uses executable-relative assets:
+
+- `GameAppConfig::project_path = "projects/3d_mesh.zproj"`.
+- The project uses `asset_root=.`.
+- The project loads `initial_scene=scenes/3d_mesh.zscene`.
+- The scene mesh reference is `builtin:cube`.
+
+No mesh file importer or new mesh asset format is introduced by this sample.
+
 ## What To Read In The Code
 
 Open `samples/sdk_feature_samples_cpp/src/sample_3d_mesh.cpp` in the package.

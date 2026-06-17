@@ -81,6 +81,8 @@ The sample executables are windowed. Run them only when opening local windows is
 .\build\sdk-feature-samples\Debug\zeno_sample_3d_mesh_cpp.exe
 ```
 
+Packaged sample builds copy both `zeno_abi.dll` and the required `assets/` directory beside each executable. The samples load projects, scenes, audio, textures, and the manifest from that executable-relative `assets/` directory, not from the shell working directory.
+
 ## Verify Headless External Use
 
 ```powershell
@@ -95,6 +97,8 @@ For full SDK package consumption QA, including ZIP extraction, packaged template
 ```powershell
 .\scripts\verify-sdk-package-consumption.ps1
 ```
+
+This QA path also validates the packaged sample asset inventory in the extracted SDK and in the Debug/Release sample runtime output directories.
 
 ## Next Steps
 

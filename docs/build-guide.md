@@ -35,7 +35,7 @@ The source-of-truth build files are `Cargo.toml`, `CMakeLists.txt`, and `CMakePr
 
 `verify-all.ps1` is the CI-style local baseline: Rust format, whitespace checks, ABI forbidden-type scan, Cargo tests, CMake configure/build, headless CTest, and package creation.
 
-`verify-sdk-package-consumption.ps1` is the full SDK package consumption QA path. It creates the SDK package and ZIP, extracts the ZIP into an ignored validation directory, validates Debug/Release packaged template and sample builds, validates the external headless example through `find_package`, and checks package artifact integrity.
+`verify-sdk-package-consumption.ps1` is the full SDK package consumption QA path. It creates the SDK package and ZIP, extracts the ZIP into an ignored validation directory, validates Debug/Release packaged template and sample builds, validates the external headless example through `find_package`, checks package artifact integrity, and validates packaged sample asset integrity in the extracted SDK and runtime output directories.
 
 ```powershell
 .\scripts\test-all-local.ps1
@@ -131,7 +131,7 @@ cmake --build build\external-game --config Release
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
 | SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout and ZIP | Includes headers, Debug/Release static libs, ABI import lib/DLL, samples, templates, docs, and CMake config files. |
-| SDK package consumption QA | `.\scripts\verify-sdk-package-consumption.ps1` | Generates, extracts, builds, runs, and validates the SDK package ZIP | Headless. Checks Debug/Release template run, sample builds, external-game runs, DLL/assets placement, required libs, and private header exclusion. |
+| SDK package consumption QA | `.\scripts\verify-sdk-package-consumption.ps1` | Generates, extracts, builds, runs, and validates the SDK package ZIP | Headless. Checks Debug/Release template run, sample builds, external-game runs, DLL/assets placement, sample asset integrity, required libs, and private header exclusion. |
 | External game Debug package check | `.\scripts\verify-external-game.ps1 -Configuration Debug` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
 | External game Release package check | `.\scripts\verify-external-game.ps1 -Configuration Release` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
 | Packaged template presets | `cmake --preset windows-msvc-debug -S "$sdkRoot\templates\cpp_empty"` and `cmake --preset windows-msvc-release -S "$sdkRoot\templates\cpp_empty"` | Configures the packaged template through SDK presets | The same preset names are available to VS2022 Open Folder and VS Code CMake Tools. |

@@ -6,6 +6,15 @@ The SDK samples use executable-relative assets, frame-local input snapshots, and
 
 `zeno::AssetRoot` resolves paths relative to the executable asset directory. `GameApp` loads the project file named by `zeno::GameAppConfig::project_path`, then uses the project asset root and initial scene path.
 
+The startup order is:
+
+1. Resolve `<executable directory>/assets`.
+2. Load `GameAppConfig::project_path` from that root.
+3. Apply the project's `asset_root` if it is not `.`.
+4. Load the project's `initial_scene`.
+
+Missing text and binary assets are logged with the requested relative path plus the active root and resolved filesystem path. Invalid project and scene files are reported as parse failures with the relative project or scene path.
+
 Useful operations include:
 
 - `AssetRoot::resolve`
@@ -15,6 +24,27 @@ Useful operations include:
 - `load_scene_description`
 
 The 2D focused sample reads `sample_manifest.txt`, loads a texture from the scene object reference, and loads `audio/sample_click.wav`.
+
+Packaged SDK samples expect this executable-relative asset layout after CMake builds them:
+
+```text
+assets/
+  sample_manifest.txt
+  project.zproj
+  projects/
+    2d_input_audio.zproj
+    3d_mesh.zproj
+  scenes/
+    sample_scene.zscene
+    2d_input_audio.zscene
+    3d_mesh.zscene
+  shaders/
+    sample_triangle.hlsl
+  audio/
+    sample_click.wav
+  textures/
+    sample_sprite_2x2.bmp
+```
 
 ## Project And Scene Data
 
