@@ -37,6 +37,8 @@ To run it:
 4. Keep `package_version` as `0.1.0-rc.1` unless preparing a later RC label.
 5. Wait for `Debug headless tests`, `Release headless tests`, and `SDK package consumption QA` to pass.
 
+If `SDK RC Artifact` is not listed, confirm `.github/workflows/sdk-rc-artifact.yml` is present on the repository default branch. GitHub only offers manual workflow dispatch for workflows available to Actions on GitHub.
+
 To retrieve the artifact:
 
 1. Open the completed workflow run.
