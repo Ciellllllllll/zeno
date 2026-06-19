@@ -87,3 +87,11 @@ GitHub Actions verification result:
 - Native Backend / Platform: no native backend or platform work was required.
 - C++ SDK / Sample / Template: no SDK code, sample, or template behavior changed.
 - Build / Test / Docs: confirmed the local reason Actions verification is blocked and added unpublished release draft material plus a checklist note.
+
+
+- SDK RC Artifact workflow was manually run.
+- package_version=0.1.0-rc.1
+- Actions artifact was downloaded.
+- Uploaded artifact contained ZenoEngine-SDK-v0.1.0-rc.1.zip.
+- ZIP structure inspection passed.
+- Inner SDK ZIP SHA-256: ebe50458edfb8f25f10d08fe8f13ad5681515147c986ffe6a7a164ad99369a29
