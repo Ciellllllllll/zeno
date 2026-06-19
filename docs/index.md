@@ -10,6 +10,7 @@ Start here if you want to consume the packaged SDK from an external C++ project:
 - [SDK Layout](sdk-layout.md)
 - [SDK Release Notes](release-notes.md)
 - [SDK Release Checklist](release-checklist.md)
+- [SDK v0.1.0-rc.1 Publication Runbook](release-publication-runbook-v0.1.0-rc.1.md)
 - [SDK API Reference](api/index.md)
 - [SDK Tutorials](tutorials/index.md)
 - [Visual Studio 2022 SDK Use](vs2022.md)
