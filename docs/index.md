@@ -31,5 +31,8 @@ The full packaged SDK consumption QA command is documented in [Building ZENO](bu
 - [Roadmap](roadmap.md)
 - [Pre-1.0 Maturity Roadmap](pre-1.0-maturity-roadmap.md)
 - [v1.0.0 Readiness Criteria](v1.0.0-readiness-criteria.md)
+- [Public SDK Surface Inventory](public-sdk-surface.md)
+- [SDK Compatibility Policy](sdk-compatibility-policy.md)
+- [1.0 Stability Gate](1.0-stability-gate.md)
 
 Phase reports live under `goal/docs/reports/`.
