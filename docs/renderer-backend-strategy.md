@@ -93,12 +93,29 @@ The current backend selection policy is:
 1. DirectX 11 is selected by default.
 2. DirectX 11 remains the only supported backend.
 3. Game code does not select DirectX 12 in this phase.
-4. Any future backend selector must be backend-neutral, such as an SDK enum or config value, not a DirectX native object.
-5. Unknown or unavailable backends must fail through `zeno::Result` or `ZenResultCode`.
-6. Default selection must remain stable and must not silently change existing DirectX 11 behavior.
-7. Build and package defaults must continue to validate the DirectX 11 path.
+4. Phase58 adds private native backend kind and capability scaffolding only; there is still no public selection API.
+5. Any future public backend selector must be backend-neutral, such as an SDK enum or config value, not a DirectX native object.
+6. Unknown or unavailable backends must fail through `zeno::Result` or `ZenResultCode`.
+7. Default selection must remain stable and must not silently change existing DirectX 11 behavior.
+8. Build and package defaults must continue to validate the DirectX 11 path.
 
 A later phase may add a backend selection field or capability query, but it must update the public SDK surface inventory, compatibility policy, readiness criteria, API docs, release notes, and phase report.
+
+## Phase58 Private Scaffold
+
+Phase58 adds a private native renderer backend boundary in `native/zeno_native/src/`.
+
+The scaffold includes:
+
+- a private `RendererBackend` interface
+- a private `RendererBackendKind` enum with DirectX 11 and future DirectX 12 entries
+- a private `RendererBackendCapabilities` POD-style struct
+- a private renderer factory that creates only the DirectX 11 implementation
+- DirectX 12 capability status marked as experimental and not implemented
+
+This scaffold is private implementation. It is not packaged in `include/zeno/`, is not a public SDK API, is not a C ABI API, and does not allow game code to select DirectX 12.
+
+DirectX 11 behavior remains the only implemented renderer path and remains the default.
 
 ## Capability Reporting Policy
 
@@ -178,14 +195,13 @@ Public docs must not say:
 
 Future DirectX 12 work should be split into small explicit phases:
 
-1. Internal renderer backend interface proposal: define private native C++ interfaces and ownership rules without changing public SDK or C ABI.
-2. DirectX 11 adapter phase: move the existing DirectX 11 implementation behind the private interface while preserving behavior and tests.
-3. Backend-neutral selection and capability API phase: add public POD/SDK selection and reporting only after the private backend interface is stable.
-4. DirectX 12 bootstrap phase: create device/swap-chain/command infrastructure privately without exposing DX12 types or claiming feature parity.
-5. DirectX 12 resource parity phase: add texture, mesh, material, debug draw, and presentation parity incrementally behind existing SDK concepts.
-6. DirectX 12 validation phase: add backend-specific smoke tests, capability checks, package/readiness docs, and sample validation.
-7. Experimental opt-in phase: allow DX12 selection only when docs, tests, and fallback behavior are ready.
-8. Support promotion phase: promote DX12 from experimental to supported only after explicit readiness criteria pass.
+1. DirectX 11 adapter hardening phase: continue moving the existing DirectX 11 implementation behind the private interface while preserving behavior and tests.
+2. Backend-neutral selection and capability API phase: add public POD/SDK selection and reporting only after the private backend interface is stable.
+3. DirectX 12 bootstrap phase: create device/swap-chain/command infrastructure privately without exposing DX12 types or claiming feature parity.
+4. DirectX 12 resource parity phase: add texture, mesh, material, debug draw, and presentation parity incrementally behind existing SDK concepts.
+5. DirectX 12 validation phase: add backend-specific smoke tests, capability checks, package/readiness docs, and sample validation.
+6. Experimental opt-in phase: allow DX12 selection only when docs, tests, and fallback behavior are ready.
+7. Support promotion phase: promote DX12 from experimental to supported only after explicit readiness criteria pass.
 
 Each phase must preserve DirectX 11 as the default unless that phase explicitly changes the policy.
 

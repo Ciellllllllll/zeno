@@ -7,7 +7,7 @@ struct HWND__;
 
 namespace zeno::native {
 
-class DirectX11Renderer;
+class RendererBackend;
 struct AudioSystem;
 
 constexpr std::uint32_t kInputKeyCount = 11;
@@ -112,6 +112,105 @@ struct VertexInputLayoutDesc final {
     std::uint32_t element_count = 0;
 };
 
+enum class RendererBackendKind {
+    directx11,
+    directx12,
+};
+
+enum class RendererBackendSupportStatus {
+    unsupported,
+    experimental,
+    supported,
+};
+
+struct RendererBackendCapabilities final {
+    RendererBackendKind kind = RendererBackendKind::directx11;
+    RendererBackendSupportStatus support = RendererBackendSupportStatus::unsupported;
+    bool implemented = false;
+    bool default_backend = false;
+    bool supports_window_present = false;
+    bool supports_textures = false;
+    bool supports_meshes = false;
+    bool supports_materials = false;
+    bool supports_debug_draw = false;
+    bool supports_debug_text = false;
+    bool supports_resize = false;
+    std::uint32_t max_vertex_input_elements = 0;
+};
+
+constexpr RendererBackendKind kDefaultRendererBackendKind = RendererBackendKind::directx11;
+
+const char* renderer_backend_name(RendererBackendKind kind);
+RendererBackendCapabilities renderer_backend_capabilities(RendererBackendKind kind);
+
+class RendererBackend {
+public:
+    virtual ~RendererBackend() = default;
+
+    virtual RendererBackendKind kind() const = 0;
+    virtual RendererBackendCapabilities capabilities() const = 0;
+    virtual bool initialize(HWND__* window) = 0;
+    virtual void shutdown() = 0;
+    virtual void request_resize(std::uint32_t width, std::uint32_t height, bool minimized) = 0;
+    virtual bool begin_frame() = 0;
+    virtual bool clear(float r, float g, float b, float a) = 0;
+    virtual bool create_clear_color(float r, float g, float b, float a, std::uint64_t& out_handle) = 0;
+    virtual bool destroy_clear_color(std::uint64_t handle) = 0;
+    virtual RenderCommandResult clear_with_resource(std::uint64_t handle) = 0;
+    virtual bool create_triangle(std::uint64_t& out_handle) = 0;
+    virtual bool create_triangle_with_shaders(
+        std::uint64_t vertex_shader,
+        std::uint64_t pixel_shader,
+        const VertexInputLayoutDesc& input_layout,
+        std::uint64_t& out_handle) = 0;
+    virtual bool destroy_triangle(std::uint64_t handle) = 0;
+    virtual bool create_vertex_shader_from_source(
+        const char* source,
+        std::uint64_t source_length,
+        const char* entry,
+        std::uint64_t entry_length,
+        const char* profile,
+        std::uint64_t profile_length,
+        ShaderCompileLog& compile_log,
+        std::uint64_t& out_handle) = 0;
+    virtual bool create_pixel_shader_from_source(
+        const char* source,
+        std::uint64_t source_length,
+        const char* entry,
+        std::uint64_t entry_length,
+        const char* profile,
+        std::uint64_t profile_length,
+        ShaderCompileLog& compile_log,
+        std::uint64_t& out_handle) = 0;
+    virtual bool destroy_vertex_shader(std::uint64_t handle) = 0;
+    virtual bool destroy_pixel_shader(std::uint64_t handle) = 0;
+    virtual bool create_texture_from_memory(
+        const std::uint8_t* image_bytes,
+        std::uint64_t image_byte_count,
+        std::uint64_t& out_handle) = 0;
+    virtual bool destroy_texture(std::uint64_t handle) = 0;
+    virtual RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc) = 0;
+    virtual bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle) = 0;
+    virtual bool destroy_mesh(std::uint64_t handle) = 0;
+    virtual RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix) = 0;
+    virtual RenderCommandResult create_material(const MaterialDesc& desc, std::uint64_t& out_handle) = 0;
+    virtual bool destroy_material(std::uint64_t handle) = 0;
+    virtual RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc) = 0;
+    virtual RenderCommandResult draw_mesh_with_material(
+        std::uint64_t mesh,
+        std::uint64_t material,
+        const Matrix4x4& model_matrix) = 0;
+    virtual RenderCommandResult draw_debug_line(const DebugLineDesc& desc) = 0;
+    virtual RenderCommandResult draw_debug_rect(const DebugRectDesc& desc) = 0;
+    virtual RenderCommandResult draw_debug_text(const DebugTextDesc& desc) = 0;
+    virtual RenderCommandResult draw_triangle(std::uint64_t handle) = 0;
+    virtual bool set_camera_matrix(const Matrix4x4& matrix) = 0;
+    virtual RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& model_matrix) = 0;
+    virtual bool present() = 0;
+};
+
+std::unique_ptr<RendererBackend> create_renderer_backend(RendererBackendKind kind);
+
 class NativeBackend final {
 public:
     NativeBackend();
@@ -203,8 +302,10 @@ private:
     bool initialized_ = false;
     bool should_close_ = false;
     NativeBackendConfig config_{};
+    RendererBackendKind renderer_backend_kind_ = kDefaultRendererBackendKind;
+    RendererBackendCapabilities renderer_capabilities_ = renderer_backend_capabilities(kDefaultRendererBackendKind);
     HWND__* window_handle_ = nullptr;
-    std::unique_ptr<DirectX11Renderer> renderer_;
+    std::unique_ptr<RendererBackend> renderer_;
     std::unique_ptr<AudioSystem> audio_system_;
     bool current_keys_[kInputKeyCount]{};
     bool previous_keys_[kInputKeyCount]{};
