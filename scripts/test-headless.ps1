@@ -20,7 +20,7 @@ try {
 
     cmake --preset $preset
     cmake --build --preset $preset
-    ctest --preset $preset -E "window|sample|manual"
+    ctest --preset $preset -LE "window|sample|manual"
 }
 finally {
     Pop-Location
