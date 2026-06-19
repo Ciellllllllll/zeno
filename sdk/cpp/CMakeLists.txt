@@ -52,6 +52,18 @@ target_link_libraries(zeno_sdk_collision_smoke PRIVATE zeno_sdk_cpp)
 add_test(NAME zeno_sdk_collision_smoke COMMAND zeno_sdk_collision_smoke)
 set_tests_properties(zeno_sdk_collision_smoke PROPERTIES LABELS "headless")
 
+add_executable(zeno_sdk_2d_smoke src/2d_smoke.cpp)
+target_compile_features(zeno_sdk_2d_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_sdk_2d_smoke PRIVATE zeno_sdk_cpp)
+add_test(NAME zeno_sdk_2d_smoke COMMAND zeno_sdk_2d_smoke)
+set_tests_properties(zeno_sdk_2d_smoke PROPERTIES LABELS "headless")
+
+add_executable(zeno_sdk_3d_smoke src/3d_smoke.cpp)
+target_compile_features(zeno_sdk_3d_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_sdk_3d_smoke PRIVATE zeno_sdk_cpp)
+add_test(NAME zeno_sdk_3d_smoke COMMAND zeno_sdk_3d_smoke)
+set_tests_properties(zeno_sdk_3d_smoke PROPERTIES LABELS "headless")
+
 add_executable(zeno_sdk_asset_smoke src/asset_smoke.cpp)
 target_compile_features(zeno_sdk_asset_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_sdk_asset_smoke PRIVATE zeno_sdk_cpp)
@@ -110,6 +122,18 @@ add_custom_command(TARGET zeno_sdk_collision_smoke POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:zeno_abi_rust>"
         "$<TARGET_FILE_DIR:zeno_sdk_collision_smoke>"
+)
+
+add_custom_command(TARGET zeno_sdk_2d_smoke POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:zeno_abi_rust>"
+        "$<TARGET_FILE_DIR:zeno_sdk_2d_smoke>"
+)
+
+add_custom_command(TARGET zeno_sdk_3d_smoke POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:zeno_abi_rust>"
+        "$<TARGET_FILE_DIR:zeno_sdk_3d_smoke>"
 )
 
 add_custom_command(TARGET zeno_sdk_asset_smoke POST_BUILD

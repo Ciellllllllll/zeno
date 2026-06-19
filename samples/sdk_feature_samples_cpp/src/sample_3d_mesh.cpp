@@ -60,6 +60,10 @@ zeno::Result on_init(zeno::GameContext& context)
 
     const zeno::SceneObjectDesc* cube = find_scene_object(*context.scene, "cube", zeno::RenderableKind::mesh);
     if (cube == nullptr || cube->reference != "builtin:cube") {
+        zeno::log_message(
+            zeno::LogLevel::error,
+            "sample",
+            "sample: 3D mesh sample requires scene object 'cube' with reference 'builtin:cube'");
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 

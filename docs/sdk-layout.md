@@ -1,9 +1,9 @@
 # SDK Layout
 
-The Phase44 SDK package is generated under:
+The SDK package is generated under:
 
 ```text
-build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/
+build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/
 ```
 
 The ZIP uses the same top-level directory name.
@@ -11,7 +11,7 @@ The ZIP uses the same top-level directory name.
 ## Directory Layout
 
 ```text
-ZenoEngine-SDK-v0.1.0-dev/
+ZenoEngine-SDK-v0.1.0-rc.1/
   include/
     zeno/
   lib/
@@ -22,13 +22,35 @@ ZenoEngine-SDK-v0.1.0-dev/
     Release/
   samples/
     sdk_feature_samples_cpp/
+      CMakePresets.json
+      assets/
+        sample_manifest.txt
+        project.zproj
+        projects/
+          2d_input_audio.zproj
+          3d_mesh.zproj
+        scenes/
+          sample_scene.zscene
+          2d_input_audio.zscene
+          3d_mesh.zscene
+        shaders/
+          sample_triangle.hlsl
+        audio/
+          sample_click.wav
+        textures/
+          sample_sprite_2x2.bmp
   templates/
     cpp_empty/
+      CMakePresets.json
   docs/
     getting-started.md
     sdk-layout.md
+    release-notes.md
+    release-checklist.md
     vs2022.md
     vscode-cmake.md
+    api/
+    tutorials/
   cmake/
     ZenoEngineConfig.cmake
   README.md
@@ -75,6 +97,25 @@ Compatibility `ZENO::` targets are also defined for older local examples.
 
 ## Samples And Templates
 
-`samples/sdk_feature_samples_cpp/` contains the Phase43 focused SDK samples. In the SDK package, their `CMakeLists.txt` consumes the packaged SDK with `find_package(ZenoEngine CONFIG REQUIRED)`.
+`samples/sdk_feature_samples_cpp/` contains the focused SDK samples. In the SDK package, their `CMakeLists.txt` consumes the packaged SDK with `find_package(ZenoEngine CONFIG REQUIRED)`.
+
+The packaged sample asset directory is a merged, source-controlled asset set:
+
+- Shared sample fixtures from `samples/sample_game_cpp/assets/`.
+- Focused SDK sample project and scene files from `samples/sdk_feature_samples_cpp/assets/`.
+
+Packaged sample builds copy this directory beside each sample executable as `assets/`. Runtime paths are therefore executable-relative:
+
+- `projects/2d_input_audio.zproj`
+- `projects/3d_mesh.zproj`
+- `scenes/2d_input_audio.zscene`
+- `scenes/3d_mesh.zscene`
+- `sample_manifest.txt`
+- `audio/sample_click.wav`
+- `textures/sample_sprite_2x2.bmp`
+
+The package consumption QA validates this asset inventory in the extracted SDK and again in each Debug/Release sample runtime output directory.
 
 `templates/cpp_empty/` is the minimal external CMake template. It runs one headless engine frame and copies `zeno_abi.dll` beside the executable.
+
+Both packaged roots include `windows-msvc-debug` and `windows-msvc-release` CMake presets. These presets set `ZenoEngine_DIR` to the SDK `cmake` directory, so CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools use the same package graph.

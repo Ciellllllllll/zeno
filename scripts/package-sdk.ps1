@@ -1,7 +1,8 @@
 param(
     [ValidateSet("Debug", "Release", "All")]
     [string]$Configuration = "All",
-    [string]$PackageVersion = "0.1.0-dev",
+    [string]$PackageVersion = "0.1.0-rc.1",
+    [string]$CMakeExe = "cmake",
     [switch]$NoZip
 )
 
@@ -54,6 +55,130 @@ function Copy-DirectoryContents {
     Copy-Item -Path (Join-Path $Source "*") -Destination $Destination -Recurse -Force
 }
 
+function Get-ExpectedSdkSampleAssetPaths {
+    @(
+        "sample_manifest.txt",
+        "project.zproj",
+        "projects/2d_input_audio.zproj",
+        "projects/3d_mesh.zproj",
+        "scenes/sample_scene.zscene",
+        "scenes/2d_input_audio.zscene",
+        "scenes/3d_mesh.zscene",
+        "shaders/sample_triangle.hlsl",
+        "audio/sample_click.wav",
+        "textures/sample_sprite_2x2.bmp"
+    )
+}
+
+function Assert-FileNonEmpty {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Missing ${Description}: $Path"
+    }
+
+    $item = Get-Item -LiteralPath $Path
+    if ($item.Length -le 0) {
+        throw "${Description} is empty: $Path"
+    }
+}
+
+function Get-RelativeAssetFilePaths {
+    param([Parameter(Mandatory = $true)][string]$AssetRoot)
+
+    $fullRoot = [System.IO.Path]::GetFullPath($AssetRoot)
+    $prefix = $fullRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    Get-ChildItem -LiteralPath $fullRoot -Recurse -File | ForEach-Object {
+        [System.IO.Path]::GetFullPath($_.FullName).Substring($prefix.Length).Replace("\", "/")
+    }
+}
+
+function Assert-NoAssetFileCollisions {
+    param(
+        [Parameter(Mandatory = $true)][string]$FirstAssetRoot,
+        [Parameter(Mandatory = $true)][string]$SecondAssetRoot
+    )
+
+    $firstFiles = @(Get-RelativeAssetFilePaths -AssetRoot $FirstAssetRoot)
+    $secondFiles = @(Get-RelativeAssetFilePaths -AssetRoot $SecondAssetRoot)
+    $collisions = $firstFiles | Where-Object { $_ -in $secondFiles }
+    if ($collisions) {
+        throw "SDK sample asset source trees contain colliding relative files: $($collisions -join ', ')"
+    }
+}
+
+function Assert-RequiredSdkSampleAssets {
+    param([Parameter(Mandatory = $true)][string]$AssetRoot)
+
+    foreach ($relativePath in Get-ExpectedSdkSampleAssetPaths) {
+        Assert-FileNonEmpty -Path (Join-Path $AssetRoot $relativePath) -Description "SDK sample asset $relativePath"
+    }
+}
+
+function Write-PackagedCMakePresets {
+    param(
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    $presets = @'
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/windows-msvc-debug",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "ZenoEngine_DIR": "${sourceDir}/../../cmake"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/windows-msvc-release",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "ZenoEngine_DIR": "${sourceDir}/../../cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Build Windows MSVC Debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Build Windows MSVC Release",
+      "configurePreset": "windows-msvc-release",
+      "configuration": "Release"
+    }
+  ]
+}
+'@
+
+    Set-Content -LiteralPath $Destination -Value $presets -Encoding ascii
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -93,8 +218,8 @@ try {
         } else {
             cargo build -p zeno_abi
         }
-        cmake --preset $preset
-        cmake --build --preset $preset --target zeno_sdk_cpp zeno_native zeno_sample_2d_input_audio_cpp zeno_sample_3d_mesh_cpp
+        & $CMakeExe --preset $preset
+        & $CMakeExe --build --preset $preset --target zeno_sdk_cpp zeno_native zeno_sample_2d_input_audio_cpp zeno_sample_3d_mesh_cpp
 
         Copy-RequiredFile -Source (Join-Path $buildDir "lib/$config/zeno_sdk_cpp.lib") -Destination (Join-Path $packageRoot "lib/$config/zeno_sdk_cpp.lib")
         Copy-RequiredFile -Source (Join-Path $buildDir "lib/$config/zeno_native.lib") -Destination (Join-Path $packageRoot "lib/$config/zeno_native.lib")
@@ -104,14 +229,23 @@ try {
 
     $packagedFeatureSampleDir = Join-Path $packageRoot "samples/sdk_feature_samples_cpp"
     Copy-RequiredDirectory -Source (Join-Path $repoRoot "samples/sdk_feature_samples_cpp") -Destination $packagedFeatureSampleDir
+    Assert-NoAssetFileCollisions `
+        -FirstAssetRoot (Join-Path $repoRoot "samples/sample_game_cpp/assets") `
+        -SecondAssetRoot (Join-Path $repoRoot "samples/sdk_feature_samples_cpp/assets")
     Copy-DirectoryContents -Source (Join-Path $repoRoot "samples/sample_game_cpp/assets") -Destination (Join-Path $packagedFeatureSampleDir "assets")
     Copy-DirectoryContents -Source (Join-Path $repoRoot "samples/sdk_feature_samples_cpp/assets") -Destination (Join-Path $packagedFeatureSampleDir "assets")
+    Assert-RequiredSdkSampleAssets -AssetRoot (Join-Path $packagedFeatureSampleDir "assets")
     Copy-RequiredDirectory -Source (Join-Path $repoRoot "templates/cpp_empty") -Destination (Join-Path $packageRoot "templates/cpp_empty")
+    Write-PackagedCMakePresets -Destination (Join-Path $packageRoot "templates/cpp_empty/CMakePresets.json")
 
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/getting-started.md") -Destination (Join-Path $packageRoot "docs/getting-started.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/sdk-layout.md") -Destination (Join-Path $packageRoot "docs/sdk-layout.md")
+    Copy-RequiredFile -Source (Join-Path $repoRoot "docs/release-notes.md") -Destination (Join-Path $packageRoot "docs/release-notes.md")
+    Copy-RequiredFile -Source (Join-Path $repoRoot "docs/release-checklist.md") -Destination (Join-Path $packageRoot "docs/release-checklist.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/vs2022.md") -Destination (Join-Path $packageRoot "docs/vs2022.md")
     Copy-RequiredFile -Source (Join-Path $repoRoot "docs/vscode-cmake.md") -Destination (Join-Path $packageRoot "docs/vscode-cmake.md")
+    Copy-RequiredDirectory -Source (Join-Path $repoRoot "docs/api") -Destination (Join-Path $packageRoot "docs/api")
+    Copy-RequiredDirectory -Source (Join-Path $repoRoot "docs/tutorials") -Destination (Join-Path $packageRoot "docs/tutorials")
     Copy-RequiredFile -Source (Join-Path $repoRoot "cmake/ZenoEngineConfig.cmake") -Destination (Join-Path $packageRoot "cmake/ZenoEngineConfig.cmake")
     Copy-RequiredFile -Source (Join-Path $repoRoot "cmake/ZenoEngineConfigVersion.cmake") -Destination (Join-Path $packageRoot "cmake/ZenoEngineConfigVersion.cmake")
 
@@ -149,13 +283,14 @@ zeno_add_sdk_feature_sample(zeno_sample_2d_input_audio_cpp src/sample_2d_input_a
 zeno_add_sdk_feature_sample(zeno_sample_3d_mesh_cpp src/sample_3d_mesh.cpp)
 '@
     Set-Content -LiteralPath (Join-Path $packageRoot "samples/sdk_feature_samples_cpp/CMakeLists.txt") -Value $sampleCMake -Encoding ascii
+    Write-PackagedCMakePresets -Destination (Join-Path $packageRoot "samples/sdk_feature_samples_cpp/CMakePresets.json")
 
     $readmeTemplate = @'
 # ZENO Engine SDK {{PACKAGE_VERSION}}
 
 This SDK package contains the public C++ headers, Windows MSVC static libraries, Rust ABI runtime DLL, focused SDK samples, a minimal external project template, documentation, and CMake package configuration for ZENO Engine.
 
-Start with `docs/getting-started.md`.
+Start with `docs/getting-started.md`, then use `docs/tutorials/` for project walkthroughs and `docs/api/` for public SDK concepts.
 
 ## Layout
 
@@ -164,7 +299,7 @@ Start with `docs/getting-started.md`.
 - `bin/Debug/`, `bin/Release/` - runtime DLLs required beside executables.
 - `samples/sdk_feature_samples_cpp/` - Phase43 focused SDK samples.
 - `templates/cpp_empty/` - minimal external CMake project.
-- `docs/` - setup and IDE notes.
+- `docs/` - setup, IDE notes, tutorials, and API concept docs.
 - `cmake/ZenoEngineConfig.cmake` - imported CMake targets.
 
 ## Minimal CMake Use
@@ -180,6 +315,8 @@ Configure with:
 cmake -S . -B build -DZenoEngine_DIR="<sdk-root>/cmake"
 cmake --build build --config Debug
 ```
+
+Packaged `templates/cpp_empty` and `samples/sdk_feature_samples_cpp` also include `windows-msvc-debug` and `windows-msvc-release` CMake presets for CLI, Visual Studio 2022 Open Folder, and VS Code CMake Tools.
 '@
     $readme = $readmeTemplate.Replace("{{PACKAGE_VERSION}}", $PackageVersion)
     Set-Content -LiteralPath (Join-Path $packageRoot "README.md") -Value $readme -Encoding ascii

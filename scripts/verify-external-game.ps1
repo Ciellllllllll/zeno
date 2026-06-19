@@ -1,6 +1,7 @@
 param(
     [ValidateSet("Debug", "Release")]
-    [string]$Configuration = "Debug"
+    [string]$Configuration = "Debug",
+    [string]$PackageVersion = "0.1.0-rc.1"
 )
 
 Set-StrictMode -Version Latest
@@ -9,10 +10,10 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
-    $packageDir = Join-Path $repoRoot "build/package-sdk/ZenoEngine-SDK-v0.1.0-dev"
+    $packageDir = Join-Path $repoRoot "build/package-sdk/ZenoEngine-SDK-v$PackageVersion"
     $externalBuildDir = Join-Path $repoRoot "build/external-game"
 
-    & (Join-Path $PSScriptRoot "package-sdk.ps1") -Configuration $Configuration
+    & (Join-Path $PSScriptRoot "package-sdk.ps1") -Configuration All -PackageVersion $PackageVersion
 
     if (Test-Path $externalBuildDir) {
         Remove-Item -LiteralPath $externalBuildDir -Recurse -Force

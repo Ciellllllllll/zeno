@@ -2,10 +2,12 @@
 
 This repository is Windows-first for the current milestone.
 
+For packaged SDK consumption, start with [Getting Started With ZENO SDK](getting-started.md) and [SDK Tutorials](tutorials/index.md). This page is the repository maintainer build and regression guide.
+
 ## Requirements
 
 - Windows 10 or Windows 11.
-- Visual Studio 2022 with MSVC v143 and a Windows SDK.
+- Visual Studio 2022 17.7 or newer with MSVC v143 and a Windows SDK.
 - CMake 3.24 or newer on `PATH`.
 - Rust stable with Cargo on `PATH`.
 - VS Code with rust-analyzer and CMake Tools is optional.
@@ -27,10 +29,17 @@ The source-of-truth build files are `Cargo.toml`, `CMakeLists.txt`, and `CMakePr
 .\scripts\verify-format.ps1
 .\scripts\verify-abi.ps1
 .\scripts\test-headless.ps1
+.\scripts\verify-sdk-package-consumption.ps1
 .\scripts\verify-all.ps1
 ```
 
 `verify-all.ps1` is the CI-style local baseline: Rust format, whitespace checks, ABI forbidden-type scan, Cargo tests, CMake configure/build, headless CTest, and package creation.
+
+`verify-sdk-package-consumption.ps1` is the full SDK package consumption QA path. It creates the SDK package and ZIP, extracts the ZIP into an ignored validation directory, validates Debug/Release packaged template and sample builds, validates the external headless example through `find_package`, checks package artifact integrity, and validates packaged sample asset integrity in the extracted SDK and runtime output directories.
+
+For SDK v0.1.0 release candidates, this package consumption QA path is the release gate. A release candidate is not ready unless Debug headless tests, Release headless tests, and `verify-sdk-package-consumption.ps1` all pass.
+
+The manual GitHub Actions workflow `SDK RC Artifact` runs the same release gate and uploads `ZenoEngine-SDK-v0.1.0-rc.1.zip` as a workflow artifact. It does not publish a GitHub Release, create a git tag, sign artifacts, or commit generated outputs.
 
 ```powershell
 .\scripts\test-all-local.ps1
@@ -46,6 +55,9 @@ cargo test --workspace
 cmake --preset windows-msvc-debug
 cmake --build --preset windows-msvc-debug
 ctest --preset windows-msvc-debug
+cmake --preset windows-msvc-release
+cmake --build --preset windows-msvc-release
+ctest --preset windows-msvc-release
 ```
 
 `ctest --preset windows-msvc-debug` includes smoke executables that may open a window. Run it from an environment where window creation is acceptable. CI uses `ctest --preset windows-msvc-debug -E "window|sample|manual"`.
@@ -79,10 +91,11 @@ Runtime packaging is for running the in-repository sample/template executables.
 
 ```powershell
 .\scripts\package-sdk.ps1
-.\scripts\verify-external-game.ps1
+.\scripts\verify-external-game.ps1 -Configuration Debug
+.\scripts\verify-external-game.ps1 -Configuration Release
 ```
 
-SDK packaging is for external CMake projects. It creates `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-dev.zip` with:
+SDK packaging is for external CMake projects. It creates `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1/` and `build/package-sdk/ZenoEngine-SDK-v0.1.0-rc.1.zip` with:
 
 - `include/zeno/`
 - `lib/Debug/` and `lib/Release/`
@@ -93,14 +106,17 @@ SDK packaging is for external CMake projects. It creates `build/package-sdk/Zeno
 - `cmake/ZenoEngineConfig.cmake`
 - `cmake/ZenoEngineConfigVersion.cmake`
 
-`ZenoEngineConfig.cmake` exposes imported CMake targets `ZenoEngine::zeno_sdk_cpp`, `ZenoEngine::zeno_native`, and `ZenoEngine::zeno_abi_rust`. It also defines `ZenoEngine_VERSION` as `0.1.0-dev`.
+`ZenoEngineConfig.cmake` exposes imported CMake targets `ZenoEngine::zeno_sdk_cpp`, `ZenoEngine::zeno_native`, and `ZenoEngine::zeno_abi_rust`. It also defines numeric `ZenoEngine_VERSION` as `0.1.0` and `ZenoEngine_RELEASE_LABEL` as `0.1.0-rc.1`.
+
+`0.1.0-rc.1` is the SDK package label. The CMake package version remains numeric `0.1.0` for normal `find_package` version comparison.
 
 External projects can consume it with:
 
 ```powershell
-$zenoDir = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-dev\cmake).Path
+$zenoDir = (Resolve-Path .\build\package-sdk\ZenoEngine-SDK-v0.1.0-rc.1\cmake).Path
 cmake -S examples\external-game -B build\external-game -DZenoEngine_DIR="$zenoDir"
 cmake --build build\external-game --config Debug
+cmake --build build\external-game --config Release
 ```
 
 ## Regression Matrix
@@ -121,7 +137,11 @@ cmake --build build\external-game --config Debug
 | Template game | `.\scripts\run-template.ps1` | Opens template window and exits cleanly | Window run. |
 | Package | `.\scripts\package-runtime.ps1` | Creates sample/template package layout | Uses CMake install plus DLL copy. |
 | SDK package | `.\scripts\package-sdk.ps1` | Creates external SDK package layout and ZIP | Includes headers, Debug/Release static libs, ABI import lib/DLL, samples, templates, docs, and CMake config files. |
-| External game package check | `.\scripts\verify-external-game.ps1` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
+| SDK package consumption QA | `.\scripts\verify-sdk-package-consumption.ps1` | Generates, extracts, builds, runs, and validates the SDK package ZIP | Headless. Checks Debug/Release template run, sample builds, external-game runs, DLL/assets placement, sample asset integrity, required libs, and private header exclusion. |
+| External game Debug package check | `.\scripts\verify-external-game.ps1 -Configuration Debug` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
+| External game Release package check | `.\scripts\verify-external-game.ps1 -Configuration Release` | Builds and runs the headless external example | Uses packaged `ZenoEngine::zeno_sdk_cpp`, not in-tree includes. |
+| Packaged template presets | `cmake --preset windows-msvc-debug -S "$sdkRoot\templates\cpp_empty"` and `cmake --preset windows-msvc-release -S "$sdkRoot\templates\cpp_empty"` | Configures the packaged template through SDK presets | The same preset names are available to VS2022 Open Folder and VS Code CMake Tools. |
+| Packaged sample presets | `cmake --preset windows-msvc-debug -S "$sdkRoot\samples\sdk_feature_samples_cpp"` and `cmake --preset windows-msvc-release -S "$sdkRoot\samples\sdk_feature_samples_cpp"` | Configures packaged samples through SDK presets | Build-only validation is headless; running samples is a GUI check. |
 | Dynamic module sample | `.\scripts\run-dynamic-module-sample.ps1` | Builds/runs the headless DLL module sample | Uses `LoadLibraryW`, descriptor version validation, lifecycle callbacks, and unload. |
 | GameApp failed-init cleanup | `build/windows-msvc-debug/bin/Debug/zeno_sdk_failed_init_smoke.exe` | Verifies `on_shutdown` after failed `on_init` | Window-capable smoke; run only when opening local windows is acceptable. |
 | Renderer resize smoke | `build/windows-msvc-debug/bin/Debug/zeno_resize_smoke.exe` | Verifies minimized and nonzero resize path | Window-capable smoke; run only when opening local windows is acceptable. |

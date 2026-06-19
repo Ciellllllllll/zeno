@@ -62,6 +62,10 @@ zeno::Result on_init(zeno::GameContext& context)
 
     const zeno::SceneObjectDesc* player = find_scene_object(*context.scene, "player", zeno::RenderableKind::sprite);
     if (player == nullptr) {
+        zeno::log_message(
+            zeno::LogLevel::error,
+            "2d-sample",
+            "2d-sample: scene requires a sprite object named player");
         return zeno::Result(ZEN_RESULT_INVALID_ARGUMENT);
     }
 

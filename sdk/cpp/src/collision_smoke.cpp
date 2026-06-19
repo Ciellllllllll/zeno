@@ -53,27 +53,43 @@ int main()
     if (!zeno::contains(box, zeno::Vec2{ 0.25f, -0.25f })) {
         return 6;
     }
-    if (zeno::contains(box, zeno::Vec2{ 1.1f, 0.0f })) {
+    if (!zeno::contains(box, min) || !zeno::contains(box, max)) {
         return 7;
+    }
+    if (zeno::contains(box, zeno::Vec2{ 1.1f, 0.0f })) {
+        return 8;
+    }
+    if (zeno::contains(box, zeno::Vec2{ -1.1f, 0.0f })
+        || zeno::contains(box, zeno::Vec2{ 0.0f, 2.1f })
+        || zeno::contains(box, zeno::Vec2{ 0.0f, -2.1f })) {
+        return 9;
     }
 
     const zeno::Aabb2 normalized = zeno::Aabb2::from_center_half_extents(
         zeno::Vec2{ 2.0f, 3.0f },
         zeno::Vec2{ -4.0f, -5.0f });
     if (!near(normalized.half_extents.x, 4.0f) || !near(normalized.half_extents.y, 5.0f)) {
-        return 8;
+        return 10;
+    }
+
+    const zeno::Aabb2 zero = zeno::Aabb2::from_center_half_extents(
+        zeno::Vec2{ 0.5f, -0.5f },
+        zeno::Vec2{ 0.0f, 0.0f });
+    if (!zeno::contains(zero, zeno::Vec2{ 0.5f, -0.5f })
+        || zeno::contains(zero, zeno::Vec2{ 0.5001f, -0.5f })) {
+        return 11;
     }
 
     zeno::Transform transform{};
     transform.position = zeno::Vec3{ -0.5f, 0.75f, 1.0f };
-    transform.scale = zeno::Vec3{ 0.4f, 0.8f, 1.0f };
+    transform.scale = zeno::Vec3{ -0.4f, 0.8f, 1.0f };
     transform.rotation_z_radians = 1.57f;
     const zeno::Aabb2 from_transform = zeno::aabb_from_transform_2d(transform);
     if (!near(from_transform.center.x, -0.5f)
         || !near(from_transform.center.y, 0.75f)
         || !near(from_transform.half_extents.x, 0.2f)
         || !near(from_transform.half_extents.y, 0.4f)) {
-        return 9;
+        return 12;
     }
 
     return 0;

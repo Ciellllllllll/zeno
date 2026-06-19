@@ -1,29 +1,35 @@
 # ZENO commit message format:
-# <type>: <日本語の変更内容>
+# <type>: <English summary>
+# add:<PhaseNum><English summary>  # Phase completion only
 #
 # Write the actual commit message above these comments.
 #
 # Rules:
-# - Write the summary in Japanese.
+# - Write the summary in English.
 # - Use a half-width colon immediately after type.
 # - Put exactly one half-width space after type:.
 # - Do not put a space between type and colon.
 # - Do not use feat. Use add for new features.
+# - For Phase completion commits, use add:<PhaseNum><English summary>.
+# - Do not put a space after add: in Phase completion commits.
+# - Write all public-facing materials in English, including tracked docs,
+#   README.md, and source code comments.
 #
 # Allowed types:
-# fix: バグ修正
-# hotfix: クリティカルなバグ修正
-# add: 新規機能追加
-# update: 機能修正、既存機能の改善、バグではない変更
-# change: 仕様変更
-# clean: 整理、リファクタリング、可読性改善
-# disable: 無効化、コメントアウト、一時停止
-# remove: ファイル削除、不要機能削除
-# upgrade: バージョンアップ、依存関係更新
-# revert: 変更取り消し
+# fix: Bug fix
+# hotfix: Critical bug fix
+# add: New feature
+# update: Feature update, existing feature improvement, or non-bug change
+# change: Specification change
+# clean: Cleanup, refactor, or readability improvement
+# disable: Disable, comment out, or temporarily pause
+# remove: File removal or obsolete feature removal
+# upgrade: Version or dependency upgrade
+# revert: Revert a previous change
 #
 # Good examples:
-# fix: 起動時にクラッシュする問題を修正
-# add: 2D描画APIを追加
-# update: サンプルゲームの描画処理を更新
-# clean: 不要なコメントと重複処理を整理
+# fix: Fix crash on startup
+# add: Add 2D rendering API
+# add:44 Package SDK distribution
+# update: Update sample game rendering
+# clean: Remove stale comments and duplicated logic
