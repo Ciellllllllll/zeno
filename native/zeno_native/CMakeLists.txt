@@ -45,6 +45,12 @@ target_link_libraries(zeno_native_backend_smoke PRIVATE zeno_native)
 add_test(NAME zeno_window_native_backend_smoke COMMAND zeno_native_backend_smoke)
 set_tests_properties(zeno_window_native_backend_smoke PROPERTIES LABELS "window")
 
+add_executable(zeno_renderer_backend_smoke src/renderer_backend_smoke.cpp)
+target_compile_features(zeno_renderer_backend_smoke PRIVATE cxx_std_20)
+target_link_libraries(zeno_renderer_backend_smoke PRIVATE zeno_native)
+add_test(NAME zeno_renderer_backend_smoke COMMAND zeno_renderer_backend_smoke)
+set_tests_properties(zeno_renderer_backend_smoke PROPERTIES LABELS "headless")
+
 add_executable(zeno_resize_smoke src/resize_smoke.cpp)
 target_compile_features(zeno_resize_smoke PRIVATE cxx_std_20)
 target_link_libraries(zeno_resize_smoke PRIVATE zeno_native)

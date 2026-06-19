@@ -869,6 +869,7 @@ public:
             &created_feature_level,
             context_.GetAddressOf());
         if (FAILED(result)) {
+            shutdown();
             return false;
         }
 
