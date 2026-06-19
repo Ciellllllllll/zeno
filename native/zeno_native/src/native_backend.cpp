@@ -801,9 +801,19 @@ private:
     std::uint64_t next_audio_handle = 1;
 };
 
-class DirectX11Renderer final {
+class DirectX11Renderer final : public RendererBackend {
 public:
-    bool initialize(HWND window)
+    RendererBackendKind kind() const override
+    {
+        return RendererBackendKind::directx11;
+    }
+
+    RendererBackendCapabilities capabilities() const override
+    {
+        return renderer_backend_capabilities(kind());
+    }
+
+    bool initialize(HWND window) override
     {
         if (window == nullptr || swap_chain_ != nullptr) {
             return false;
@@ -903,7 +913,7 @@ public:
         return true;
     }
 
-    void shutdown()
+    void shutdown() override
     {
         if (context_ != nullptr) {
             context_->ClearState();
@@ -947,7 +957,7 @@ public:
         }
     }
 
-    bool begin_frame()
+    bool begin_frame() override
     {
         if (renderer_failed_ || !apply_pending_resize()) {
             return false;
@@ -965,7 +975,7 @@ public:
         return true;
     }
 
-    bool clear(float r, float g, float b, float a)
+    bool clear(float r, float g, float b, float a) override
     {
         if (context_ == nullptr || render_target_view_ == nullptr || !frame_active_) {
             return false;
@@ -976,7 +986,7 @@ public:
         return true;
     }
 
-    bool create_clear_color(float r, float g, float b, float a, std::uint64_t& out_handle)
+    bool create_clear_color(float r, float g, float b, float a, std::uint64_t& out_handle) override
     {
         if (context_ == nullptr || render_target_view_ == nullptr || next_clear_color_handle_ == UINT64_MAX) {
             return false;
@@ -993,7 +1003,7 @@ public:
         return true;
     }
 
-    bool destroy_clear_color(std::uint64_t handle)
+    bool destroy_clear_color(std::uint64_t handle) override
     {
         if (handle == 0) {
             return false;
@@ -1007,7 +1017,7 @@ public:
         return destroyed;
     }
 
-    RenderCommandResult clear_with_resource(std::uint64_t handle)
+    RenderCommandResult clear_with_resource(std::uint64_t handle) override
     {
         const auto found = clear_colors_.find(handle);
         if (found == clear_colors_.end()) {
@@ -1019,7 +1029,7 @@ public:
             : RenderCommandResult::wrong_state;
     }
 
-    bool create_triangle(std::uint64_t& out_handle)
+    bool create_triangle(std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || next_triangle_handle_ == UINT64_MAX) {
             return false;
@@ -1146,7 +1156,7 @@ public:
         const char* profile,
         std::uint64_t profile_length,
         ShaderCompileLog& compile_log,
-        std::uint64_t& out_handle)
+        std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || next_vertex_shader_handle_ == UINT64_MAX) {
             return false;
@@ -1209,7 +1219,7 @@ public:
         const char* profile,
         std::uint64_t profile_length,
         ShaderCompileLog& compile_log,
-        std::uint64_t& out_handle)
+        std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || next_pixel_shader_handle_ == UINT64_MAX) {
             return false;
@@ -1263,7 +1273,7 @@ public:
         return true;
     }
 
-    bool destroy_vertex_shader(std::uint64_t handle)
+    bool destroy_vertex_shader(std::uint64_t handle) override
     {
         if (handle == 0) {
             return false;
@@ -1277,7 +1287,7 @@ public:
         return destroyed;
     }
 
-    bool destroy_pixel_shader(std::uint64_t handle)
+    bool destroy_pixel_shader(std::uint64_t handle) override
     {
         if (handle == 0) {
             return false;
@@ -1291,7 +1301,7 @@ public:
         return destroyed;
     }
 
-    bool create_texture_from_memory(const std::uint8_t* image_bytes, std::uint64_t image_byte_count, std::uint64_t& out_handle)
+    bool create_texture_from_memory(const std::uint8_t* image_bytes, std::uint64_t image_byte_count, std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || wic_factory_ == nullptr || next_texture_handle_ == UINT64_MAX) {
             return false;
@@ -1408,7 +1418,7 @@ public:
         return true;
     }
 
-    bool destroy_texture(std::uint64_t handle)
+    bool destroy_texture(std::uint64_t handle) override
     {
         if (handle == 0) {
             return false;
@@ -1422,7 +1432,7 @@ public:
         return destroyed;
     }
 
-    RenderCommandResult create_material(const MaterialDesc& desc, std::uint64_t& out_handle)
+    RenderCommandResult create_material(const MaterialDesc& desc, std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || next_material_handle_ == UINT64_MAX) {
             return RenderCommandResult::wrong_state;
@@ -1481,7 +1491,7 @@ public:
         return RenderCommandResult::ok;
     }
 
-    bool destroy_material(std::uint64_t handle)
+    bool destroy_material(std::uint64_t handle) override
     {
         if (handle == 0) {
             return false;
@@ -1495,7 +1505,7 @@ public:
         return destroyed;
     }
 
-    bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle)
+    bool create_mesh(const MeshDesc& desc, std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || next_mesh_handle_ == UINT64_MAX) {
             return false;
@@ -1561,7 +1571,7 @@ public:
         return true;
     }
 
-    bool destroy_mesh(std::uint64_t handle)
+    bool destroy_mesh(std::uint64_t handle) override
     {
         if (handle == 0) {
             return false;
@@ -1579,7 +1589,7 @@ public:
         std::uint64_t vertex_shader,
         std::uint64_t pixel_shader,
         const VertexInputLayoutDesc& input_layout,
-        std::uint64_t& out_handle)
+        std::uint64_t& out_handle) override
     {
         if (device_ == nullptr || context_ == nullptr || next_triangle_handle_ == UINT64_MAX) {
             return false;
@@ -1838,7 +1848,7 @@ public:
         return SUCCEEDED(result);
     }
 
-    RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc)
+    RenderCommandResult draw_sprite(std::uint64_t texture, const SpriteDrawDesc& desc) override
     {
         const auto found = texture_resources_.find(texture);
         if (found == texture_resources_.end()) {
@@ -1891,7 +1901,7 @@ public:
         return RenderCommandResult::ok;
     }
 
-    RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc)
+    RenderCommandResult draw_sprite_with_material(std::uint64_t material, const SpriteDrawDesc& desc) override
     {
         const auto found_material = material_resources_.find(material);
         if (found_material == material_resources_.end()) {
@@ -1958,7 +1968,7 @@ public:
         return RenderCommandResult::ok;
     }
 
-    RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix)
+    RenderCommandResult draw_mesh(std::uint64_t mesh, const Matrix4x4& model_matrix) override
     {
         const auto found = mesh_resources_.find(mesh);
         if (found == mesh_resources_.end()) {
@@ -1998,7 +2008,7 @@ public:
         return RenderCommandResult::ok;
     }
 
-    RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix)
+    RenderCommandResult draw_mesh_with_material(std::uint64_t mesh, std::uint64_t material, const Matrix4x4& model_matrix) override
     {
         const auto found_mesh = mesh_resources_.find(mesh);
         if (found_mesh == mesh_resources_.end()) {
@@ -2054,7 +2064,7 @@ public:
         return RenderCommandResult::ok;
     }
 
-    RenderCommandResult draw_debug_line(const DebugLineDesc& desc)
+    RenderCommandResult draw_debug_line(const DebugLineDesc& desc) override
     {
         if (!all_finite(desc.start, 3) || !all_finite(desc.end, 3) || !all_finite(desc.color, 4)) {
             return RenderCommandResult::wrong_state;
@@ -2067,7 +2077,7 @@ public:
         return draw_debug_vertices(vertices, 2);
     }
 
-    RenderCommandResult draw_debug_rect(const DebugRectDesc& desc)
+    RenderCommandResult draw_debug_rect(const DebugRectDesc& desc) override
     {
         const float values[] = {
             desc.center[0],
@@ -2101,7 +2111,7 @@ public:
         return draw_debug_vertices(vertices, 8);
     }
 
-    RenderCommandResult draw_debug_text(const DebugTextDesc& desc)
+    RenderCommandResult draw_debug_text(const DebugTextDesc& desc) override
     {
         const float values[] = {
             desc.origin[0],
@@ -2166,12 +2176,12 @@ public:
         return draw_debug_vertices(vertices.data(), static_cast<std::uint32_t>(vertices.size()), identity_matrix());
     }
 
-    RenderCommandResult draw_triangle(std::uint64_t handle)
+    RenderCommandResult draw_triangle(std::uint64_t handle) override
     {
         return draw_triangle_transformed(handle, identity_matrix());
     }
 
-    bool set_camera_matrix(const Matrix4x4& matrix)
+    bool set_camera_matrix(const Matrix4x4& matrix) override
     {
         if (context_ == nullptr || triangle_transform_buffer_ == nullptr) {
             return false;
@@ -2181,7 +2191,7 @@ public:
         return true;
     }
 
-    RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& world_matrix)
+    RenderCommandResult draw_triangle_transformed(std::uint64_t handle, const Matrix4x4& world_matrix) override
     {
         const auto found = triangle_resources_.find(handle);
         if (found == triangle_resources_.end()) {
@@ -2215,7 +2225,7 @@ public:
         return RenderCommandResult::ok;
     }
 
-    bool present()
+    bool present() override
     {
         if (swap_chain_ == nullptr || !frame_active_) {
             return false;
@@ -2231,7 +2241,7 @@ public:
         return presented;
     }
 
-    void request_resize(std::uint32_t width, std::uint32_t height, bool minimized)
+    void request_resize(std::uint32_t width, std::uint32_t height, bool minimized) override
     {
         minimized_ = minimized || width == 0 || height == 0;
         if (minimized_) {
@@ -2544,6 +2554,58 @@ private:
     std::uint64_t next_material_handle_ = 1;
 };
 
+const char* renderer_backend_name(RendererBackendKind kind)
+{
+    switch (kind) {
+    case RendererBackendKind::directx11:
+        return "directx11";
+    case RendererBackendKind::directx12:
+        return "directx12";
+    default:
+        return "unknown";
+    }
+}
+
+RendererBackendCapabilities renderer_backend_capabilities(RendererBackendKind kind)
+{
+    RendererBackendCapabilities capabilities{};
+    capabilities.kind = kind;
+    capabilities.default_backend = kind == kDefaultRendererBackendKind;
+
+    switch (kind) {
+    case RendererBackendKind::directx11:
+        capabilities.support = RendererBackendSupportStatus::supported;
+        capabilities.implemented = true;
+        capabilities.supports_window_present = true;
+        capabilities.supports_textures = true;
+        capabilities.supports_meshes = true;
+        capabilities.supports_materials = true;
+        capabilities.supports_debug_draw = true;
+        capabilities.supports_debug_text = true;
+        capabilities.supports_resize = true;
+        capabilities.max_vertex_input_elements = 8;
+        break;
+    case RendererBackendKind::directx12:
+        capabilities.support = RendererBackendSupportStatus::experimental;
+        capabilities.implemented = false;
+        capabilities.max_vertex_input_elements = 0;
+        break;
+    default:
+        break;
+    }
+
+    return capabilities;
+}
+
+std::unique_ptr<RendererBackend> create_renderer_backend(RendererBackendKind kind)
+{
+    if (kind == RendererBackendKind::directx11) {
+        return std::make_unique<DirectX11Renderer>();
+    }
+
+    return nullptr;
+}
+
 bool NativeBackend::initialize(const NativeBackendConfig& config)
 {
     if (initialized_) {
@@ -2760,7 +2822,12 @@ bool NativeBackend::initialize_renderer()
         return false;
     }
 
-    auto renderer = std::make_unique<DirectX11Renderer>();
+    auto renderer = create_renderer_backend(renderer_backend_kind_);
+    if (renderer == nullptr) {
+        return false;
+    }
+
+    renderer_capabilities_ = renderer->capabilities();
     if (!renderer->initialize(reinterpret_cast<HWND>(window_handle_))) {
         return false;
     }
@@ -3095,7 +3162,7 @@ void NativeBackend::destroy_renderer()
 
     renderer_->shutdown();
     renderer_.reset();
-    std::cerr << "[ZENO][native] DirectX 11 renderer shutdown\n";
+    std::cerr << "[ZENO][native] " << renderer_backend_name(renderer_backend_kind_) << " renderer shutdown\n";
 }
 
 } // namespace zeno::native
