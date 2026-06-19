@@ -68,3 +68,5 @@ The workflow does not publish a GitHub Release, create a git tag, sign artifacts
 ## Promotion Boundary
 
 Passing this checklist means the SDK package is ready to be considered a release candidate. Publishing a GitHub Release, creating a git tag, signing artifacts, or uploading generated ZIPs is a separate explicit phase.
+
+Before any later publication phase, use `docs/release-publication-runbook-v0.1.0-rc.1.md` for tag, asset upload, rollback/correction, and post-publish checks.
