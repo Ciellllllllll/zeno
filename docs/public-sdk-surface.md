@@ -55,6 +55,7 @@ These surfaces are currently visible to SDK consumers but are not mature enough 
 - `ZenGameModuleDescriptor`, `ZenGameModuleHostContext`, and `ZEN_GAME_MODULE_ENTRY_POINT`.
 - Direct game-author use of `zeno_native_backend.h`.
 - Low-level direct calls through `zeno::NativeBackend` for shader, renderer, material, texture, mesh, debug draw, and audio resource creation.
+- Renderer backend selection and capability reporting concepts described in `docs/renderer-backend-strategy.md` until a future phase adds concrete public API.
 - Project and scene text formats represented by `.zproj` and `.zscene`.
 - Debug draw and debug text behavior.
 - Diagnostic category names and exact diagnostic message text.
@@ -115,6 +116,7 @@ Do not treat any of the following as public API:
 - C++ implementation classes or private structs outside packaged headers.
 - Rust internal types, module paths, or memory layouts.
 - DirectX COM interfaces, Win32 handles/types, XAudio2 types, or WIC types.
+- DirectX 11 or DirectX 12 devices, contexts, swap chains, command queues, command lists, descriptor heaps, fences, resources, views, pipeline states, root signatures, DXGI adapters, or shader compiler objects.
 - CMake build-tree paths or Visual Studio generated project files.
 - sample gameplay rules, asset file names, scores, movement constants, or scene object names.
 - exact diagnostic message wording unless a future diagnostics contract explicitly stabilizes it.
@@ -129,7 +131,8 @@ Every future phase that changes SDK-visible files or concepts must:
 2. Update this inventory in the same phase if classification changes.
 3. Update `docs/sdk-compatibility-policy.md` when the change affects compatibility, deprecation, or breaking-change rules.
 4. Update `docs/1.0-stability-gate.md` when the change adds or removes a release-blocking check.
-5. Record public API or ABI changes in the phase report.
-6. Keep generated ZIPs, build outputs, and downloaded artifacts out of commits.
+5. Update `docs/renderer-backend-strategy.md` when the change affects renderer backend selection, capability reporting, DirectX 11 support, or future DirectX 12 planning.
+6. Record public API or ABI changes in the phase report.
+7. Keep generated ZIPs, build outputs, and downloaded artifacts out of commits.
 
 If a phase is unsure whether a visible item is public, classify it as experimental until a later explicit stability phase promotes it.

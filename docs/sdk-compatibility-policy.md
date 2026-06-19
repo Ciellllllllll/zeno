@@ -13,11 +13,11 @@ The primary compatibility target is:
 - Windows 10 or Windows 11
 - Visual Studio 2022 / MSVC v143
 - C++20 SDK consumers
-- DirectX 11 native backend
+- DirectX 11 as the default and currently supported native renderer backend
 - packaged SDK consumption through `find_package(ZenoEngine CONFIG REQUIRED)`
 - packaged target `ZenoEngine::zeno_sdk_cpp`
 
-No compatibility promise is made for Linux, macOS, Vulkan, DirectX 12, editor workflows, scripting, networking, hot reload, installers, or production asset pipelines.
+DirectX 12 is planned future work only. No compatibility promise is made for DirectX 12 until a later explicit phase implements, validates, documents, and promotes it. No compatibility promise is made for Linux, macOS, Vulkan, Metal, OpenGL, editor workflows, scripting, networking, hot reload, installers, or production asset pipelines.
 
 ## Public C++ SDK Compatibility
 
@@ -40,6 +40,8 @@ Potentially breaking changes:
 - changing required call order
 - changing return-code behavior for documented cases
 - changing default behavior in a way that breaks existing sample or external-game code
+- changing the default renderer backend away from DirectX 11
+- requiring game code to use DirectX-specific APIs or headers
 - moving a stable public item to experimental or private classification
 
 Pre-1.0 may still allow breaking changes, but they must be explicit, justified, documented, and treated as release-blocking until reviewed.
@@ -68,6 +70,7 @@ Forbidden across the C ABI:
 - references
 - exceptions
 - DirectX COM types
+- DirectX 11 or DirectX 12 devices, contexts, swap chains, command queues, command lists, descriptor heaps, fences, resources, views, pipeline states, root signatures, DXGI adapter objects, or shader compiler objects
 - Win32 types
 - XAudio2 types
 - Rust internal layouts
@@ -146,6 +149,10 @@ The following block release candidate promotion until resolved or explicitly wai
 - Any undocumented stable public SDK addition, removal, or signature change.
 - Any undocumented C ABI function, struct, enum, handle, ownership, or lifetime change.
 - Any stable public SDK item moved to experimental/private without migration notes.
+- Any renderer backend change that exposes DirectX native types in public SDK or C ABI headers.
+- Any renderer backend change that requires game code to call DirectX-specific APIs.
+- Any docs or release notes claim that DirectX 12 support is complete before explicit implementation and validation phases.
+- Any silent change away from DirectX 11 as the default supported renderer backend.
 - Any generated SDK ZIP, build output, executable, DLL, LIB, PDB, Cargo `target` output, or CMake build tree staged for commit.
 - Any package or docs claim that implies unsupported platform, renderer, editor, scripting, networking, hot reload, installer, or production asset pipeline support.
 - Any external package consumer that needs repository-private include paths.
@@ -161,5 +168,6 @@ Every future phase that touches SDK-visible files must include:
 - updates to `docs/public-sdk-surface.md` when classification changes
 - updates to this policy when compatibility rules change
 - updates to `docs/1.0-stability-gate.md` when checks change
+- updates to `docs/renderer-backend-strategy.md` when renderer backend policy, selection, capability reporting, or DirectX 12 planning changes
 
 If the phase is implementation-only and no SDK-visible surface changed, the phase report should say so explicitly.

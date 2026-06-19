@@ -34,5 +34,6 @@ The full packaged SDK consumption QA command is documented in [Building ZENO](bu
 - [Public SDK Surface Inventory](public-sdk-surface.md)
 - [SDK Compatibility Policy](sdk-compatibility-policy.md)
 - [1.0 Stability Gate](1.0-stability-gate.md)
+- [Renderer Backend Strategy](renderer-backend-strategy.md)
 
 Phase reports live under `goal/docs/reports/`.
