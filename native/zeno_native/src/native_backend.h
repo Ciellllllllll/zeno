@@ -294,6 +294,9 @@ public:
     bool present();
     bool is_initialized() const;
     bool has_window() const;
+    RendererBackendKind renderer_backend_kind() const;
+    RendererBackendCapabilities renderer_capabilities() const;
+    bool has_renderer() const;
 
 private:
     void destroy_renderer();

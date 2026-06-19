@@ -2828,11 +2828,11 @@ bool NativeBackend::initialize_renderer()
         return false;
     }
 
-    renderer_capabilities_ = renderer->capabilities();
     if (!renderer->initialize(reinterpret_cast<HWND>(window_handle_))) {
         return false;
     }
 
+    renderer_capabilities_ = renderer->capabilities();
     renderer_ = std::move(renderer);
     return true;
 }
@@ -3140,6 +3140,21 @@ bool NativeBackend::is_initialized() const
 bool NativeBackend::has_window() const
 {
     return window_handle_ != nullptr;
+}
+
+RendererBackendKind NativeBackend::renderer_backend_kind() const
+{
+    return renderer_backend_kind_;
+}
+
+RendererBackendCapabilities NativeBackend::renderer_capabilities() const
+{
+    return renderer_capabilities_;
+}
+
+bool NativeBackend::has_renderer() const
+{
+    return renderer_ != nullptr;
 }
 
 void NativeBackend::destroy_window()
